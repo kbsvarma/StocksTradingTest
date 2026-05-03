@@ -59,6 +59,8 @@ class SPXSpreadBotApp:
         self._last_connection_healthcheck = 0.0
 
         self._running = False
+        self._net_liq: float | None = None
+        self.ib.accountValueEvent += self._on_account_value
 
     def _ensure_thread_event_loop(self) -> None:
         """Set ib_insync's event loop as the current loop for this APScheduler thread.
@@ -141,6 +143,7 @@ class SPXSpreadBotApp:
             id="monitor",
         )
         self.scheduler.add_job(self._status_job, "interval", seconds=2, id="status")
+        self.scheduler.add_job(self._net_liq_job, "interval", seconds=60, id="net_liq")
         self.scheduler.add_job(self._macro_refresh_job, "cron", hour=self.cfg.macro_refresh_hour_et, minute=0, id="macro")
         self.scheduler.add_job(self._daily_summary_job, "cron", hour=16, minute=1, id="summary")
 
@@ -180,6 +183,10 @@ class SPXSpreadBotApp:
                 try:
                     self.market.connect()
                     self._last_connection_healthcheck = time.monotonic()
+                    try:
+                        self.ib.reqAccountUpdates(True)
+                    except Exception:  # noqa: BLE001
+                        pass
                     return True
                 except Exception as exc:  # noqa: BLE001
                     err = str(exc).strip() or repr(exc)
@@ -459,8 +466,28 @@ class SPXSpreadBotApp:
         }
         self.logger.daily_summary(payload)
 
+    def _on_account_value(self, av) -> None:
+        if av.tag == "NetLiquidation" and av.currency == "USD":
+            try:
+                self._net_liq = float(av.value)
+            except (ValueError, TypeError):
+                pass
+
     def _status_job(self) -> None:
         self._write_status()
+
+    def _net_liq_job(self) -> None:
+        self._ensure_thread_event_loop()
+        if not self.ib.isConnected():
+            return
+        try:
+            summary = self.ib.accountSummary()
+            for item in summary:
+                if item.tag == "NetLiquidation" and item.currency == "USD":
+                    self._net_liq = float(item.value)
+                    break
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(f"net_liq fetch failed: {exc}")
 
     def _write_status(self, last_signal: dict | None = None) -> None:
         self._sync_state_aliases()
@@ -470,6 +497,7 @@ class SPXSpreadBotApp:
             "auto_place_on_signal": self.cfg.auto_place_on_signal,
             "live_mode_enabled": self.cfg.live_mode_enabled,
             "connected": self.ib.isConnected(),
+            "net_liquidation": self._net_liq,
             "state": asdict(self.state),
             "last_signal": last_signal,
         }

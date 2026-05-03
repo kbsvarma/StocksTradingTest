@@ -43,10 +43,10 @@ currency: "USD"
 max_margin_usage_pct: 0.50
 min_available_margin: 5000
 
-# Monday, Wednesday, Friday (0=Mon ... 6=Sun) — SPXW expiry days
-run_days: [0, 2, 4]
-# 0DTE first; 2DTE as fallback (1DTE skipped — Tue/Thu have no SPXW expiry)
-dte_candidates: [0, 2]
+# Monday–Friday (0=Mon ... 6=Sun) — SPXW expires every weekday since May 2022
+run_days: [0, 1, 2, 3, 4]
+# 0DTE first; 1DTE as fallback
+dte_candidates: [0, 1]
 trade_once_per_day: true
 enabled_strategies: ["BULL_PUT_SPREAD", "PUT_BWB", "IRON_CONDOR", "IRON_FLY"]
 strategy_priority: ["BULL_PUT_SPREAD", "PUT_BWB", "IRON_CONDOR", "IRON_FLY"]

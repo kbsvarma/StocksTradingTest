@@ -61,7 +61,7 @@ class BotConfig:
     tick_log_interval_seconds: float = 0.25
     macro_refresh_hour_et: int = 6
 
-    run_days: list[int] = field(default_factory=lambda: [0, 2, 4])
+    run_days: list[int] = field(default_factory=lambda: [0, 1, 2, 3, 4])
     dte_candidates: list[int] = field(default_factory=lambda: [0, 2])
     trade_once_per_day: bool = True
     enabled_strategies: list[str] = field(

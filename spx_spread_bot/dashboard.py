@@ -9,7 +9,6 @@ from typing import Any
 
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
 
 ROOT = Path(__file__).resolve().parent
 
@@ -87,71 +86,24 @@ html, body, [class*="css"] {
 [data-testid="stStatusWidget"], header { display: none !important; }
 .main .block-container { max-width: 100% !important; padding: 16px 24px 48px !important; }
 
-/* ── Topbar: one card spanning the inner nested row ─────── */
-/* Full path prevents bleeding into any nested columns      */
-.stApp .main .block-container > div
-  > [data-testid="stVerticalBlock"]
-  > [data-testid="stHorizontalBlock"]:first-of-type
-  > [data-testid="stColumn"]:first-child
-  > [data-testid="stVerticalBlock"]
-  > [data-testid="stHorizontalBlock"] {
-  background: var(--p1) !important;
-  border: 1px solid var(--bd) !important;
-  border-radius: 8px !important;
-  box-shadow: var(--shadow-sm) !important;
-  padding: 8px 16px !important;
-  margin-bottom: 10px !important;
-  align-items: center !important;
+/* ── Topbar ─────────────────────────────────────────────── */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 2px 14px; margin-bottom: 10px;
+  border-bottom: 1px solid var(--bd);
 }
-.stApp .main .block-container > div
-  > [data-testid="stVerticalBlock"]
-  > [data-testid="stHorizontalBlock"]:first-of-type
-  > [data-testid="stColumn"]:first-child
-  > [data-testid="stVerticalBlock"]
-  > [data-testid="stHorizontalBlock"]
-  > [data-testid="stColumn"] { padding: 0 !important; }
-.stApp .main .block-container > div
-  > [data-testid="stVerticalBlock"]
-  > [data-testid="stHorizontalBlock"]:first-of-type
-  > [data-testid="stColumn"]:first-child
-  > [data-testid="stVerticalBlock"]
-  > [data-testid="stHorizontalBlock"]
-  .stElementContainer { margin-bottom: 0 !important; }
-/* Outer row: zero column padding so card hugs tightly */
-.stApp .main .block-container > div
-  > [data-testid="stVerticalBlock"]
-  > [data-testid="stHorizontalBlock"]:first-of-type
-  > [data-testid="stColumn"] { padding-left: 0 !important; padding-right: 0 !important; }
-.stApp .main .block-container > div
-  > [data-testid="stVerticalBlock"]
-  > [data-testid="stHorizontalBlock"]:first-of-type
-  > [data-testid="stColumn"]:last-child { padding-left: 10px !important; }
+.tb-left  { display: flex; align-items: center; gap: 10px; }
+.tb-right { display: flex; align-items: center; gap: 10px; }
 
-/* ── Segmented control inside card ─────────────────────── */
-[data-testid="stSegmentedControl"] {
-  background: var(--p2) !important; border: 1px solid var(--bd) !important;
-  border-radius: 6px !important; padding: 3px !important;
+/* ── Refresh link-button ─────────────────────────────────── */
+.ref-btn {
+  background: #1f2328; color: #ffffff !important; text-decoration: none !important;
+  border-radius: 6px; font-size: 12px; font-weight: 600;
+  font-family: var(--sans); padding: 6px 14px;
+  border: 1px solid #1f2328; white-space: nowrap; transition: background .15s;
+  display: inline-block;
 }
-[data-testid="stSegmentedControl"] button {
-  font-size: 12px !important; font-weight: 600 !important;
-  font-family: var(--sans) !important; border-radius: 4px !important;
-  border: none !important; color: var(--t2) !important;
-  background: transparent !important; padding: 4px 12px !important;
-}
-[data-testid="stSegmentedControl"] button[aria-checked="true"] {
-  background: var(--p1) !important; color: var(--t1) !important;
-  border: 1px solid var(--bd) !important; box-shadow: var(--shadow-sm) !important;
-}
-
-/* ── Refresh button dark ────────────────────────────────── */
-button[data-testid="baseButton-primary"] {
-  background: #1f2328 !important; border: 1px solid #1f2328 !important;
-  color: #ffffff !important; border-radius: 6px !important;
-  font-size: 12px !important; font-weight: 600 !important;
-}
-button[data-testid="baseButton-primary"]:hover {
-  background: #2d333a !important;
-}
+.ref-btn:hover { background: #2d333a; }
 
 .tb-icon {
   width: 32px; height: 32px; border-radius: 7px; flex-shrink: 0;
@@ -171,24 +123,15 @@ button[data-testid="baseButton-primary"]:hover {
   gap: 2px;
 }
 .seg-btn {
-  padding: 5px 14px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  color: var(--t2);
-  transition: all .15s;
-  white-space: nowrap;
-  font-family: var(--sans);
+  padding: 5px 14px; border-radius: 4px; font-size: 12px; font-weight: 600;
+  cursor: pointer; border: 1px solid transparent; background: transparent;
+  color: var(--t2); transition: all .15s; white-space: nowrap;
+  font-family: var(--sans); text-decoration: none !important; display: inline-block;
 }
 .seg-btn:hover { background: var(--p3); color: var(--t1); }
 .seg-btn.active {
-  background: var(--p1);
-  color: var(--t1);
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--bd);
+  background: var(--p1); color: var(--blu);
+  box-shadow: var(--shadow-sm); border-color: rgba(9,105,218,.3);
 }
 .seg-btn.active.live { color: var(--grn); border-color: rgba(26,127,55,.3); }
 
@@ -209,6 +152,7 @@ button[data-testid="baseButton-primary"]:hover {
   padding: 2px 8px; border-radius: 4px;
   font-size: 10px; font-weight: 700; letter-spacing: .5px;
   text-transform: uppercase; border: 1px solid transparent; white-space: nowrap;
+  vertical-align: middle; line-height: 1;
 }
 .b-grn { color: var(--grn); background: var(--grn-bg); border-color: rgba(26,127,55,.25); }
 .b-blu { color: var(--blu); background: var(--blu-bg); border-color: rgba(9,105,218,.25); }
@@ -222,7 +166,7 @@ button[data-testid="baseButton-primary"]:hover {
 
 /* ── Status strip ────────────────────────────────────────── */
 .strip {
-  display: grid; grid-template-columns: repeat(5, 1fr);
+  display: grid; grid-template-columns: repeat(6, 1fr);
   gap: 1px; background: var(--bd);
   border: 1px solid var(--bd); border-radius: 8px;
   overflow: hidden; margin-bottom: 10px;
@@ -351,6 +295,7 @@ button[data-testid="baseButton-secondary"]:hover {
 ::-webkit-scrollbar-thumb:hover { background: var(--t3); }
 
 @media (max-width: 1100px) { .kpis { grid-template-columns: repeat(3,1fr); } }
+@media (max-width: 1100px) { .strip { grid-template-columns: repeat(3,1fr); } }
 @media (max-width: 900px)  {
   .kpis  { grid-template-columns: repeat(2,1fr); }
   .strip { grid-template-columns: repeat(2,1fr); }
@@ -489,9 +434,9 @@ def _rule(label):
     st.markdown(f'<div class="sr"><span>{label}</span><hr></div>', unsafe_allow_html=True)
 
 
-# ── Bot selection via session state ─────────────────────────────────────────
+# ── Bot selection via query params ──────────────────────────────────────────
 
-bot_key = st.session_state.get("bot_seg", "SPX Paper")
+bot_key = st.query_params.get("bot", "SPX Paper")
 if bot_key not in BOT_VIEWS:
     bot_key = "SPX Paper"
 
@@ -511,49 +456,91 @@ paper_mode  = bool(status.get("paper_trading", True))
 actual_mode = "PAPER" if paper_mode else "LIVE"
 mode_match  = actual_mode == bot.expected_mode
 
-conn_b = _b("● CONNECTED", "grn") if connected else _b("● OFFLINE", "red")
+conn_b = _b("CONNECTED", "grn") if connected else _b("OFFLINE", "red")
 mode_b = _b(actual_mode, "blu" if paper_mode else "grn")
 sync_b = _b("SYNC ✓", "grn") if mode_match else _b("MISMATCH", "amb")
 now_et = datetime.now().strftime("%H:%M:%S  ET")
 
-# Outer row: card wrapper col + refresh button
-# CSS turns the INNER nested row into the card
-c_outer, c_ref = st.columns([9.3, 0.7], vertical_alignment="center")
+# ── Topbar — fully inline styles so Streamlit scoping cannot interfere ──────
+_S  = "font-family:Inter,system-ui,sans-serif;"
+_M  = "font-family:'JetBrains Mono',ui-monospace,monospace;"
+bot_qp = bot_key.replace(" ", "+")
 
-with c_ref:
-    if st.button("↻  Refresh", type="primary", use_container_width=True):
-        st.rerun()
+def _seg(label, href, active, live=False):
+    if active:
+        c = "#1a7f37" if live else "#0969da"
+        bc = "rgba(26,127,55,.3)" if live else "rgba(9,105,218,.3)"
+        s = f"background:#fff;color:{c};border:1px solid {bc};box-shadow:0 1px 2px rgba(31,35,40,.06);"
+    else:
+        s = "background:transparent;color:#57606a;border:1px solid transparent;"
+    return (f'<a href="{href}" target="_self" style="{_S}display:inline-block;padding:5px 14px;border-radius:4px;'
+            f'font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;text-decoration:none;{s}">'
+            f'{label}</a>')
 
-with c_outer:
-    # Inner flat 3-col row — CSS targets this specific nested stHorizontalBlock as the card
-    c_info, c_switch, c_clock = st.columns([5.8, 3.0, 1.8], vertical_alignment="center")
-    with c_info:
-        st.markdown(f"""
-        <div class="tb-left">
-          <div class="tb-icon">📈</div>
-          <div>
-            <div class="tb-name">{bot.name} &nbsp; {conn_b} &nbsp; {mode_b} &nbsp; {sync_b}</div>
-            <div class="tb-sub">{bot.symbol} &nbsp;·&nbsp; {bot.strategy_scope}</div>
-          </div>
-        </div>""", unsafe_allow_html=True)
-    with c_switch:
-        st.segmented_control(
-            "bot", list(BOT_VIEWS.keys()),
-            default=bot_key, label_visibility="collapsed", key="bot_seg"
-        )
-    with c_clock:
-        st.markdown(f'<div class="et-clock" style="text-align:right">{now_et}</div>',
-                    unsafe_allow_html=True)
-
-# ── Status strip ─────────────────────────────────────────────────────────────
-hb   = _ts(status.get("ts"))
-skip = state.get("skip_reason_today","") or "—"
-wins_n   = int(state.get("wins",0) or 0)
-losses_n = int(state.get("losses",0) or 0)
-tc_color = "#1a7f37" if stats["today"]>0 else "#cf222e" if stats["today"]<0 else "#1f2328"
+spx_btn = _seg("📊 SPX Paper", "?bot=SPX+Paper", bot_key == "SPX Paper")
+xsp_btn = _seg("🔴 XSP Live",  "?bot=XSP+Live",  bot_key == "XSP Live", live=True)
 
 st.markdown(f"""
+<div style="{_S}display:flex;align-items:center;justify-content:space-between;
+            background:#ffffff;border:1px solid #d0d7de;border-radius:8px;
+            padding:10px 16px;margin-bottom:10px;
+            box-shadow:0 1px 2px rgba(31,35,40,.06);">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div style="width:32px;height:32px;border-radius:7px;flex-shrink:0;
+                background:linear-gradient(135deg,#0969da,#2196f3);
+                display:flex;align-items:center;justify-content:center;font-size:15px;">📈</div>
+    <div>
+      <div style="{_S}font-size:14px;font-weight:700;color:#1f2328;letter-spacing:-.2px;">
+        {bot.name}&nbsp; {conn_b}&nbsp; {mode_b}&nbsp; {sync_b}
+      </div>
+      <div style="{_S}font-size:11px;color:#8c959f;margin-top:1px;">
+        {bot.symbol}&nbsp;·&nbsp;{bot.strategy_scope}
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div style="display:inline-flex;background:#f6f8fa;border:1px solid #d0d7de;
+                border-radius:6px;padding:3px;gap:2px;">
+      {spx_btn}{xsp_btn}
+    </div>
+    <span style="{_M}font-size:11px;color:#57606a;background:#f6f8fa;border:1px solid #d0d7de;
+                 border-radius:5px;padding:4px 10px;letter-spacing:.4px;">{now_et}</span>
+    <a href="?bot={bot_qp}" target="_self" style="{_S}background:#1f2328;color:#fff;text-decoration:none;
+       border-radius:6px;font-size:12px;font-weight:600;padding:6px 14px;
+       border:1px solid #1f2328;white-space:nowrap;display:inline-block;">↻ Refresh</a>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+# ── Live section — auto-refreshes every 2 s ──────────────────────────────────
+@st.fragment(run_every=2)
+def _live_section() -> None:
+    live_status  = _rj(bot.status_file)
+    live_state   = live_status.get("state", {}) if isinstance(live_status, dict) else {}
+    if not isinstance(live_state, dict): live_state = {}
+    live_trades  = _rt(bot.trades_file)
+    live_stats   = _stats(live_trades)
+    live_pos     = _pos(live_state)
+    live_sig     = live_status.get("last_signal") if isinstance(live_status, dict) else None
+
+    wins_n   = int(live_state.get("wins",   0) or 0)
+    losses_n = int(live_state.get("losses", 0) or 0)
+    tc_color = "#1a7f37" if live_stats["today"]>0 else "#cf222e" if live_stats["today"]<0 else "#1f2328"
+    hb       = _ts(live_status.get("ts"))
+    skip     = live_state.get("skip_reason_today","") or "—"
+
+    net_liq     = live_status.get("net_liquidation")
+    nliq_val    = _cash(net_liq) if net_liq is not None else "—"
+    nliq_color  = "#1a7f37" if (net_liq or 0) > 0 else "#1f2328"
+    mode_label  = "Paper" if bool(live_status.get("paper_trading", True)) else "Live"
+
+    st.markdown(f"""
 <div class="strip">
+  <div class="sc">
+    <div class="sl">Portfolio · {mode_label}</div>
+    <div class="sv" style="font-size:15px;font-weight:600;color:{nliq_color}">{nliq_val}</div>
+    <div class="ss">Net liquidation · IBKR</div>
+  </div>
   <div class="sc">
     <div class="sl">Heartbeat</div>
     <div class="sv" style="font-size:11px">{hb}</div>
@@ -561,12 +548,12 @@ st.markdown(f"""
   </div>
   <div class="sc">
     <div class="sl">Today PnL</div>
-    <div class="sv" style="color:{tc_color}">{_cash(stats['today'],sign=True)}</div>
+    <div class="sv" style="color:{tc_color}">{_cash(live_stats['today'],sign=True)}</div>
     <div class="ss">Since midnight ET</div>
   </div>
   <div class="sc">
     <div class="sl">Open Positions</div>
-    <div class="sv">{len(pos_lst)}</div>
+    <div class="sv">{len(live_pos)}</div>
     <div class="ss">Active trades</div>
   </div>
   <div class="sc">
@@ -586,56 +573,56 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ── KPI row ───────────────────────────────────────────────────────────────────
-_rule("Performance")
-
-total, avg, mdd = stats["total"], stats["avg"], stats["mdd"]
-st.markdown('<div class="kpis">' + "".join([
-    _kpi("Total PnL",    _cash(total,sign=True),   f"Avg {_cash(avg)} per trade",                  _acc(total)),
-    _kpi("Today PnL",    _cash(stats['today'],sign=True), "Since midnight ET",                      _acc(stats['today'])),
-    _kpi("Win Rate",     _pct(stats['wr']),         f"{wins_n}W  {losses_n}L  of {int(stats['n'])} trades", "t"),
-    _kpi("Max Drawdown", _cash(mdd),                "Peak-to-trough",                              "r" if mdd<0 else ""),
-    _kpi("Total Trades", str(int(stats['n'])),      f"Avg {_cash(avg,sign=True)} each",             "b"),
-]) + '</div>', unsafe_allow_html=True)
-
-# ── Open positions ────────────────────────────────────────────────────────────
-_rule("Open Positions")
-
-if not pos_lst:
-    st.markdown('<div class="nd">No open positions</div>', unsafe_allow_html=True)
-else:
-    for p in pos_lst:
-        legs_s = _legs(p.get("legs") if isinstance(p.get("legs"),list) else [])
-        st.markdown(f"""
-        <div class="pc">
-          <div class="pc-h"><div class="pc-n">{p.get('strategy','—')}</div>{_b('OPEN','grn')}</div>
-          <div class="pf">
-            <div><div class="pfl">Contracts</div><div class="pfv">{p.get('contracts','—')}</div></div>
-            <div><div class="pfl">Entry Credit</div><div class="pfv">{p.get('entry_credit','—')}</div></div>
-            <div><div class="pfl">Stop</div><div class="pfv" style="color:#cf222e">{p.get('stop_price','—')}</div></div>
-            <div><div class="pfl">Target</div><div class="pfv" style="color:#1a7f37">{p.get('profit_target_price','—')}</div></div>
-            <div><div class="pfl">Expiry</div><div class="pfv">{p.get('expiry','—')}</div></div>
-            <div><div class="pfl">Entry Time</div><div class="pfv">{_ts(p.get('entry_ts'))}</div></div>
-            <div style="grid-column:span 2"><div class="pfl">Legs</div><div class="pfv">{legs_s}</div></div>
-          </div>
-        </div>""", unsafe_allow_html=True)
-
-# ── Last signal ───────────────────────────────────────────────────────────────
-if isinstance(last_sig, dict) and last_sig:
-    _rule("Last Signal")
-    dec = str(last_sig.get("decision","—")).upper()
+    # ── KPI row ──────────────────────────────────────────────────────────────
+    _rule("Performance")
+    total, avg, mdd = live_stats["total"], live_stats["avg"], live_stats["mdd"]
     st.markdown('<div class="kpis">' + "".join([
-        _kpi("Decision",  dec, "", "g" if dec=="TRADE" else "r" if dec=="SKIP" else ""),
-        _kpi("Strategy",  str(last_sig.get("strategy","—")), "", "t"),
-        _kpi("SPX / XSP", str(last_sig.get("spx","—")),      "", "b"),
-        _kpi("VIX",       str(last_sig.get("vix","—")),       "", ""),
-        _kpi("Quote Mid", str(last_sig.get("quote_mid","—")),
-             f"DTE {last_sig.get('dte','—')}  ·  Exp {last_sig.get('expiry','—')}", ""),
+        _kpi("Total PnL",    _cash(total,sign=True),   f"Avg {_cash(avg)} per trade",                  _acc(total)),
+        _kpi("Today PnL",    _cash(live_stats['today'],sign=True), "Since midnight ET",                 _acc(live_stats['today'])),
+        _kpi("Win Rate",     _pct(live_stats['wr']),    f"{wins_n}W  {losses_n}L  of {int(live_stats['n'])} trades", "t"),
+        _kpi("Max Drawdown", _cash(mdd),                "Peak-to-trough",                              "r" if mdd<0 else ""),
+        _kpi("Total Trades", str(int(live_stats['n'])), f"Avg {_cash(avg,sign=True)} each",             "b"),
     ]) + '</div>', unsafe_allow_html=True)
-    if last_sig.get("reason"):
-        st.markdown(
-            f'<div class="reason"><span class="reason-k">Reason</span>{last_sig["reason"]}</div>',
-            unsafe_allow_html=True)
+
+    # ── Open positions ────────────────────────────────────────────────────────
+    _rule("Open Positions")
+    if not live_pos:
+        st.markdown('<div class="nd">No open positions</div>', unsafe_allow_html=True)
+    else:
+        for p in live_pos:
+            legs_s = _legs(p.get("legs") if isinstance(p.get("legs"),list) else [])
+            st.markdown(f"""
+            <div class="pc">
+              <div class="pc-h"><div class="pc-n">{p.get('strategy','—')}</div>{_b('OPEN','grn')}</div>
+              <div class="pf">
+                <div><div class="pfl">Contracts</div><div class="pfv">{p.get('contracts','—')}</div></div>
+                <div><div class="pfl">Entry Credit</div><div class="pfv">{p.get('entry_credit','—')}</div></div>
+                <div><div class="pfl">Stop</div><div class="pfv" style="color:#cf222e">{p.get('stop_price','—')}</div></div>
+                <div><div class="pfl">Target</div><div class="pfv" style="color:#1a7f37">{p.get('profit_target_price','—')}</div></div>
+                <div><div class="pfl">Expiry</div><div class="pfv">{p.get('expiry','—')}</div></div>
+                <div><div class="pfl">Entry Time</div><div class="pfv">{_ts(p.get('entry_ts'))}</div></div>
+                <div style="grid-column:span 2"><div class="pfl">Legs</div><div class="pfv">{legs_s}</div></div>
+              </div>
+            </div>""", unsafe_allow_html=True)
+
+    # ── Last signal ───────────────────────────────────────────────────────────
+    if isinstance(live_sig, dict) and live_sig:
+        _rule("Last Signal")
+        dec = str(live_sig.get("decision","—")).upper()
+        st.markdown('<div class="kpis">' + "".join([
+            _kpi("Decision",  dec, "", "g" if dec=="TRADE" else "r" if dec=="SKIP" else ""),
+            _kpi("Strategy",  str(live_sig.get("strategy","—")), "", "t"),
+            _kpi("SPX / XSP", str(live_sig.get("spx","—")),      "", "b"),
+            _kpi("VIX",       str(live_sig.get("vix","—")),       "", ""),
+            _kpi("Quote Mid", str(live_sig.get("quote_mid","—")),
+                 f"DTE {live_sig.get('dte','—')}  ·  Exp {live_sig.get('expiry','—')}", ""),
+        ]) + '</div>', unsafe_allow_html=True)
+        if live_sig.get("reason"):
+            st.markdown(
+                f'<div class="reason"><span class="reason-k">Reason</span>{live_sig["reason"]}</div>',
+                unsafe_allow_html=True)
+
+_live_section()
 
 # ── Activity tabs ─────────────────────────────────────────────────────────────
 _rule("Activity Log")
