@@ -1,0 +1,39 @@
+# ── Virtual environment ──────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── Python cache ─────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# ── Sensitive config (copy config.yaml.example → config.yaml)
+config.yaml
+config_xsp.yaml
+
+# ── IBKR credentials script (prompts for / writes live creds)
+deploy/lightsail/enter_credentials_linux.sh
+
+# ── Runtime data & logs ──────────────────────────────────────
+data/*
+!data/.gitkeep
+!data/manual_macro_dates.csv
+logs/*
+!logs/.gitkeep
+
+# ── Backtests output ─────────────────────────────────────────
+backtests/
+
+# ── OS / editor noise ────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# ── Certificates / keys ──────────────────────────────────────
+*.pem
+*.key
+*.crt

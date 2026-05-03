@@ -1,0 +1,25 @@
+[Unit]
+Description=XSP Bull Put Spread Bot (Paper Canary)
+After=network-online.target ibgateway.service spx-ibgateway.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__BOT_USER__
+WorkingDirectory=__BOT_ROOT__
+Environment=PYTHONUNBUFFERED=1
+ExecStart=__BOT_ROOT__/.venv/bin/python __BOT_ROOT__/main.py __BOT_ROOT__/config_xsp.yaml
+Restart=always
+RestartSec=20
+TimeoutStopSec=45
+KillSignal=SIGINT
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+SyslogIdentifier=xsp-spread-bot
+
+[Install]
+WantedBy=multi-user.target

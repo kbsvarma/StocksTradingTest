@@ -1,0 +1,19 @@
+[Unit]
+Description=SPX Spread Bot Dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__BOT_USER__
+WorkingDirectory=__BOT_ROOT__
+Environment=PYTHONUNBUFFERED=1
+ExecStart=__BOT_ROOT__/.venv/bin/streamlit run __BOT_ROOT__/dashboard.py --server.address 127.0.0.1 --server.port 8503 --server.headless true --server.fileWatcherType none --browser.gatherUsageStats false
+Restart=always
+RestartSec=15
+TimeoutStopSec=20
+Nice=15
+SyslogIdentifier=spx-spread-dashboard
+
+[Install]
+WantedBy=multi-user.target

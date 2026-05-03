@@ -1,0 +1,24 @@
+[Unit]
+Description=IB Gateway via IBC (paper trading)
+Documentation=https://github.com/IbcAlpha/IBC
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__BOT_USER__
+WorkingDirectory=__IBC_DIR__
+Environment=DISPLAY=:99
+ExecStartPre=/bin/bash -c "Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset & disown; sleep 2"
+ExecStart=/bin/bash __IBC_DIR__/gatewaystart.sh -inline
+Restart=always
+RestartSec=60
+TimeoutStartSec=180
+TimeoutStopSec=30
+ExecStopPost=/bin/bash -c "pkill -f 'Xvfb :99' 2>/dev/null || true"
+KillSignal=SIGTERM
+Nice=5
+SyslogIdentifier=spx-ibgateway
+
+[Install]
+WantedBy=multi-user.target

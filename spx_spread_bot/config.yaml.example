@@ -1,0 +1,81 @@
+# SPX Paper/Live bot configuration
+# Copy this file to config.yaml and adjust values for your environment.
+
+capital: 200000           # Notional capital for position sizing
+max_contracts: 10
+spread_width: 25
+bwb_narrow_wing_width: 25
+bwb_wide_wing_width: 50
+condor_wing_width: 25
+iron_fly_wing_width: 25
+min_credit: 1.00
+target_credit: 2.00
+stop_multiplier: 2.0
+profit_target_pct: 0.50
+otm_pct_low_vix: 0.018
+otm_pct_high_vix: 0.025
+vix_min: 0
+vix_max: 30
+
+entry_start: "09:45"
+entry_end: "10:15"
+eod_check: "15:45"
+friday_forced_close: "15:30"
+timezone: "America/New_York"
+
+paper_trading: true
+live_mode_enabled: false
+host: "127.0.0.1"
+# IB Gateway paper default (TWS paper is typically 7497)
+port: 4002
+client_id: 31
+# 1=real-time (requires IBKR data subscription — use this).
+# 3=delayed (15-20 min lag, fallback only if entitlements unavailable).
+market_data_type: 1
+
+underlying_symbol: "SPX"
+underlying_exchange: "CBOE"
+option_exchange: "SMART"
+combo_exchange: "SMART"
+preferred_trading_class: "SPXW"
+currency: "USD"
+
+max_margin_usage_pct: 0.50
+min_available_margin: 5000
+
+# Monday, Wednesday, Friday (0=Mon ... 6=Sun) — SPXW expiry days
+run_days: [0, 2, 4]
+# 0DTE first; 2DTE as fallback (1DTE skipped — Tue/Thu have no SPXW expiry)
+dte_candidates: [0, 2]
+trade_once_per_day: true
+enabled_strategies: ["BULL_PUT_SPREAD", "PUT_BWB", "IRON_CONDOR", "IRON_FLY"]
+strategy_priority: ["BULL_PUT_SPREAD", "PUT_BWB", "IRON_CONDOR", "IRON_FLY"]
+
+max_retries: 3
+retry_price_step: 0.05
+retry_wait_seconds: 120
+fill_timeout_seconds: 300
+protection_deadline_seconds: 10
+
+monitor_interval_seconds: 1
+tick_log_interval_seconds: 0.25
+
+auto_place_on_signal: true
+one_click_confirm: false
+
+# Macro calendar controls
+macro_provider: "hybrid"
+macro_fail_open: false
+macro_api_key: ""              # Set your macro API key here if using a paid provider
+manual_macro_dates_csv: "data/manual_macro_dates.csv"
+macro_refresh_hour_et: 6
+
+data_dir: "data"
+logs_dir: "logs"
+state_file: "data/runtime_state.json"
+status_file: "data/status.json"
+signal_events_file: "logs/signal_events.jsonl"
+order_events_file: "logs/order_events.jsonl"
+tick_events_file: "logs/tick_events.jsonl"
+daily_summary_file: "logs/daily_summary.log"
+trade_csv_file: "data/trades.csv"
