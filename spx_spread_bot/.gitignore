@@ -24,7 +24,13 @@ logs/*
 !logs/.gitkeep
 
 # ── Backtests output ─────────────────────────────────────────
-backtests/
+# Raw Databento cache is 645MB of binary files — keep local only.
+# Re-downloadable by running the backtest script with DATABENTO_API_KEY set.
+backtests/ten_year/raw_dbn_cache/
+# PID / process-management files are ephemeral
+backtests/ten_year/*.pid
+backtests/ten_year/extend_queue.*
+backtests/ten_year/run.pid
 
 # ── OS / editor noise ────────────────────────────────────────
 .DS_Store
