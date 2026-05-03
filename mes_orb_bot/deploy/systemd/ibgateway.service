@@ -1,0 +1,33 @@
+[Unit]
+Description=IB Gateway via IBC (paper trading)
+Documentation=https://github.com/IbcAlpha/IBC
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__BOT_USER__
+WorkingDirectory=__IBC_DIR__
+
+# Virtual display — IB Gateway is a GUI app and needs a screen even on headless servers
+Environment=DISPLAY=:99
+ExecStartPre=/bin/bash -c "Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &disown; sleep 2"
+
+# IBC starts IB Gateway and manages auto-login from config.ini
+ExecStart=/bin/bash __IBC_DIR__/gatewaystart.sh -inline
+
+# Keep Gateway running 24/7; restart 60s after any crash
+Restart=always
+RestartSec=60
+TimeoutStartSec=180
+TimeoutStopSec=30
+
+# Clean up Xvfb when service stops
+ExecStopPost=/bin/bash -c "pkill -f 'Xvfb :99' 2>/dev/null || true"
+
+KillSignal=SIGTERM
+Nice=5
+SyslogIdentifier=ibgateway
+
+[Install]
+WantedBy=multi-user.target

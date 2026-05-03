@@ -1,0 +1,26 @@
+# ── OS noise ─────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Root-level runtime logs ───────────────────────────────────
+logs/
+
+# ── Python cache (anywhere in repo) ──────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+
+# ── Virtual environments ──────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── Certificates / keys ───────────────────────────────────────
+*.pem
+*.key
+*.crt
+
+# ── IDE ───────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,34 @@
+[Unit]
+Description=MES ORB Bot Scheduler
+Documentation=https://github.com/varmakammili/StocksTradingTest
+After=network-online.target ibgateway.service
+Wants=network-online.target
+# Scheduler waits for Gateway to be ready via TCP probe — no hard dependency needed
+
+[Service]
+Type=simple
+User=__BOT_USER__
+WorkingDirectory=__BOT_ROOT__
+Environment=PYTHONUNBUFFERED=1
+# IB Gateway is managed by ibgateway.service — scheduler skips IBC startup
+Environment=MES_IBC_ENABLED=false
+
+ExecStart=__BOT_ROOT__/.venv/bin/python __BOT_ROOT__/scheduler.py
+
+# Restart the scheduler if it crashes (e.g. Python exception at startup)
+# Normal operation: scheduler runs forever until SIGTERM
+Restart=on-failure
+RestartSec=30
+TimeoutStopSec=45
+KillSignal=SIGINT
+
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+SyslogIdentifier=mes-orb-scheduler
+
+[Install]
+WantedBy=multi-user.target

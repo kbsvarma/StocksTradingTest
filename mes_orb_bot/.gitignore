@@ -1,0 +1,18 @@
+# ── Python cache ─────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+
+# ── Sensitive: credentials script (prompts for IBKR login)
+enter_credentials.sh
+
+# ── Runtime logs ─────────────────────────────────────────────
+logs/
+
+# ── Runtime data (market data cache; re-downloadable) ────────
+data/mes_1min.csv
+
+# ── macOS scheduler plist (machine-specific) ─────────────────
+com.mesorb.scheduler.plist
+
+# ── OS noise ─────────────────────────────────────────────────
+.DS_Store
