@@ -60,6 +60,8 @@ class SPXSpreadBotApp:
 
         self._running = False
         self._net_liq: float | None = None
+        self._last_price: float = 0.0
+        self._last_price_ts: str = ""
         self.ib.accountValueEvent += self._on_account_value
 
     def _ensure_thread_event_loop(self) -> None:
@@ -144,6 +146,7 @@ class SPXSpreadBotApp:
         )
         self.scheduler.add_job(self._status_job, "interval", seconds=2, id="status")
         self.scheduler.add_job(self._net_liq_job, "interval", seconds=60, id="net_liq")
+        self.scheduler.add_job(self._price_job, "interval", seconds=5, id="price")
         self.scheduler.add_job(self._macro_refresh_job, "cron", hour=self.cfg.macro_refresh_hour_et, minute=0, id="macro")
         self.scheduler.add_job(self._daily_summary_job, "cron", hour=16, minute=1, id="summary")
 
@@ -473,6 +476,18 @@ class SPXSpreadBotApp:
             except (ValueError, TypeError):
                 pass
 
+    def _price_job(self) -> None:
+        self._ensure_thread_event_loop()
+        if not self.ib.isConnected():
+            return
+        try:
+            price = self.market.get_spx_price()
+            if price and price > 0:
+                self._last_price = price
+                self._last_price_ts = datetime.now(UTC).isoformat()
+        except Exception:  # noqa: BLE001
+            pass  # retain last known price
+
     def _status_job(self) -> None:
         self._write_status()
 
@@ -498,6 +513,8 @@ class SPXSpreadBotApp:
             "live_mode_enabled": self.cfg.live_mode_enabled,
             "connected": self.ib.isConnected(),
             "net_liquidation": self._net_liq,
+            "underlying_price": self._last_price,
+            "underlying_price_ts": self._last_price_ts,
             "state": asdict(self.state),
             "last_signal": last_signal,
         }

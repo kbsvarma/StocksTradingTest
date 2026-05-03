@@ -3,12 +3,16 @@ from __future__ import annotations
 import json
 from collections import deque
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, time as dtime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
+
+ET = ZoneInfo("America/New_York")
 
 import pandas as pd
 import streamlit as st
+import yfinance as yf
 
 ROOT = Path(__file__).resolve().parent
 
@@ -166,7 +170,7 @@ html, body, [class*="css"] {
 
 /* ── Status strip ────────────────────────────────────────── */
 .strip {
-  display: grid; grid-template-columns: repeat(6, 1fr);
+  display: grid; grid-template-columns: repeat(7, 1fr);
   gap: 1px; background: var(--bd);
   border: 1px solid var(--bd); border-radius: 8px;
   overflow: hidden; margin-bottom: 10px;
@@ -337,6 +341,24 @@ def _rl(p, n=200):
     except: return []
     return list(buf)
 
+@st.cache_data(ttl=60)
+def _yf_spx_price() -> float:
+    """Fetch last SPX price from Yahoo Finance (^GSPC). Cached 60s."""
+    try:
+        ticker = yf.Ticker("^GSPC")
+        info = ticker.fast_info
+        price = getattr(info, "last_price", None) or getattr(info, "regularMarketPrice", None)
+        if price and price > 0:
+            return float(price)
+        # fallback: last close from history
+        hist = ticker.history(period="2d")
+        if not hist.empty:
+            return float(hist["Close"].iloc[-1])
+    except Exception:
+        pass
+    return 0.0
+
+
 def _rt(p):
     if not p.exists() or p.stat().st_size == 0: return pd.DataFrame()
     try: df = pd.read_csv(p)
@@ -459,7 +481,7 @@ mode_match  = actual_mode == bot.expected_mode
 conn_b = _b("CONNECTED", "grn") if connected else _b("OFFLINE", "red")
 mode_b = _b(actual_mode, "blu" if paper_mode else "grn")
 sync_b = _b("SYNC ✓", "grn") if mode_match else _b("MISMATCH", "amb")
-now_et = datetime.now().strftime("%H:%M:%S  ET")
+now_et = datetime.now(ET).strftime("%H:%M:%S  ET")
 
 # ── Topbar — fully inline styles so Streamlit scoping cannot interfere ──────
 _S  = "font-family:Inter,system-ui,sans-serif;"
@@ -534,8 +556,36 @@ def _live_section() -> None:
     nliq_color  = "#1a7f37" if (net_liq or 0) > 0 else "#1f2328"
     mode_label  = "Paper" if bool(live_status.get("paper_trading", True)) else "Live"
 
+    # ── Underlying price ──────────────────────────────────────────────────────
+    now_et      = datetime.now(ET)
+    _is_market  = (now_et.weekday() < 5
+                   and dtime(9, 30) <= now_et.time() <= dtime(16, 0))
+    raw_price   = live_status.get("underlying_price", 0) or 0
+    price_source = "ib"
+    if not raw_price:
+        # IB not streaming (weekend / pre-market) — fall back to Yahoo Finance
+        spx_yf    = _yf_spx_price()
+        raw_price = spx_yf / 10 if bot.symbol == "XSP" else spx_yf
+        price_source = "yf"
+    if raw_price > 0:
+        price_val   = f"{raw_price:,.2f}"
+        if _is_market and price_source == "ib":
+            price_badge = ('<span class="b b-grn" style="font-size:9px;padding:2px 6px;margin-left:6px">'
+                           '<span class="dot dg"></span>&nbsp;LIVE</span>')
+        else:
+            price_badge = ('<span class="b b-amb" style="font-size:9px;padding:2px 6px;margin-left:6px">'
+                           'AFTER HRS</span>')
+    else:
+        price_val   = "—"
+        price_badge = ""
+
     st.markdown(f"""
 <div class="strip">
+  <div class="sc">
+    <div class="sl">{bot.symbol} Price {price_badge}</div>
+    <div class="sv" style="font-size:15px;font-weight:600">{price_val}</div>
+    <div class="ss">{"Real-time" if _is_market else "Last close"}</div>
+  </div>
   <div class="sc">
     <div class="sl">Portfolio · {mode_label}</div>
     <div class="sv" style="font-size:15px;font-weight:600;color:{nliq_color}">{nliq_val}</div>
