@@ -52,6 +52,9 @@ class SPXSpreadBotApp:
         self.scheduler = BackgroundScheduler(
             timezone=self.cfg.timezone,
             job_defaults={"coalesce": True, "max_instances": 1},
+            # max_workers=1 serialises all jobs through a single thread so that
+            # concurrent ib_insync calls never race on loop.run_until_complete().
+            executors={"default": {"type": "threadpool", "max_workers": 1}},
         )
         self.tz = ZoneInfo(self.cfg.timezone)
         self.status_path = Path(self.cfg.status_file)
@@ -100,8 +103,90 @@ class SPXSpreadBotApp:
             self.logger.warning(f"macro refresh failed at startup: {exc}")
 
         self._reconcile_state_with_broker()
-        self._schedule_jobs()
-        self.scheduler.start()
+
+        # Pre-warm reference contracts and option chain in the main thread.
+        # market_data caches these after the first successful call, so every
+        # subsequent APScheduler worker call hits the in-memory cache without
+        # ever calling qualifyContracts() or reqSecDefOptParams() from a thread.
+        try:
+            self.market.ensure_reference_contracts()
+            self.market.load_option_chain()
+            self.logger.info("reference contracts and option chain pre-warmed at startup")
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(f"option chain pre-warm failed (will retry on first signal): {exc}")
+
+        # Pre-qualify individual option contracts for likely strike range.
+        # qualifyContracts works correctly from the main thread (0.1s response)
+        # but reliably times out when called from APScheduler background threads
+        # due to the asyncio event-loop not being pumped to receive IBKR responses.
+        # Pre-qualifying here populates _option_contract_cache so that all
+        # APScheduler calls hit the in-memory cache and never call qualifyContracts.
+        try:
+            import yfinance as _yf_startup
+            _info = _yf_startup.Ticker("^GSPC").fast_info
+            _raw_spx = float(
+                getattr(_info, "last_price", None)
+                or getattr(_info, "regularMarketPrice", None)
+                or 0.0
+            )
+            if _raw_spx > 0:
+                _underlying_price = (
+                    _raw_spx / 10.0
+                    if self.cfg.underlying_symbol.upper() == "XSP"
+                    else _raw_spx
+                )
+                # Determine relevant expiries (0DTE and next 0DTE/2DTE).
+                _chain = self.market.load_option_chain()
+                from datetime import date as _date
+                _today = _date.today().isoformat().replace("-", "")
+                _expiries = sorted(
+                    e for e in _chain.expirations if e >= _today
+                )[:3]  # at most 3 nearest expiries
+                self.market.prewarm_option_contracts(
+                    _underlying_price, _expiries,
+                    rights=("P", "C"),
+                )
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(f"option contract pre-warm failed: {exc}")
+
+        # ── Smoke-test reqTickers before APScheduler starts ──────────────────
+        try:
+            import yfinance as _yf2
+            import time as _t2
+            _sp = float(getattr(_yf2.Ticker("^GSPC").fast_info, "last_price", 0) or 0)
+            _up2 = _sp / 10.0 if self.cfg.underlying_symbol.upper() == "XSP" else _sp
+            if _up2 > 0:
+                _chain2 = self.market.load_option_chain()
+                _today2 = __import__("datetime").date.today().isoformat().replace("-", "")
+                _exp2 = min(e for e in _chain2.expirations if e >= _today2)
+                _sw = float(self.cfg.spread_width)
+                _short = min(_chain2.strikes, key=lambda s: abs(s - _up2 * 0.985))
+                _long = min(_chain2.strikes, key=lambda s: abs(s - (_short - _sw)))
+                _c_short = self.market.build_option_contract(_exp2, _short, "P")
+                _c_long  = self.market.build_option_contract(_exp2, _long,  "P")
+                # 1-contract test
+                _t0 = _t2.time()
+                _tk1 = self.ib.reqTickers(_c_short)
+                self.logger.info(
+                    f"reqTickers 1-leg OK: {_short}P bid={_tk1[0].bid} ask={_tk1[0].ask} in {round(_t2.time()-_t0,2)}s"
+                )
+                # 2-contract test (spread)
+                _t0 = _t2.time()
+                _tk2 = self.ib.reqTickers(_c_short, _c_long)
+                self.logger.info(
+                    f"reqTickers 2-leg OK: {_short}P/{_long}P in {round(_t2.time()-_t0,2)}s"
+                )
+        except Exception as exc:  # noqa: BLE001
+            import traceback as _tb2
+            self.logger.warning(
+                f"reqTickers smoke-test FAILED: {exc!r}\n{''.join(_tb2.format_exception(type(exc), exc, exc.__traceback__))}"
+            )
+
+        # Disabled: APScheduler background threads were found to interfere with
+        # the asyncio event loop even for non-IB jobs (yfinance HTTP, status writes).
+        # All periodic jobs now run in the main loop below.
+        # self._schedule_jobs()
+        # self.scheduler.start()
 
         self._running = True
         self._write_status()
@@ -113,8 +198,49 @@ class SPXSpreadBotApp:
         signal.signal(signal.SIGTERM, _stop_handler)
         signal.signal(signal.SIGINT, _stop_handler)
 
+        # ─── Main event-loop / trading loop ────────────────────────────────
+        # _entry_job and _monitor_job make blocking ib_insync calls
+        # (reqTickers, placeOrder, qualifyContracts). These calls use
+        # loop.run_until_complete() internally. When called from APScheduler
+        # background threads the loop cannot receive socket data → TimeoutError.
+        # Running them here — in the main thread — keeps the event loop
+        # pumped via ib.sleep() so all I/O callbacks fire correctly.
+        # APScheduler handles only the non-IB jobs (price via yfinance,
+        # status writes, net_liq cache reads, macro refresh, daily summary).
+        _last_entry: float = 0.0
+        _last_monitor: float = 0.0
+        _ENTRY_INTERVAL: float = 5.0
+        _MONITOR_INTERVAL: float = max(self.cfg.monitor_interval_seconds, 1)
+
         while self._running:
-            time.sleep(1)
+            # ib.sleep(0.5) runs the asyncio event loop for 0.5s, processing
+            # all pending socket I/O and callbacks. This is the canonical
+            # ib_insync pattern: the event loop must be kept pumped so that
+            # Connection.data_received() fires for incoming IBKR messages.
+            # Without this, data piles up in the OS socket buffer and the next
+            # reqTickers call times out waiting for responses that are already
+            # in the buffer but never delivered.
+            self.ib.sleep(0.5)
+
+            now_ts = time.monotonic()
+            now = self._now()
+
+            if now_ts - _last_monitor >= _MONITOR_INTERVAL:
+                _last_monitor = now_ts
+                try:
+                    self._monitor_job()
+                except Exception as exc:  # noqa: BLE001
+                    self.logger.warning(f"monitor error: {exc}")
+
+            if now_ts - _last_entry >= _ENTRY_INTERVAL:
+                _last_entry = now_ts
+                try:
+                    self._entry_job()
+                except Exception as exc:  # noqa: BLE001
+                    import traceback as _tb
+                    self.logger.warning(
+                        f"entry error: {exc!r}\n{''.join(_tb.format_exception(type(exc), exc, exc.__traceback__))}"
+                    )
 
     def stop(self) -> None:
         if not self._running:
@@ -137,13 +263,10 @@ class SPXSpreadBotApp:
         self.logger.info("shutdown complete")
 
     def _schedule_jobs(self) -> None:
-        self.scheduler.add_job(self._entry_job, "interval", seconds=5, id="entry")
-        self.scheduler.add_job(
-            self._monitor_job,
-            "interval",
-            seconds=max(self.cfg.monitor_interval_seconds, 1),
-            id="monitor",
-        )
+        # NOTE: _entry_job and _monitor_job are run in the main thread
+        # (see the main loop in start()) so they are NOT scheduled here.
+        # APScheduler only handles jobs that do NOT make blocking ib_insync
+        # calls (yfinance price, cache reads, non-IB periodic tasks).
         self.scheduler.add_job(self._status_job, "interval", seconds=2, id="status")
         self.scheduler.add_job(self._net_liq_job, "interval", seconds=60, id="net_liq")
         self.scheduler.add_job(self._price_job, "interval", seconds=5, id="price")
@@ -151,25 +274,12 @@ class SPXSpreadBotApp:
         self.scheduler.add_job(self._daily_summary_job, "cron", hour=16, minute=1, id="summary")
 
     def _ensure_connected(self) -> bool:
+        # ib_insync updates isConnected() automatically when the TCP connection
+        # drops.  A separate reqCurrentTime() healthcheck is not needed and is
+        # harmful: called from APScheduler threads it races on loop.run_until_complete()
+        # causing spurious TimeoutErrors that trigger unnecessary reconnects.
         if self.ib.isConnected():
-            now_mono = time.monotonic()
-            # Guard against half-open sockets (e.g. CLOSE-WAIT after gateway restart)
-            # where ib.isConnected() can stay True briefly.
-            if now_mono - self._last_connection_healthcheck >= 10.0:
-                try:
-                    self.ib.reqCurrentTime()
-                    self._last_connection_healthcheck = now_mono
-                except Exception as exc:  # noqa: BLE001
-                    err = str(exc).strip() or repr(exc)
-                    self.logger.warning(f"IBKR connection healthcheck failed, forcing reconnect: {err}")
-                    try:
-                        self.ib.disconnect()
-                    except Exception:  # noqa: BLE001
-                        pass
-                else:
-                    return True
-            else:
-                return True
+            return True
 
         with self._connect_lock:
             if self.ib.isConnected():
@@ -185,7 +295,6 @@ class SPXSpreadBotApp:
             for attempt in range(1, 11):
                 try:
                     self.market.connect()
-                    self._last_connection_healthcheck = time.monotonic()
                     try:
                         self.ib.reqAccountUpdates(True)
                     except Exception:  # noqa: BLE001
@@ -200,7 +309,6 @@ class SPXSpreadBotApp:
         return False
 
     def _entry_job(self) -> None:
-        self._ensure_thread_event_loop()
         now = self._now()
         self._rollover_state_if_new_day(now)
 
@@ -375,7 +483,6 @@ class SPXSpreadBotApp:
         self._write_status(last_signal=signal_payload)
 
     def _monitor_job(self) -> None:
-        self._ensure_thread_event_loop()
         if not self.state.open_positions:
             return
 
@@ -477,32 +584,48 @@ class SPXSpreadBotApp:
                 pass
 
     def _price_job(self) -> None:
-        self._ensure_thread_event_loop()
-        if not self.ib.isConnected():
-            return
+        # Fetch the underlying price via yfinance (pure HTTP, no ib_insync call).
+        # This avoids the event-loop race condition that causes TimeoutError when
+        # multiple APScheduler threads call loop.run_until_complete() simultaneously.
+        # SPX uses ^GSPC; XSP (mini-SPX = SPX/10) divides by 10.
         try:
-            price = self.market.get_spx_price()
-            if price and price > 0:
-                self._last_price = price
+            import yfinance as yf
+            symbol = "^GSPC"
+            ticker = yf.Ticker(symbol)
+            info = ticker.fast_info
+            price = float(
+                getattr(info, "last_price", None)
+                or getattr(info, "regularMarketPrice", None)
+                or 0.0
+            )
+            if price <= 0:
+                hist = ticker.history(period="2d")
+                if not hist.empty:
+                    price = float(hist["Close"].iloc[-1])
+            if self.cfg.underlying_symbol.upper() == "XSP":
+                price = price / 10.0
+            if price > 0:
+                self._last_price = round(price, 2)
                 self._last_price_ts = datetime.now(UTC).isoformat()
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
             pass  # retain last known price
 
     def _status_job(self) -> None:
         self._write_status()
 
     def _net_liq_job(self) -> None:
-        self._ensure_thread_event_loop()
+        # _on_account_value handles live push updates from IB.  Here we do a
+        # lightweight read from ib_insync's in-process account-value cache — no
+        # network call, no event-loop touch — so it is safe from any thread.
         if not self.ib.isConnected():
             return
         try:
-            summary = self.ib.accountSummary()
-            for item in summary:
-                if item.tag == "NetLiquidation" and item.currency == "USD":
-                    self._net_liq = float(item.value)
+            for av in self.ib.accountValues():
+                if av.tag == "NetLiquidation" and av.currency == "USD":
+                    self._net_liq = float(av.value)
                     break
         except Exception as exc:  # noqa: BLE001
-            self.logger.warning(f"net_liq fetch failed: {exc}")
+            self.logger.warning(f"net_liq read failed: {exc}")
 
     def _write_status(self, last_signal: dict | None = None) -> None:
         self._sync_state_aliases()

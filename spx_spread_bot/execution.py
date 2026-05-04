@@ -247,7 +247,7 @@ class ExecutionEngine:
 
     def spread_mark(self, pos: OpenPosition) -> Optional[float]:
         contracts = [self._contract_from_conid(leg.con_id) for leg in pos.legs]
-        tickers = list(self.ib.reqTickers(*contracts))
+        tickers = self._stream_tickers(contracts)
         if len(tickers) != len(pos.legs):
             return None
 
@@ -258,7 +258,7 @@ class ExecutionEngine:
 
     def spread_quote_components(self, pos: OpenPosition) -> Optional[dict[str, float]]:
         contracts = [self._contract_from_conid(leg.con_id) for leg in pos.legs]
-        tickers = list(self.ib.reqTickers(*contracts))
+        tickers = self._stream_tickers(contracts)
         if len(tickers) != len(pos.legs):
             return None
 
@@ -268,6 +268,22 @@ class ExecutionEngine:
 
         bid, ask, mid = quote
         return {"bid": bid, "ask": ask, "mid": mid}
+
+    def _stream_tickers(self, contracts: list[Contract]) -> list[Ticker]:
+        """Get tickers via streaming subscription (snapshot=False).
+
+        IBKR snapshot market data (reqMktData snapshot=True, used by reqTickers)
+        silently drops requests for XSP options on this gateway. Streaming works.
+        We subscribe, wait 2s for ticks, read, then cancel.
+        """
+        stream_tickers = [self.ib.reqMktData(c, "", False, False) for c in contracts]
+        self.ib.sleep(2.0)
+        for c in contracts:
+            try:
+                self.ib.cancelMktData(c)
+            except Exception:  # noqa: BLE001
+                pass
+        return stream_tickers
 
     def leg_contracts(self, pos: OpenPosition) -> list[Contract]:
         return [self._contract_from_conid(leg.con_id) for leg in pos.legs]
@@ -341,12 +357,11 @@ class ExecutionEngine:
 
     @staticmethod
     def _apply_combo_routing(order: Order, leg_count: int) -> None:
-        # IBKR only accepts NonGuaranteed on certain 2-leg combo templates.
-        # For 3+ legs (BWB, condor, fly), sending this tag is rejected.
-        if leg_count == 2:
-            order.smartComboRoutingParams = [TagValue("NonGuaranteed", "1")]
-        else:
-            order.smartComboRoutingParams = []
+        # Use guaranteed combo routing so IBKR margins both legs together as a
+        # defined-risk spread.  NonGuaranteed routing causes IBKR to evaluate
+        # each leg independently for margin, which makes the short put appear
+        # naked and triggers the "uncovered position" Error 201 rejection.
+        order.smartComboRoutingParams = []
 
     def _cancel_trade_if_open(self, trade: Trade) -> None:
         status = (trade.orderStatus.status or "").upper()

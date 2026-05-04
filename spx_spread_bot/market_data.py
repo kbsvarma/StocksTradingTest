@@ -9,7 +9,10 @@ from pathlib import Path
 from typing import Callable, Optional
 from zoneinfo import ZoneInfo
 
+import time as _time
+
 import requests
+import yfinance as _yf
 from ib_insync import IB, Contract, Index, Option, Ticker
 
 from config_loader import BotConfig
@@ -213,6 +216,13 @@ class MarketDataService:
         self._tickers: list[Ticker] = []
         self._ticker_handlers: list[tuple[Ticker, Callable[[Ticker], None]]] = []
         self._last_tick_log_at: dict[str, datetime] = {}
+        # Persistent streaming ticker for the underlying index — avoids
+        # per-call reqTickers() which can timeout from APScheduler threads.
+        self._underlying_stream_ticker: Optional[Ticker] = None
+        # yfinance price cache: (price, fetched_at) — avoids hammering yfinance
+        # on every signal evaluation while keeping prices fresh (10-second TTL).
+        self._yf_spx_cache: tuple[float, float] = (0.0, 0.0)
+        self._yf_vix_cache: tuple[float, float] = (0.0, 0.0)
 
     def connect(self) -> None:
         if self.ib.isConnected():
@@ -226,10 +236,106 @@ class MarketDataService:
             f"marketDataType={self.cfg.market_data_type}"
         )
 
+    def start_underlying_stream(self) -> None:
+        """Subscribe to a continuous streaming ticker for the underlying index.
+
+        This is called once after connect so that get_cached_underlying_price()
+        can read price data without ever calling reqTickers() (which is a
+        synchronous request-response and times out from APScheduler threads).
+        """
+        try:
+            self.ensure_reference_contracts()
+            if self._underlying_stream_ticker is not None:
+                try:
+                    self.ib.cancelMktData(self._underlying_stream_ticker.contract)
+                except Exception:  # noqa: BLE001
+                    pass
+            self._underlying_stream_ticker = self.ib.reqMktData(
+                self._spx_contract, "", False, False
+            )
+            self.logger.info(f"underlying price stream started for {self.cfg.underlying_symbol}")
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(f"underlying price stream failed to start: {exc}")
+
+    def get_cached_underlying_price(self) -> float:
+        """Read the underlying price from the streaming ticker (no network call).
+
+        Falls back to the last close if live/last are not yet populated.
+        Returns 0.0 if no data is available.
+        """
+        t = self._underlying_stream_ticker
+        if t is None:
+            return 0.0
+        price = self._first_valid_price([t.marketPrice(), t.last, t.close])
+        return price or 0.0
+
     def disconnect(self) -> None:
+        if self._underlying_stream_ticker is not None:
+            try:
+                self.ib.cancelMktData(self._underlying_stream_ticker.contract)
+            except Exception:  # noqa: BLE001
+                pass
+            self._underlying_stream_ticker = None
         self.cancel_tick_streams()
         if self.ib.isConnected():
             self.ib.disconnect()
+
+    def prewarm_option_contracts(
+        self,
+        underlying_price: float,
+        expiries: list[str],
+        rights: tuple[str, ...] = ("P",),
+        otm_range_pct: float = 0.06,
+        itm_range_pct: float = 0.01,
+    ) -> int:
+        """Qualify option contracts in the main thread and cache their conIds.
+
+        Call this at startup (before APScheduler starts) so that background
+        threads never need to call qualifyContracts — they just hit the cache.
+        Uses the actual strikes from the loaded option chain (respects 1-pt XSP
+        intervals and 5-pt SPX intervals automatically).
+
+        Returns the number of contracts successfully pre-qualified.
+        """
+        if not expiries:
+            return 0
+
+        # Pull strikes from the cached option chain — respects the actual
+        # strike intervals (1-pt for XSP, 5-pt for SPX) without hard-coding.
+        chain = self.load_option_chain()
+        lo = underlying_price * (1.0 - otm_range_pct)
+        hi = underlying_price * (1.0 + itm_range_pct)
+        strikes = [s for s in chain.strikes if lo <= s <= hi]
+
+        if not strikes:
+            self.logger.warning(
+                f"option pre-warm: no chain strikes found in range [{lo:.1f},{hi:.1f}]"
+            )
+            return 0
+
+        qualified_count = 0
+        total = len(expiries) * len(rights) * len(strikes)
+        self.logger.info(
+            f"pre-qualifying {total} option contracts "
+            f"({len(expiries)} expiry × {len(rights)} right × {len(strikes)} strikes "
+            f"in range [{strikes[0]:.1f}–{strikes[-1]:.1f}])"
+        )
+
+        for expiry in expiries:
+            for right in rights:
+                for strike in strikes:
+                    key = (expiry, float(strike), right.upper())
+                    if key in self._option_contract_cache or key in self._invalid_option_contracts:
+                        qualified_count += 1
+                        continue
+                    try:
+                        self.build_option_contract(expiry, strike, right)
+                        qualified_count += 1
+                    except Exception:  # noqa: BLE001
+                        self._invalid_option_contracts.add(key)
+
+        self.logger.info(f"option contract pre-warm: {qualified_count}/{total} qualified")
+        return qualified_count
 
     def ensure_reference_contracts(self) -> None:
         if self._spx_contract and self._vix_contract:
@@ -249,19 +355,59 @@ class MarketDataService:
         self._vix_contract = q_vix[0]
 
     def get_spx_price(self) -> float:
-        self.ensure_reference_contracts()
-        ticker = self.ib.reqTickers(self._spx_contract)[0]
-        price = self._first_valid_price([ticker.marketPrice(), ticker.last, ticker.close])
-        if price is None:
-            raise RuntimeError("SPX price unavailable")
+        """Return SPX (or XSP=SPX/10) price via yfinance with a 10-second cache.
+
+        Using yfinance avoids ib_insync reqTickers() calls from APScheduler
+        threads, which race on loop.run_until_complete() and time out.
+        yfinance prices are 15-min delayed for free tier but are accurate
+        enough for strike selection and VIX/regime checks.
+        """
+        cached_price, fetched_at = self._yf_spx_cache
+        if cached_price > 0 and _time.time() - fetched_at < 10:
+            return cached_price
+        try:
+            info = _yf.Ticker("^GSPC").fast_info
+            price = float(getattr(info, "last_price", None) or getattr(info, "regularMarketPrice", None) or 0.0)
+            if price <= 0:
+                hist = _yf.Ticker("^GSPC").history(period="2d")
+                if not hist.empty:
+                    price = float(hist["Close"].iloc[-1])
+        except Exception as exc:  # noqa: BLE001
+            if cached_price > 0:
+                return cached_price  # return stale value rather than raising
+            raise RuntimeError(f"SPX price unavailable: {exc}") from exc
+        if price <= 0:
+            if cached_price > 0:
+                return cached_price
+            raise RuntimeError("SPX price unavailable from yfinance")
+        if self.cfg.underlying_symbol.upper() == "XSP":
+            price = price / 10.0
+        price = round(price, 2)
+        self._yf_spx_cache = (price, _time.time())
         return price
 
     def get_vix_price(self) -> float:
-        self.ensure_reference_contracts()
-        ticker = self.ib.reqTickers(self._vix_contract)[0]
-        price = self._first_valid_price([ticker.marketPrice(), ticker.last, ticker.close])
-        if price is None:
-            raise RuntimeError("VIX price unavailable")
+        """Return VIX price via yfinance with a 10-second cache."""
+        cached_price, fetched_at = self._yf_vix_cache
+        if cached_price > 0 and _time.time() - fetched_at < 10:
+            return cached_price
+        try:
+            info = _yf.Ticker("^VIX").fast_info
+            price = float(getattr(info, "last_price", None) or getattr(info, "regularMarketPrice", None) or 0.0)
+            if price <= 0:
+                hist = _yf.Ticker("^VIX").history(period="2d")
+                if not hist.empty:
+                    price = float(hist["Close"].iloc[-1])
+        except Exception as exc:  # noqa: BLE001
+            if cached_price > 0:
+                return cached_price
+            raise RuntimeError(f"VIX price unavailable: {exc}") from exc
+        if price <= 0:
+            if cached_price > 0:
+                return cached_price
+            raise RuntimeError("VIX price unavailable from yfinance")
+        price = round(price, 2)
+        self._yf_vix_cache = (price, _time.time())
         return price
 
     def load_option_chain(self) -> OptionChainSnapshot:
@@ -335,11 +481,18 @@ class MarketDataService:
         return contract
 
     def get_spread_quote(self, short_put: Contract, long_put: Contract) -> Optional[SpreadQuote]:
-        tickers = self.ib.reqTickers(short_put, long_put)
-        if len(tickers) != 2:
+        # Use streaming subscriptions (not snapshot) — see get_credit_quote for rationale.
+        contracts_for_spread = [short_put, long_put]
+        stream_tickers = [self.ib.reqMktData(c, "", False, False) for c in contracts_for_spread]
+        self.ib.sleep(2.0)
+        for c in contracts_for_spread:
+            try:
+                self.ib.cancelMktData(c)
+            except Exception:  # noqa: BLE001
+                pass
+        if len(stream_tickers) != 2:
             return None
-
-        short_ticker, long_ticker = tickers
+        short_ticker, long_ticker = stream_tickers
         short_bid, short_ask = self._bid_ask_with_fallback(short_ticker)
         long_bid, long_ask = self._bid_ask_with_fallback(long_ticker)
 
@@ -366,13 +519,35 @@ class MarketDataService:
             try:
                 contracts.append(self.build_option_contract(expiry, leg.strike, leg.right))
             except Exception as exc:  # noqa: BLE001
-                self._invalid_option_contracts.add(key)
+                exc_msg = str(exc)
+                # Only cache as permanently invalid when the gateway explicitly
+                # says the contract doesn't exist.  TimeoutError (empty message)
+                # means the background thread couldn't pump the event loop to
+                # receive the response — permanently caching those would prevent
+                # retries after a restart or prewarm repopulates the cache.
+                if exc_msg:
+                    self._invalid_option_contracts.add(key)
                 self.logger.warning(
-                    f"candidate contract unavailable {expiry} {leg.strike}{leg.right}: {exc}"
+                    f"candidate contract unavailable {expiry} {leg.strike}{leg.right}: {exc_msg}"
                 )
                 return None
 
-        tickers = self.ib.reqTickers(*contracts)
+        # IBKR snapshot market data (reqMktData snapshot=True, used by reqTickers)
+        # silently drops requests for XSP options on this gateway — the future
+        # never resolves and the 8-second RequestTimeout fires. Streaming
+        # subscriptions (snapshot=False) work correctly: IBKR starts pushing
+        # ticks within ~1s of subscription. We subscribe, wait 2s for data to
+        # flow, read the tickers, then cancel the subscriptions.
+        stream_tickers = []
+        for c in contracts:
+            stream_tickers.append(self.ib.reqMktData(c, "", False, False))
+        self.ib.sleep(2.0)
+        for c in contracts:
+            try:
+                self.ib.cancelMktData(c)
+            except Exception:  # noqa: BLE001
+                pass
+        tickers = stream_tickers
         if len(tickers) != len(legs):
             return None
 

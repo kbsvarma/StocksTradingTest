@@ -514,13 +514,18 @@ class SignalEngine:
         return round(worst_loss_points * 100.0, 2)
 
     def _available_margin(self) -> Optional[float]:
+        # Use ib.accountValues() instead of ib.accountSummary().
+        # accountSummary() sends a blocking network request — it times out when
+        # called from APScheduler threads (loop.run_until_complete race).
+        # accountValues() reads from ib_insync's in-process cache — no network
+        # call, safe from any thread.
         try:
-            summary = self.ib.accountSummary()
+            values = self.ib.accountValues()
         except Exception as exc:  # noqa: BLE001
             self.logger.warning(f"account summary unavailable: {exc}")
             return None
 
-        for item in summary:
+        for item in values:
             if item.tag == "AvailableFunds" and item.currency == self.cfg.currency:
                 try:
                     return float(item.value)
