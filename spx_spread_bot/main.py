@@ -326,7 +326,24 @@ class SPXSpreadBotApp:
         except Exception:  # noqa: BLE001
             pass
 
-        self.state_store.save(self.state)
+        # Guard against overwriting a healthy disk state with degraded in-memory
+        # state.  If the bot crashed during startup (positions wiped from memory
+        # before the monitor loop ran) and shutdown fires, in-memory will have 0
+        # positions while disk may have been manually restored.  Compare counts
+        # so we never silently drop open positions on a graceful shutdown.
+        _disk_pos_count = 0
+        try:
+            _disk_pos_count = len(self.state_store.load().open_positions)
+        except Exception:  # noqa: BLE001
+            pass
+        if len(self.state.open_positions) >= _disk_pos_count:
+            self.state_store.save(self.state)
+        else:
+            self.logger.warning(
+                f"shutdown: in-memory has {len(self.state.open_positions)} open "
+                f"positions but disk has {_disk_pos_count}; skipping state overwrite "
+                f"to preserve disk state"
+            )
         self._write_status()
         self.logger.info("shutdown complete")
 
