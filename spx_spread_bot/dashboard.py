@@ -563,28 +563,49 @@ def _live_section() -> None:
     raw_price   = live_status.get("underlying_price", 0) or 0
     price_source = "ib"
     if not raw_price:
-        # IB not streaming (weekend / pre-market) — fall back to Yahoo Finance
+        # IB not streaming — fall back to Yahoo Finance
         spx_yf    = _yf_spx_price()
         raw_price = spx_yf / 10 if bot.symbol == "XSP" else spx_yf
         price_source = "yf"
     if raw_price > 0:
-        price_val   = f"{raw_price:,.2f}"
+        price_val = f"{raw_price:,.2f}"
         if _is_market and price_source == "ib":
             price_badge = ('<span class="b b-grn" style="font-size:9px;padding:2px 6px;margin-left:6px">'
                            '<span class="dot dg"></span>&nbsp;LIVE</span>')
+            price_sub = "Real-time · IB"
+        elif _is_market:
+            price_badge = ('<span class="b b-grn" style="font-size:9px;padding:2px 6px;margin-left:6px">'
+                           'REAL-TIME</span>')
+            price_sub = "Real-time · Yahoo"
         else:
             price_badge = ('<span class="b b-amb" style="font-size:9px;padding:2px 6px;margin-left:6px">'
                            'AFTER HRS</span>')
+            price_sub = "Last close"
     else:
         price_val   = "—"
         price_badge = ""
+        price_sub   = ""
+
+    # ── Net PnL (unrealized) ─────────────────────────────────────────────────
+    spread_marks = live_status.get("spread_marks", {}) if isinstance(live_status, dict) else {}
+    unrealized_pnl: float = 0.0
+    for pos in live_pos:
+        strat  = pos.get("strategy", "")
+        credit = float(pos.get("entry_credit") or 0)
+        contr  = int(pos.get("contracts") or 1)
+        mark   = float(spread_marks.get(strat, 0) or 0)
+        if credit > 0 and mark > 0:
+            unrealized_pnl += (credit - mark) * 100 * contr
+    net_pnl       = live_stats["today"] + unrealized_pnl
+    net_pnl_color = "#1a7f37" if net_pnl > 0 else "#cf222e" if net_pnl < 0 else "#1f2328"
+    net_pnl_val   = _cash(net_pnl, sign=True) if (live_pos or live_stats["today"] != 0) else "—"
 
     st.markdown(f"""
 <div class="strip">
   <div class="sc">
     <div class="sl">{bot.symbol} Price {price_badge}</div>
     <div class="sv" style="font-size:15px;font-weight:600">{price_val}</div>
-    <div class="ss">{"Real-time" if _is_market else "Last close"}</div>
+    <div class="ss">{price_sub}</div>
   </div>
   <div class="sc">
     <div class="sl">Portfolio · {mode_label}</div>
@@ -597,9 +618,9 @@ def _live_section() -> None:
     <div class="ss">Last status write</div>
   </div>
   <div class="sc">
-    <div class="sl">Today PnL</div>
-    <div class="sv" style="color:{tc_color}">{_cash(live_stats['today'],sign=True)}</div>
-    <div class="ss">Since midnight ET</div>
+    <div class="sl">Net PnL Today</div>
+    <div class="sv" style="color:{net_pnl_color}">{net_pnl_val}</div>
+    <div class="ss">Realized + unrealized</div>
   </div>
   <div class="sc">
     <div class="sl">Open Positions</div>

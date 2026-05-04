@@ -65,6 +65,7 @@ class SPXSpreadBotApp:
         self._net_liq: float | None = None
         self._last_price: float = 0.0
         self._last_price_ts: str = ""
+        self._last_spread_mark: float | None = None
         self.ib.accountValueEvent += self._on_account_value
 
     def _ensure_thread_event_loop(self) -> None:
@@ -94,6 +95,20 @@ class SPXSpreadBotApp:
     def start(self) -> None:
         mode = "paper mode" if self.cfg.paper_trading else "live mode"
         self.logger.info(f"starting {self.cfg.underlying_symbol} multi-strategy bot ({mode})")
+
+        # One-shot connect attempt at startup.  _ensure_connected() won't retry
+        # because self._running is still False; calling connect() directly here
+        # lets reconcile run with a live connection when the gateway is ready.
+        try:
+            self.market.connect()
+            try:
+                self.ib.reqAccountUpdates(True)
+            except Exception:  # noqa: BLE001
+                pass
+            self.logger.info("startup connect succeeded")
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(f"startup connect attempt failed (will retry in main loop): {exc}")
+
         self._ensure_connected()
         self._rollover_state_if_new_day(self._now())
 
@@ -103,6 +118,28 @@ class SPXSpreadBotApp:
             self.logger.warning(f"macro refresh failed at startup: {exc}")
 
         self._reconcile_state_with_broker()
+
+        # ── Fast-path: if we have open positions skip the heavy prewarm ──────
+        # prewarm_option_contracts + smoke-test take ~60s; during that window
+        # the monitor loop is not running so stop-loss / profit-target can't
+        # fire.  When restarting mid-trade we skip straight to the main loop;
+        # the prewarm runs lazily on the first entry attempt.
+        if self.state.open_positions:
+            self.logger.info(
+                f"open positions detected on startup — skipping prewarm, "
+                f"entering monitor loop immediately"
+            )
+            self._running = True
+            self._write_status()
+
+            def _stop_handler_fast(signum, _frame):
+                self.logger.info(f"received signal {signum}; shutting down")
+                self.stop()
+
+            signal.signal(signal.SIGTERM, _stop_handler_fast)
+            signal.signal(signal.SIGINT, _stop_handler_fast)
+            self._main_loop()
+            return
 
         # Pre-warm reference contracts and option chain in the main thread.
         # market_data caches these after the first successful call, so every
@@ -198,28 +235,37 @@ class SPXSpreadBotApp:
         signal.signal(signal.SIGTERM, _stop_handler)
         signal.signal(signal.SIGINT, _stop_handler)
 
-        # ─── Main event-loop / trading loop ────────────────────────────────
-        # _entry_job and _monitor_job make blocking ib_insync calls
-        # (reqTickers, placeOrder, qualifyContracts). These calls use
-        # loop.run_until_complete() internally. When called from APScheduler
-        # background threads the loop cannot receive socket data → TimeoutError.
-        # Running them here — in the main thread — keeps the event loop
-        # pumped via ib.sleep() so all I/O callbacks fire correctly.
-        # APScheduler handles only the non-IB jobs (price via yfinance,
-        # status writes, net_liq cache reads, macro refresh, daily summary).
+        self._main_loop()
+
+    def _main_loop(self) -> None:
+        """Main event-loop / trading loop.
+
+        _entry_job and _monitor_job make blocking ib_insync calls
+        (reqTickers, placeOrder, qualifyContracts). These calls use
+        loop.run_until_complete() internally. When called from APScheduler
+        background threads the loop cannot receive socket data → TimeoutError.
+        Running them here — in the main thread — keeps the event loop
+        pumped via ib.sleep() so all I/O callbacks fire correctly.
+
+        Non-IB periodic jobs (_price_job, _status_job, _net_liq_job) are also
+        run here rather than APScheduler to avoid thread/event-loop conflicts.
+        """
         _last_entry: float = 0.0
         _last_monitor: float = 0.0
+        _last_price: float = 0.0
+        _last_status: float = 0.0
+        _last_net_liq: float = 0.0
         _ENTRY_INTERVAL: float = 5.0
         _MONITOR_INTERVAL: float = max(self.cfg.monitor_interval_seconds, 1)
+        _PRICE_INTERVAL: float = 5.0
+        _STATUS_INTERVAL: float = 2.0
+        _NET_LIQ_INTERVAL: float = 60.0
 
         while self._running:
             # ib.sleep(0.5) runs the asyncio event loop for 0.5s, processing
             # all pending socket I/O and callbacks. This is the canonical
             # ib_insync pattern: the event loop must be kept pumped so that
             # Connection.data_received() fires for incoming IBKR messages.
-            # Without this, data piles up in the OS socket buffer and the next
-            # reqTickers call times out waiting for responses that are already
-            # in the buffer but never delivered.
             self.ib.sleep(0.5)
 
             now_ts = time.monotonic()
@@ -241,6 +287,28 @@ class SPXSpreadBotApp:
                     self.logger.warning(
                         f"entry error: {exc!r}\n{''.join(_tb.format_exception(type(exc), exc, exc.__traceback__))}"
                     )
+
+            # Non-IB periodic jobs — safe to run in main thread
+            if now_ts - _last_price >= _PRICE_INTERVAL:
+                _last_price = now_ts
+                try:
+                    self._price_job()
+                except Exception:  # noqa: BLE001
+                    pass
+
+            if now_ts - _last_status >= _STATUS_INTERVAL:
+                _last_status = now_ts
+                try:
+                    self._status_job()
+                except Exception:  # noqa: BLE001
+                    pass
+
+            if now_ts - _last_net_liq >= _NET_LIQ_INTERVAL:
+                _last_net_liq = now_ts
+                try:
+                    self._net_liq_job()
+                except Exception:  # noqa: BLE001
+                    pass
 
     def stop(self) -> None:
         if not self._running:
@@ -292,7 +360,13 @@ class SPXSpreadBotApp:
             except RuntimeError:
                 asyncio.set_event_loop(asyncio.new_event_loop())
 
-            for attempt in range(1, 11):
+            # Retry indefinitely with capped exponential backoff.
+            # We never give up: a gateway restart takes 60-90s so 10 × 3s
+            # could exhaust before the gateway is ready.  The loop exits only
+            # when the bot is stopped (self._running = False).
+            attempt = 0
+            while self._running:
+                attempt += 1
                 try:
                     self.market.connect()
                     try:
@@ -302,10 +376,12 @@ class SPXSpreadBotApp:
                     return True
                 except Exception as exc:  # noqa: BLE001
                     err = str(exc).strip() or repr(exc)
-                    self.logger.warning(f"IBKR reconnect attempt {attempt}/10 failed: {err}")
-                    time.sleep(3)
+                    wait = min(5 * attempt, 60)  # backoff: 5s, 10s, … capped at 60s
+                    self.logger.warning(
+                        f"IBKR reconnect attempt {attempt} failed: {err}; retrying in {wait}s"
+                    )
+                    time.sleep(wait)
 
-        self.logger.error("IBKR reconnect exhausted")
         return False
 
     def _entry_job(self) -> None:
@@ -629,6 +705,26 @@ class SPXSpreadBotApp:
 
     def _write_status(self, last_signal: dict | None = None) -> None:
         self._sync_state_aliases()
+        # Read latest spread mark from order_events (written by monitor every ~2s)
+        spread_marks: dict[str, float] = {}
+        try:
+            order_events_path = Path(self.cfg.order_events_file)
+            if order_events_path.exists():
+                lines = order_events_path.read_text(encoding="utf-8").splitlines()
+                for line in reversed(lines[-200:]):
+                    try:
+                        ev = json.loads(line)
+                        if ev.get("event") == "SPREAD_MARK":
+                            strat = ev.get("strategy", "")
+                            if strat and strat not in spread_marks:
+                                spread_marks[strat] = float(ev.get("mark", 0.0))
+                        if len(spread_marks) >= 4:
+                            break
+                    except Exception:  # noqa: BLE001
+                        pass
+        except Exception:  # noqa: BLE001
+            pass
+
         payload = {
             "ts": datetime.now(UTC).isoformat(),
             "paper_trading": self.cfg.paper_trading,
@@ -638,6 +734,7 @@ class SPXSpreadBotApp:
             "net_liquidation": self._net_liq,
             "underlying_price": self._last_price,
             "underlying_price_ts": self._last_price_ts,
+            "spread_marks": spread_marks,
             "state": asdict(self.state),
             "last_signal": last_signal,
         }
@@ -654,6 +751,19 @@ class SPXSpreadBotApp:
 
         ib_positions = self.ib.positions()
         conid_qty = {p.contract.conId: p.position for p in ib_positions}
+
+        # Guard: if the broker returned zero positions, it likely means the
+        # connection isn't fully ready yet (gateway still starting up, or a
+        # brief TCP dropout).  Clearing our state based on empty broker data
+        # would wipe live positions incorrectly.  Skip reconcile and let the
+        # next startup cycle try again once the connection is stable.
+        if not conid_qty and self.state.open_positions:
+            self.logger.warning(
+                "broker returned no positions during reconcile — "
+                "connection may not be ready; skipping to preserve local state"
+            )
+            return
+
         open_trades = list(self.ib.openTrades())
         open_order_ids = {t.order.orderId for t in open_trades}
 
