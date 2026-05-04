@@ -219,13 +219,30 @@ class ExecutionEngine:
         self.cancel_order(pos.profit_order_id)
 
     def order_is_active(self, order_id: Optional[int]) -> bool:
+        """Return True if the order is working OR already filled.
+
+        FILLED is intentionally included: if the broker-side GTC profit target
+        already filled, we must NOT submit a second close order — that would
+        open an untracked long position instead of closing an existing short.
+        """
         if not order_id:
             return False
         for trade in self.ib.trades():
             if trade.order.orderId != order_id:
                 continue
             status = (trade.orderStatus.status or "").upper()
-            return status in {"PENDINGSUBMIT", "PRESUBMITTED", "SUBMITTED"}
+            return status in {"PENDINGSUBMIT", "PRESUBMITTED", "SUBMITTED", "FILLED"}
+        return False
+
+    def order_is_filled(self, order_id: Optional[int]) -> bool:
+        """Return True if the order exists in ib.trades() with status FILLED."""
+        if not order_id:
+            return False
+        for trade in self.ib.trades():
+            if trade.order.orderId != order_id:
+                continue
+            status = (trade.orderStatus.status or "").upper()
+            return status == "FILLED"
         return False
 
     def spread_mark(self, pos: OpenPosition) -> Optional[float]:

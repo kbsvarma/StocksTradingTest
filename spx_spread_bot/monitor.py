@@ -55,9 +55,20 @@ class PositionMonitor:
                 return MonitorOutcome(closed=False, detail=f"stop-loss close failed: {detail}")
 
             if mark <= pos.profit_target_price:
-                # If broker-side GTC profit order is already working, avoid
-                # submitting a duplicate close that can overfill.
+                # If broker-side GTC profit order is working OR already filled,
+                # do not submit a second close — a filled GTC means the position
+                # is already flat; a second BUY would open an untracked long.
                 if self.execution.order_is_active(pos.profit_order_id):
+                    # Check whether GTC actually filled (status=FILLED) so we
+                    # can book the closure rather than silently skipping forever.
+                    gtc_filled = self.execution.order_is_filled(pos.profit_order_id)
+                    if gtc_filled:
+                        return MonitorOutcome(
+                            closed=True,
+                            reason=ExitReason.PROFIT_TARGET,
+                            exit_price=pos.profit_target_price,
+                            detail="GTC profit order filled at broker",
+                        )
                     return MonitorOutcome(closed=False)
                 ok, fill = self.execution.close_open_position_limit(pos, pos.profit_target_price, ExitReason.PROFIT_TARGET.value)
                 if ok:
