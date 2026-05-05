@@ -773,8 +773,16 @@ class SPXSpreadBotApp:
         try:
             tick_events_path = Path(self.cfg.tick_events_file)
             if tick_events_path.exists():
-                lines = tick_events_path.read_text(encoding="utf-8").splitlines()
-                for line in reversed(lines[-500:]):
+                # Read only the tail of the file to avoid loading the full log (can grow to 10MB+).
+                # 8KB is enough for ~100 recent lines at ~80 bytes each.
+                _TAIL_BYTES = 8192
+                with tick_events_path.open("rb") as _tf:
+                    _tf.seek(0, 2)
+                    _fsize = _tf.tell()
+                    _tf.seek(max(0, _fsize - _TAIL_BYTES))
+                    _raw = _tf.read()
+                lines = _raw.decode("utf-8", errors="replace").splitlines()
+                for line in reversed(lines):
                     try:
                         ev = json.loads(line)
                         if ev.get("event") == "SPREAD_MARK":
