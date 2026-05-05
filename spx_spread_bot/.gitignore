@@ -31,6 +31,9 @@ backtests/ten_year/raw_dbn_cache/
 backtests/ten_year/*.pid
 backtests/ten_year/extend_queue.*
 backtests/ten_year/run.pid
+backtests/stop_*/*.pid
+backtests/stop_*/run.out
+backtests/stop_*/backtest.log
 
 # ── OS / editor noise ────────────────────────────────────────
 .DS_Store

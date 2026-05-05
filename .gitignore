@@ -24,3 +24,6 @@ env/
 .idea/
 .vscode/
 *.swp
+
+# ── Claude Code internal ──────────────────────────────────────
+.claude/
