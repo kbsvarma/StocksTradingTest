@@ -167,17 +167,20 @@ class ExecutionEngine:
         if status == "FILLED":
             return True, "filled"
 
-        self.logger.warning("combo market close did not fill; attempting leg fallback")
-        leg_trades: list[Trade] = []
-        for leg in pos.legs:
-            contract = self._contract_from_conid(leg.con_id)
-            action = "BUY" if leg.direction == LegDirection.SHORT else "SELL"
-            qty = int(leg.quantity) * int(pos.contracts)
-            leg_trades.append(self.ib.placeOrder(contract, MarketOrder(action, qty, tif="DAY")))
-
-        results = [self._wait_for_fill(t, timeout=30) for t in leg_trades]
-        ok = all(status == "FILLED" for status in results)
-        return ok, "leg fallback" if ok else "leg fallback failed"
+        # Combo did not fill within timeout — cancel the dangling order and
+        # return False so the monitor retries on the next cycle.  Individual
+        # leg fallback is intentionally removed: placing SELL on the long leg
+        # without combo context causes IBKR Error 201 (margin deficit for
+        # what looks like a naked short).
+        try:
+            self.ib.cancelOrder(trade.order)
+        except Exception as cancel_exc:  # noqa: BLE001
+            self.logger.warning(f"cancel after combo timeout failed: {cancel_exc}")
+        self.logger.warning(
+            f"combo market close timed out (orderId={trade.order.orderId}); "
+            "order cancelled — monitor will retry next cycle"
+        )
+        return False, "combo timed out — will retry"
 
     def close_open_position_limit(self, pos: OpenPosition, limit_price: float, reason: str) -> tuple[bool, float]:
         combo = self._build_combo(pos.legs)

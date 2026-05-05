@@ -4,6 +4,9 @@ from dataclasses import dataclass
 from datetime import date, datetime, time
 from zoneinfo import ZoneInfo
 
+_MARKET_OPEN = time(9, 30)
+_MARKET_CLOSE = time(16, 0)
+
 from config_loader import BotConfig
 from execution import ExecutionEngine
 from market_data import MarketDataService
@@ -27,27 +30,55 @@ class PositionMonitor:
         self.logger = logger
         self.tz = ZoneInfo(cfg.timezone)
 
-    def evaluate(self, now: datetime, pos: OpenPosition) -> MonitorOutcome:
+    def evaluate(
+        self,
+        now: datetime,
+        pos: OpenPosition,
+        prefetched_quote: dict | None = None,
+    ) -> MonitorOutcome:
+        """Evaluate a single position.
+
+        If *prefetched_quote* is supplied ({"bid": …, "ask": …, "mid": …}) it is
+        used directly, avoiding a second 2-second market-data subscription.  This
+        allows the caller (_monitor_job) to batch-fetch quotes for all positions in
+        one 2-second window so no position is blocked waiting for another.
+        """
         expiry_day = self._expiry_date(pos.expiry)
         is_expiry_day = expiry_day is not None and now.date() == expiry_day
 
-        quote = self.execution.spread_quote_components(pos)
-        mark = quote["mid"] if quote else None
-        if mark is not None:
-            self.logger.order_event(
-                "SPREAD_MARK",
-                {
-                    "strategy": pos.strategy,
-                    "mark": mark,
-                    "spread_bid": quote["bid"] if quote else None,
-                    "spread_ask": quote["ask"] if quote else None,
-                    "stop": pos.stop_price,
-                    "profit_target": pos.profit_target_price,
-                    "short_put_strike": pos.short_put_strike,
-                    "short_call_strike": pos.short_call_strike,
-                },
-            )
+        # Only fetch live quotes and evaluate mark-based exits during regular
+        # market hours (09:30–16:00 ET, Mon–Fri).  After-hours option quotes
+        # have garbage bid/ask spreads that can cause false stop-loss triggers.
+        now_et = now.astimezone(self.tz)
+        in_market_hours = (
+            now_et.weekday() < 5
+            and _MARKET_OPEN <= now_et.time() < _MARKET_CLOSE
+        )
 
+        mark: float | None = None
+        if in_market_hours:
+            quote = prefetched_quote if prefetched_quote is not None else self.execution.spread_quote_components(pos)
+            mark = quote["mid"] if quote else None
+            if mark is not None:
+                # Log to tick_events (high-frequency) rather than order_events
+                # to prevent order_events.jsonl from bloating with every 30s poll.
+                self.logger.tick_event_raw(
+                    "SPREAD_MARK",
+                    {
+                        "strategy": pos.strategy,
+                        "mark": mark,
+                        "spread_bid": quote["bid"] if quote else None,
+                        "spread_ask": quote["ask"] if quote else None,
+                        "stop": pos.stop_price,
+                        "profit_target": pos.profit_target_price,
+                        "short_put_strike": pos.short_put_strike,
+                        "short_call_strike": pos.short_call_strike,
+                    },
+                )
+        else:
+            quote = None
+
+        if mark is not None:
             if mark >= pos.stop_price:
                 ok, detail = self.execution.close_open_position_market(pos, ExitReason.STOP_LOSS.value)
                 if ok:

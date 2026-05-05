@@ -83,6 +83,10 @@ class BotLogger:
     def order_event(self, event_type: str, payload: dict[str, Any]) -> None:
         self._append_jsonl(self.order_events_path, {"event": event_type, **payload})
 
+    def tick_event_raw(self, event_type: str, payload: dict[str, Any]) -> None:
+        """Write a free-form dict to tick_events (high-frequency log, rotated separately)."""
+        self._append_jsonl(self.tick_events_path, {"event": event_type, **payload})
+
     def tick_event(self, tick: TickSnapshot) -> None:
         payload = {
             "ts": tick.ts.isoformat(),

@@ -11,6 +11,11 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+try:
+    import psutil as _psutil
+except ImportError:
+    _psutil = None  # type: ignore[assignment]
+
 from apscheduler.schedulers.background import BackgroundScheduler
 from ib_insync import IB
 
@@ -408,10 +413,18 @@ class SPXSpreadBotApp:
         if not self._in_entry_window(now):
             return
 
+        # Stop-loss hit today → no re-entry for the rest of the day
+        if self.state.stop_loss_today:
+            return
+
         enabled = {s.upper() for s in self.cfg.enabled_strategies}
-        open_strategies = self._open_strategy_set()
+        today_key = now.date().isoformat()
+        # Only block re-entry for strategies that have a position opened TODAY.
+        # Positions carried from a prior day (e.g. 2DTE entered yesterday) do
+        # not consume today's entry slot.
+        same_day_open = self._same_day_open_strategy_set(today_key)
         attempted = {s.upper() for s in self.state.attempted_strategies_today}
-        outstanding = [s for s in enabled if s not in open_strategies and s not in attempted]
+        outstanding = [s for s in enabled if s not in same_day_open and s not in attempted]
         if not outstanding:
             return
 
@@ -507,7 +520,7 @@ class SPXSpreadBotApp:
         any_filled = False
         for cand in ordered_candidates:
             strategy_key = cand.strategy.value.upper()
-            if strategy_key in self._open_strategy_set():
+            if strategy_key in same_day_open:
                 continue
             if strategy_key in {s.upper() for s in self.state.attempted_strategies_today}:
                 continue
@@ -583,10 +596,20 @@ class SPXSpreadBotApp:
             return
 
         now = self._now()
+
+        # Batch-fetch quotes for ALL positions in a single 2-second window so
+        # that no position's check is blocked waiting for another's data.
+        pos_list = list(self.state.open_positions)
+        try:
+            prefetched = self._batch_fetch_position_quotes(pos_list)
+        except Exception as exc:
+            self.logger.warning(f"batch quote fetch failed, falling back to per-position: {exc}")
+            prefetched = {}
+
         survivors = []
         closed_any = False
-        for pos in list(self.state.open_positions):
-            outcome = self.monitor.evaluate(now, pos)
+        for pos in pos_list:
+            outcome = self.monitor.evaluate(now, pos, prefetched_quote=prefetched.get(id(pos)))
             if not outcome.closed:
                 if outcome.detail:
                     self.logger.warning(f"{pos.strategy}: {outcome.detail}")
@@ -595,6 +618,28 @@ class SPXSpreadBotApp:
 
             closed_any = True
             self.execution.cancel_protective_orders(pos)
+
+            # ── Re-entry logic ───────────────────────────────────────────────
+            strategy_key = str(pos.strategy).upper()
+            if outcome.reason == ExitReason.STOP_LOSS:
+                # Stop-loss: block all re-entry for today
+                self.state.stop_loss_today = True
+                self.logger.order_event(
+                    "STOP_LOSS_TODAY_SET",
+                    {"strategy": strategy_key, "reason": "stop-loss fired; no re-entry today"},
+                )
+            else:
+                # Profit target / EOD expiry / EOD force close / Friday close:
+                # natural exit — allow a fresh entry attempt later today by
+                # removing this strategy from the attempted list.
+                self.state.attempted_strategies_today = [
+                    s for s in self.state.attempted_strategies_today
+                    if s.upper() != strategy_key
+                ]
+                self.logger.order_event(
+                    "REENTRY_UNLOCKED",
+                    {"strategy": strategy_key, "exit_reason": outcome.reason.value if outcome.reason else "unknown"},
+                )
 
             pnl_per_contract = self._pnl_per_contract(pos.entry_credit, outcome.exit_price, outcome.reason)
             total_pnl = pnl_per_contract * pos.contracts
@@ -723,12 +768,13 @@ class SPXSpreadBotApp:
     def _write_status(self, last_signal: dict | None = None) -> None:
         self._sync_state_aliases()
         # Read latest spread mark from order_events (written by monitor every ~2s)
+        # SPREAD_MARK events are written to tick_events (high-frequency log).
         spread_marks: dict[str, float] = {}
         try:
-            order_events_path = Path(self.cfg.order_events_file)
-            if order_events_path.exists():
-                lines = order_events_path.read_text(encoding="utf-8").splitlines()
-                for line in reversed(lines[-200:]):
+            tick_events_path = Path(self.cfg.tick_events_file)
+            if tick_events_path.exists():
+                lines = tick_events_path.read_text(encoding="utf-8").splitlines()
+                for line in reversed(lines[-500:]):
                     try:
                         ev = json.loads(line)
                         if ev.get("event") == "SPREAD_MARK":
@@ -742,6 +788,27 @@ class SPXSpreadBotApp:
         except Exception:  # noqa: BLE001
             pass
 
+        # System health metrics (server-level, identical across both bots)
+        system_info: dict = {}
+        if _psutil is not None:
+            try:
+                vm   = _psutil.virtual_memory()
+                sw   = _psutil.swap_memory()
+                disk = _psutil.disk_usage("/")
+                system_info = {
+                    "cpu_pct":        round(_psutil.cpu_percent(interval=None), 1),
+                    "ram_used_gb":    round(vm.used  / 1_073_741_824, 2),
+                    "ram_total_gb":   round(vm.total / 1_073_741_824, 2),
+                    "ram_pct":        round(vm.percent, 1),
+                    "swap_used_mb":   round(sw.used  / 1_048_576, 0),
+                    "swap_total_mb":  round(sw.total / 1_048_576, 0),
+                    "disk_used_gb":   round(disk.used  / 1_073_741_824, 1),
+                    "disk_total_gb":  round(disk.total / 1_073_741_824, 1),
+                    "disk_pct":       round(disk.percent, 1),
+                }
+            except Exception:  # noqa: BLE001
+                pass
+
         payload = {
             "ts": datetime.now(UTC).isoformat(),
             "paper_trading": self.cfg.paper_trading,
@@ -752,6 +819,7 @@ class SPXSpreadBotApp:
             "underlying_price": self._last_price,
             "underlying_price_ts": self._last_price_ts,
             "spread_marks": spread_marks,
+            "system": system_info,
             "state": asdict(self.state),
             "last_signal": last_signal,
         }
@@ -861,6 +929,7 @@ class SPXSpreadBotApp:
         if self.state.current_trading_date != today_key:
             self.state.current_trading_date = today_key
             self.state.trade_taken_today = False
+            self.state.stop_loss_today = False
             self.state.attempted_strategies_today = []
             self.state.skip_reason_today = ""
 
@@ -909,6 +978,85 @@ class SPXSpreadBotApp:
 
     def _open_strategy_set(self) -> set[str]:
         return {str(pos.strategy).upper() for pos in self.state.open_positions}
+
+    def _same_day_open_strategy_set(self, today_key: str) -> set[str]:
+        """Return strategies that have a position opened TODAY.
+
+        Positions carried from a prior day (e.g. a 2DTE entered yesterday) are
+        NOT included — those do not block a fresh entry on a new calendar day.
+        """
+        result = set()
+        for pos in self.state.open_positions:
+            try:
+                if isinstance(pos.entry_ts, datetime):
+                    entry_date = pos.entry_ts.astimezone(self.tz).date().isoformat()
+                else:
+                    entry_date = datetime.fromisoformat(str(pos.entry_ts)).astimezone(self.tz).date().isoformat()
+            except Exception:
+                entry_date = ""
+            if entry_date == today_key:
+                result.add(str(pos.strategy).upper())
+        return result
+
+    def _batch_fetch_position_quotes(self, positions: list) -> dict:
+        """Subscribe market data for all position legs at once, sleep 2s once,
+        then return per-position quote dicts.
+
+        This replaces the old per-position _stream_tickers pattern which slept
+        2s per position sequentially.  With N positions the old code blocked
+        N × 2s; this always blocks exactly 2s regardless of position count.
+        """
+        if not positions:
+            return {}
+
+        from execution import ExecutionEngine as _EE
+
+        # Map conId → contract and conId → Ticker
+        conid_contract: dict[int, object] = {}
+        for pos in positions:
+            for leg in pos.legs:
+                if leg.con_id not in conid_contract:
+                    try:
+                        conid_contract[leg.con_id] = self.execution._contract_from_conid(leg.con_id)
+                    except Exception as exc:
+                        self.logger.warning(f"batch quote: cannot resolve conId={leg.con_id}: {exc}")
+
+        if not conid_contract:
+            return {}
+
+        # Subscribe all contracts simultaneously
+        conid_ticker: dict[int, object] = {}
+        for conid, contract in conid_contract.items():
+            try:
+                conid_ticker[conid] = self.ib.reqMktData(contract, "", False, False)
+            except Exception as exc:
+                self.logger.warning(f"batch quote: reqMktData failed conId={conid}: {exc}")
+
+        # Single shared wait for all subscriptions
+        self.ib.sleep(2.0)
+
+        # Cancel all immediately after reading
+        for conid, contract in conid_contract.items():
+            try:
+                self.ib.cancelMktData(contract)
+            except Exception:
+                pass
+
+        # Build per-position quotes
+        results: dict[int, dict | None] = {}
+        for pos in positions:
+            tickers = [conid_ticker.get(leg.con_id) for leg in pos.legs]
+            if any(t is None for t in tickers):
+                results[id(pos)] = None
+                continue
+            raw = _EE._close_debit_quote(pos.legs, tickers)
+            if raw is None:
+                results[id(pos)] = None
+            else:
+                bid, ask, mid = raw
+                results[id(pos)] = {"bid": bid, "ask": ask, "mid": mid}
+
+        return results
 
     def _used_margin_dollars(self) -> float:
         total = 0.0
@@ -972,7 +1120,7 @@ class SPXSpreadBotApp:
         if not self.cfg.is_trade_day(now.date()):
             return False
         t = now.time()
-        return self.cfg.entry_start_time() <= t <= self.cfg.entry_end_time()
+        return self.cfg.entry_start_time() <= t < self.cfg.entry_end_time()
 
     def _now(self) -> datetime:
         return datetime.now(self.tz)

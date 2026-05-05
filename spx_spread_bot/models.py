@@ -155,6 +155,7 @@ class RuntimeState:
     current_week_key: str = ""
     current_month_key: str = ""
     trade_taken_today: bool = False
+    stop_loss_today: bool = False          # True if a stop-loss fired today — no re-entry allowed
     attempted_strategies_today: list[str] = field(default_factory=list)
     open_positions: list[OpenPosition] = field(default_factory=list)
     open_position: Optional[OpenPosition] = None

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from collections import deque
 from dataclasses import dataclass
-from datetime import datetime, time as dtime
+from datetime import UTC, datetime, time as dtime
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -478,9 +478,46 @@ paper_mode  = bool(status.get("paper_trading", True))
 actual_mode = "PAPER" if paper_mode else "LIVE"
 mode_match  = actual_mode == bot.expected_mode
 
+# ── Machine health (from psutil written by the bot process) ─────────────────
+_sys = status.get("system", {}) if isinstance(status, dict) else {}
+def _sys_row() -> str:
+    if not _sys:
+        return ""
+    cpu  = _sys.get("cpu_pct")
+    ru   = _sys.get("ram_used_gb");  rt = _sys.get("ram_total_gb")
+    rp   = _sys.get("ram_pct")
+    su   = _sys.get("swap_used_mb", 0)
+    du   = _sys.get("disk_used_gb"); dt = _sys.get("disk_total_gb")
+    ram_col  = "#cf222e" if (rp or 0) > 85 else "#d4a72c" if (rp or 0) > 70 else "#8c959f"
+    swap_col = "#cf222e" if (su or 0) > 200 else "#8c959f"
+    cpu_col  = "#cf222e" if (cpu or 0) > 80 else "#d4a72c" if (cpu or 0) > 50 else "#8c959f"
+    sep = '<span style="color:#d0d7de;margin:0 5px;">·</span>'
+    parts = []
+    if cpu  is not None: parts.append(f'<span style="color:{cpu_col}">CPU {cpu}%</span>')
+    if ru   is not None: parts.append(f'<span style="color:{ram_col}">RAM {ru}/{rt}GB</span>')
+    if su   is not None: parts.append(f'<span style="color:{swap_col}">Swap {int(su)}MB</span>')
+    if du   is not None: parts.append(f'<span style="color:#8c959f">Disk {du}/{dt}GB</span>')
+    return sep.join(parts)
+
 conn_b = _b("CONNECTED", "grn") if connected else _b("OFFLINE", "red")
 mode_b = _b(actual_mode, "blu" if paper_mode else "grn")
 sync_b = _b("SYNC ✓", "grn") if mode_match else _b("MISMATCH", "amb")
+
+# Bot-process alive indicator — based on age of last status write (bot writes every 2s)
+_ts_raw = status.get("ts", "") if isinstance(status, dict) else ""
+_ts_age_s = 9999.0
+if _ts_raw:
+    try:
+        _ts_age_s = (datetime.now(UTC) - datetime.fromisoformat(_ts_raw).astimezone(UTC)).total_seconds()
+    except Exception:
+        pass
+if _ts_age_s < 30:
+    alive_b = _b("● ALIVE", "grn")
+elif _ts_age_s < 300:
+    alive_b = _b("● STALE", "amb")
+else:
+    alive_b = _b("● DOWN", "red")
+
 now_et = datetime.now(ET).strftime("%H:%M:%S  ET")
 
 # ── Topbar — fully inline styles so Streamlit scoping cannot interfere ──────
@@ -513,11 +550,12 @@ st.markdown(f"""
                 display:flex;align-items:center;justify-content:center;font-size:15px;">📈</div>
     <div>
       <div style="{_S}font-size:14px;font-weight:700;color:#1f2328;letter-spacing:-.2px;">
-        {bot.name}&nbsp; {conn_b}&nbsp; {mode_b}&nbsp; {sync_b}
+        {bot.name}&nbsp; {conn_b}&nbsp; {mode_b}&nbsp; {sync_b}&nbsp; {alive_b}
       </div>
       <div style="{_S}font-size:11px;color:#8c959f;margin-top:1px;">
         {bot.symbol}&nbsp;·&nbsp;{bot.strategy_scope}
       </div>
+      {f'<div style="{_S}font-size:10px;margin-top:3px;font-family:\'JetBrains Mono\',ui-monospace,monospace;">{_sys_row()}</div>' if _sys else ''}
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:10px;">
@@ -550,6 +588,36 @@ def _live_section() -> None:
     tc_color = "#1a7f37" if live_stats["today"]>0 else "#cf222e" if live_stats["today"]<0 else "#1f2328"
     hb       = _ts(live_status.get("ts"))
     skip     = live_state.get("skip_reason_today","") or "—"
+
+    # ── Bot-down alert banner (auto-refreshes every 2s) ──────────────────────
+    _live_ts_raw = live_status.get("ts", "") if isinstance(live_status, dict) else ""
+    _live_age_s  = 9999.0
+    if _live_ts_raw:
+        try:
+            _live_age_s = (datetime.now(UTC) - datetime.fromisoformat(_live_ts_raw).astimezone(UTC)).total_seconds()
+        except Exception:
+            pass
+    _has_open = len(live_pos) > 0
+    if _live_age_s > 300:
+        _alert_color, _alert_bg, _alert_icon, _alert_msg = (
+            "#cf222e", "rgba(207,34,46,0.07)", "🔴",
+            f"Bot process appears DOWN — last heartbeat {int(_live_age_s//60)}m ago."
+            + (" <strong>Open position unmonitored — stop-loss not active.</strong>" if _has_open else "")
+        )
+        st.markdown(
+            f'<div style="border:1px solid {_alert_color};background:{_alert_bg};border-radius:6px;'
+            f'padding:8px 14px;margin-bottom:8px;font-size:12px;color:{_alert_color};font-family:Inter,sans-serif;">'
+            f'{_alert_icon}&nbsp; {_alert_msg}</div>',
+            unsafe_allow_html=True,
+        )
+    elif _live_age_s > 30:
+        _alert_color, _alert_bg = "#9a6700", "rgba(154,103,0,0.07)"
+        st.markdown(
+            f'<div style="border:1px solid {_alert_color};background:{_alert_bg};border-radius:6px;'
+            f'padding:8px 14px;margin-bottom:8px;font-size:12px;color:{_alert_color};font-family:Inter,sans-serif;">'
+            f'⚠️&nbsp; Bot heartbeat stale — last write {int(_live_age_s)}s ago. May be reconnecting.</div>',
+            unsafe_allow_html=True,
+        )
 
     net_liq     = live_status.get("net_liquidation")
     nliq_val    = _cash(net_liq) if net_liq is not None else "—"
@@ -655,13 +723,39 @@ def _live_section() -> None:
         _kpi("Total Trades", str(int(live_stats['n'])), f"Avg {_cash(avg,sign=True)} each",             "b"),
     ]) + '</div>', unsafe_allow_html=True)
 
-    # ── Open positions ────────────────────────────────────────────────────────
+    # ── Open positions — card view (sorted by entry time asc) ────────────────
     _rule("Open Positions")
     if not live_pos:
         st.markdown('<div class="nd">No open positions</div>', unsafe_allow_html=True)
     else:
-        for p in live_pos:
+        def _pos_ts(p):
+            try: return datetime.fromisoformat(str(p.get("entry_ts","")).replace("Z","+00:00"))
+            except: return datetime.min.replace(tzinfo=UTC)
+        for p in sorted(live_pos, key=_pos_ts):
             legs_s = _legs(p.get("legs") if isinstance(p.get("legs"),list) else [])
+            entry_ts_raw = p.get("entry_ts", "")
+            if entry_ts_raw:
+                try:
+                    _et_dt = datetime.fromisoformat(str(entry_ts_raw).replace("Z", "+00:00")).astimezone(ET)
+                    entry_time_card = _et_dt.strftime("%Y-%m-%d  %H:%M:%S")
+                except Exception:
+                    entry_time_card = str(entry_ts_raw)
+            else:
+                entry_time_card = "—"
+
+            # Mark and P&L for this position
+            strat_key   = p.get("strategy", "")
+            _cred       = float(p.get("entry_credit") or 0)
+            _contr      = int(p.get("contracts") or 1)
+            _mark       = float(spread_marks.get(strat_key, 0) or 0)
+            if _mark > 0 and _cred > 0:
+                _pnl_val  = (_cred - _mark) * 100 * _contr
+                _pnl_col  = "#1a7f37" if _pnl_val >= 0 else "#cf222e"
+                _pnl_str  = f'{"+" if _pnl_val>=0 else ""}${_pnl_val:,.2f}'
+                _mark_str = f"{_mark:.2f}"
+            else:
+                _pnl_col, _pnl_str, _mark_str = "#8c959f", "—", "—"
+
             st.markdown(f"""
             <div class="pc">
               <div class="pc-h"><div class="pc-n">{p.get('strategy','—')}</div>{_b('OPEN','grn')}</div>
@@ -670,9 +764,10 @@ def _live_section() -> None:
                 <div><div class="pfl">Entry Credit</div><div class="pfv">{p.get('entry_credit','—')}</div></div>
                 <div><div class="pfl">Stop</div><div class="pfv" style="color:#cf222e">{p.get('stop_price','—')}</div></div>
                 <div><div class="pfl">Target</div><div class="pfv" style="color:#1a7f37">{p.get('profit_target_price','—')}</div></div>
-                <div><div class="pfl">Expiry</div><div class="pfv">{p.get('expiry','—')}</div></div>
-                <div><div class="pfl">Entry Time</div><div class="pfv">{_ts(p.get('entry_ts'))}</div></div>
-                <div style="grid-column:span 2"><div class="pfl">Legs</div><div class="pfv">{legs_s}</div></div>
+                <div><div class="pfl">Expiry</div><div class="pfv">{datetime.strptime(str(p.get('expiry','')), '%Y%m%d').strftime('%d %b %Y') if str(p.get('expiry','')).isdigit() and len(str(p.get('expiry',''))) == 8 else p.get('expiry','—')}</div></div>
+                <div><div class="pfl">Entry Time</div><div class="pfv">{entry_time_card}</div></div>
+                <div><div class="pfl">Mark</div><div class="pfv">{_mark_str}</div></div>
+                <div><div class="pfl">Unrealized P&amp;L</div><div class="pfv" style="color:{_pnl_col};font-weight:600">{_pnl_str}</div></div>
               </div>
             </div>""", unsafe_allow_html=True)
 
@@ -703,8 +798,106 @@ t_trades, t_sigs, t_orders, t_log = st.tabs([
 ])
 
 with t_trades:
+    # ── Open positions table ──────────────────────────────────────────────────
+    _open_pos = pos_lst  # use the outer-scope list (not live-fragment, but fine for display)
+    if _open_pos:
+        _M2 = "font-family:'JetBrains Mono',ui-monospace,monospace;"
+        _S2 = "font-family:Inter,system-ui,sans-serif;"
+        _TH = (f"background:#f6f8fa;color:#8c959f;{_S2}font-size:9px;font-weight:700;"
+               "letter-spacing:.7px;text-transform:uppercase;padding:7px 12px;"
+               "border-bottom:1px solid #d0d7de;white-space:nowrap;text-align:left;")
+        _TD = f"{_M2}font-size:12px;color:#1f2328;padding:8px 12px;border-bottom:1px solid #eaeef2;white-space:nowrap;"
+        _sm = status.get("spread_marks", {}) if isinstance(status, dict) else {}
+
+        cols = ["Strategy","Expiry","Short Strike","Long Strike","Contracts",
+                "Entry Credit","Stop","Target","Entry Time ET","Mark","P&L"]
+        hdr  = "".join(f'<th style="{_TH}">{c}</th>' for c in cols)
+
+        def _pos_strike_str(legs_raw, direction, right):
+            return [l["strike"] for l in legs_raw
+                    if l.get("direction","").upper()==direction and l.get("right","").upper()==right]
+
+        def _tab_pos_ts(p):
+            try: return datetime.fromisoformat(str(p.get("entry_ts","")).replace("Z","+00:00"))
+            except: return datetime.min.replace(tzinfo=UTC)
+        rows_html = ""
+        for p in sorted(_open_pos, key=_tab_pos_ts, reverse=True):
+            strat      = p.get("strategy", "—")
+            expiry     = p.get("expiry", "—")
+            legs_raw   = p.get("legs", []) if isinstance(p.get("legs"), list) else []
+            sp_put  = (_pos_strike_str(legs_raw,"SHORT","P") or [p.get("short_put_strike")])[0] or None
+            lp_put  = (_pos_strike_str(legs_raw,"LONG", "P") or [p.get("long_put_strike")])[0]  or None
+            sp_call = (_pos_strike_str(legs_raw,"SHORT","C") or [p.get("short_call_strike")])[0] or None
+            lp_call = (_pos_strike_str(legs_raw,"LONG", "C") or [p.get("long_call_strike")])[0]  or None
+            def _sk(put, call):
+                parts = ([f"{put:.0f}P"] if put else []) + ([f"{call:.0f}C"] if call else [])
+                return " / ".join(parts) or "—"
+            contracts  = p.get("contracts", "—")
+            entry_cred = p.get("entry_credit")
+            stop_p     = p.get("stop_price")
+            target_p   = p.get("profit_target_price")
+            entry_ts_raw = p.get("entry_ts", "")
+            if entry_ts_raw:
+                try:
+                    _edt = datetime.fromisoformat(str(entry_ts_raw).replace("Z","+00:00")).astimezone(ET)
+                    entry_time = _edt.strftime("%Y-%m-%d  %H:%M ET")
+                except Exception:
+                    entry_time = str(entry_ts_raw)
+            else:
+                entry_time = "—"
+            mark = float(_sm.get(strat, 0) or 0)
+            mark_s = f"{mark:.2f}" if mark > 0 else "—"
+            if entry_cred and mark > 0 and contracts:
+                pv  = (float(entry_cred) - mark) * 100 * int(contracts)
+                pc  = "#1a7f37" if pv >= 0 else "#cf222e"
+                pnl = f'<span style="color:{pc};font-weight:600;">{"+" if pv>=0 else ""}${pv:,.2f}</span>'
+            else:
+                pnl = "—"
+            def _fv(v, color=None):
+                s = f"{float(v):.2f}" if v is not None else "—"
+                return (f'<span style="color:{color};font-weight:600;">{s}</span>' if color and v is not None else s)
+            rows_html += (
+                f'<tr>'
+                f'<td style="{_TD}font-weight:600;color:#0969da;">{strat}</td>'
+                f'<td style="{_TD}">{expiry}</td>'
+                f'<td style="{_TD}">{_sk(sp_put, sp_call)}</td>'
+                f'<td style="{_TD}">{_sk(lp_put, lp_call)}</td>'
+                f'<td style="{_TD}text-align:center;">{contracts}</td>'
+                f'<td style="{_TD}">{_fv(entry_cred)}</td>'
+                f'<td style="{_TD}">{_fv(stop_p,  "#cf222e")}</td>'
+                f'<td style="{_TD}">{_fv(target_p,"#1a7f37")}</td>'
+                f'<td style="{_TD}font-size:11px;color:#57606a;">{entry_time}</td>'
+                f'<td style="{_TD}">{mark_s}</td>'
+                f'<td style="{_TD}">{pnl}</td>'
+                f'</tr>'
+            )
+        _label_style = (
+            "font-family:Inter,sans-serif;font-size:9px;font-weight:700;"
+            "letter-spacing:.8px;text-transform:uppercase;color:#8c959f;"
+            "margin-bottom:6px;margin-top:2px;"
+        )
+        st.markdown(
+            f'<div style="{_label_style}">Open Positions</div>'
+            f'<div style="overflow-x:auto;margin-bottom:16px;">'
+            f'<table style="width:100%;border-collapse:collapse;border:1px solid #d0d7de;border-radius:8px;">'
+            f'<thead><tr>{hdr}</tr></thead><tbody>{rows_html}</tbody>'
+            f'</table></div>',
+            unsafe_allow_html=True,
+        )
+
+    # ── Closed trades ─────────────────────────────────────────────────────────
+    _label_style = (
+        "font-family:Inter,sans-serif;font-size:9px;font-weight:700;"
+        "letter-spacing:.8px;text-transform:uppercase;color:#8c959f;"
+        "margin-bottom:6px;"
+    )
+    st.markdown(f'<div style="{_label_style}">Closed Trades</div>', unsafe_allow_html=True)
     if trades.empty:
-        st.markdown('<div class="nd">No trades recorded yet</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div style="font-family:Inter,sans-serif;font-size:12px;color:#8c959f;'
+            'padding:12px 4px;">No closed trades recorded yet</div>',
+            unsafe_allow_html=True,
+        )
     else:
         want = ["Date","Entry","Exit","Short","Long","SPX","VIX","Credit","Cts","PnL/ct","Total PnL","W/L","Exit Reason","Strategy","Notes"]
         show = [c for c in want if c in trades.columns]
@@ -712,7 +905,7 @@ with t_trades:
         if "Total PnL" in disp.columns:
             disp["Total PnL"] = disp["Total PnL"].apply(
                 lambda x: (f"+${x:,.2f}" if x>0 else f"-${abs(x):,.2f}") if pd.notna(x) else "—")
-        st.dataframe(disp, use_container_width=True, hide_index=True, height=320)
+        st.dataframe(disp, use_container_width=True, hide_index=True, height=390)
 
 with t_sigs:
     sigs = _rjl(bot.signal_events_file, 300)
