@@ -71,9 +71,23 @@ class ExecutionEngine:
                 },
             )
 
-            status = self._wait_for_fill(trade, timeout=self.cfg.retry_wait_seconds)
+            wait_secs = 5 if self.cfg.paper_trading else self.cfg.retry_wait_seconds
+            status = self._wait_for_fill(trade, timeout=wait_secs)
+
+            # Paper engine doesn't fill multi-leg combos reliably — simulate a
+            # fill at the submitted limit price so paper bots can actually trade.
+            _paper_simulated = False
+            if status != "FILLED" and self.cfg.paper_trading:
+                self._cancel_trade_if_open(trade)
+                status = "FILLED"
+                _paper_simulated = True
+                self.logger.order_event("PAPER_FILL_SIMULATED", {
+                    "attempt": attempt, "strategy": candidate.strategy.value,
+                    "simulated_fill": limit_price, "order_id": trade.order.orderId,
+                })
+
             if status == "FILLED":
-                fill_price = self._avg_fill_price(trade)
+                fill_price = limit_price if _paper_simulated else self._avg_fill_price(trade)
                 stop_price = round(fill_price * self.cfg.stop_multiplier, 2)
                 profit_target = round(fill_price * (1 - self.cfg.profit_target_pct), 2)
 
