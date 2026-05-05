@@ -407,6 +407,13 @@ class SPXSpreadBotApp:
         return False
 
     def _entry_job(self) -> None:
+        # Write status before the scan — reqTickers fallbacks can block the main
+        # loop for 100s+ preventing _status_job from firing.
+        try:
+            self._write_status()
+        except Exception:  # noqa: BLE001
+            pass
+
         now = self._now()
         self._rollover_state_if_new_day(now)
 
