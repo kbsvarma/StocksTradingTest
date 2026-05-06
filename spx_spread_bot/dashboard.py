@@ -610,7 +610,7 @@ def _live_section() -> None:
             f'{_alert_icon}&nbsp; {_alert_msg}</div>',
             unsafe_allow_html=True,
         )
-    elif _live_age_s > 30:
+    elif _live_age_s > 60:
         _alert_color, _alert_bg = "#9a6700", "rgba(154,103,0,0.07)"
         st.markdown(
             f'<div style="border:1px solid {_alert_color};background:{_alert_bg};border-radius:6px;'
