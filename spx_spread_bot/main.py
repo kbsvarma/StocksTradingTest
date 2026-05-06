@@ -266,6 +266,20 @@ class SPXSpreadBotApp:
         _STATUS_INTERVAL: float = 2.0
         _NET_LIQ_INTERVAL: float = 60.0
 
+        # _write_status makes no IB/asyncio calls (file I/O + psutil only) so
+        # it is safe to run from a daemon thread. This keeps status.json fresh
+        # even when _entry_job blocks the main loop for 60-90s on reqTickers.
+        def _status_writer() -> None:
+            while self._running:
+                try:
+                    self._write_status()
+                except Exception:  # noqa: BLE001
+                    pass
+                time.sleep(10)
+
+        import threading as _threading
+        _threading.Thread(target=_status_writer, daemon=True, name="status-writer").start()
+
         while self._running:
             # ib.sleep(0.5) runs the asyncio event loop for 0.5s, processing
             # all pending socket I/O and callbacks. This is the canonical
