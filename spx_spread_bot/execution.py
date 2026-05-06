@@ -135,6 +135,21 @@ class ExecutionEngine:
         IBKR rejects StopOrder on many SMART-routed index-option BAG combos.
         Stop-loss enforcement is therefore handled in the 1-second monitor loop.
         """
+        if self.cfg.paper_trading:
+            pos.stop_order_id = None
+            pos.profit_order_id = None
+            self.logger.order_event(
+                "PROTECTION_ACTIVE",
+                {
+                    "strategy": pos.strategy,
+                    "profit_order_id": None,
+                    "stop_price": pos.stop_price,
+                    "stop_mechanism": "monitor_market_close",
+                    "profit_target": pos.profit_target_price,
+                },
+            )
+            return True, "paper_simulated"
+
         combo = self._build_combo(pos.legs)
 
         target_order = LimitOrder("BUY", pos.contracts, pos.profit_target_price, tif="GTC")
