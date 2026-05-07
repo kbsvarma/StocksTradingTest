@@ -33,13 +33,13 @@ BOT_VIEWS = {
         system_log_file=ROOT/"logs"/"system.log",
     ),
     "XSP Live": BotView(
-        name="XSP Live Bot", symbol="XSP", expected_mode="LIVE",
+        name="SPX-XSP-Live Bot", symbol="SPX", expected_mode="PAPER",
         strategy_scope="BULL PUT SPREAD",
-        status_file=ROOT/"data"/"xsp"/"status.json",
-        trades_file=ROOT/"data"/"xsp"/"trades.csv",
-        signal_events_file=ROOT/"logs"/"xsp"/"signal_events.jsonl",
-        order_events_file=ROOT/"logs"/"xsp"/"order_events.jsonl",
-        system_log_file=ROOT/"logs"/"xsp"/"system.log",
+        status_file=ROOT/"data"/"spx_live"/"status.json",
+        trades_file=ROOT/"data"/"spx_live"/"trades.csv",
+        signal_events_file=ROOT/"logs"/"spx_live"/"signal_events.jsonl",
+        order_events_file=ROOT/"logs"/"spx_live"/"order_events.jsonl",
+        system_log_file=ROOT/"logs"/"spx_live"/"system.log",
     ),
 }
 
@@ -731,8 +731,14 @@ def _live_section() -> None:
         def _pos_ts(p):
             try: return datetime.fromisoformat(str(p.get("entry_ts","")).replace("Z","+00:00"))
             except: return datetime.min.replace(tzinfo=UTC)
-        for p in sorted(live_pos, key=_pos_ts):
-            legs_s = _legs(p.get("legs") if isinstance(p.get("legs"),list) else [])
+
+        _POS_CAP = 30
+        _all_pos = sorted(live_pos, key=_pos_ts, reverse=True)  # newest first
+        _sorted_pos = _all_pos[:_POS_CAP]
+        _total_unreal = 0.0
+        _has_marks = False
+        _cards_html = ""
+        for p in _sorted_pos:
             entry_ts_raw = p.get("entry_ts", "")
             if entry_ts_raw:
                 try:
@@ -743,33 +749,57 @@ def _live_section() -> None:
             else:
                 entry_time_card = "—"
 
-            # Mark and P&L for this position
             strat_key   = p.get("strategy", "")
+            _sp_strike  = p.get("short_put_strike") or p.get("short_call_strike") or ""
+            _mark_key   = f"{strat_key}_{_sp_strike}" if _sp_strike else strat_key
             _cred       = float(p.get("entry_credit") or 0)
             _contr      = int(p.get("contracts") or 1)
-            _mark       = float(spread_marks.get(strat_key, 0) or 0)
+            _mark       = float(spread_marks.get(_mark_key, 0) or 0)
             if _mark > 0 and _cred > 0:
                 _pnl_val  = (_cred - _mark) * 100 * _contr
                 _pnl_col  = "#1a7f37" if _pnl_val >= 0 else "#cf222e"
                 _pnl_str  = f'{"+" if _pnl_val>=0 else ""}${_pnl_val:,.2f}'
                 _mark_str = f"{_mark:.2f}"
+                _total_unreal += _pnl_val
+                _has_marks = True
             else:
                 _pnl_col, _pnl_str, _mark_str = "#8c959f", "—", "—"
 
-            st.markdown(f"""
-            <div class="pc">
+            _exp_raw = str(p.get('expiry',''))
+            _exp_fmt = datetime.strptime(_exp_raw, '%Y%m%d').strftime('%d %b %Y') if _exp_raw.isdigit() and len(_exp_raw) == 8 else (_exp_raw or '—')
+            _cards_html += f"""<div class="pc">
               <div class="pc-h"><div class="pc-n">{p.get('strategy','—')}</div>{_b('OPEN','grn')}</div>
               <div class="pf">
                 <div><div class="pfl">Contracts</div><div class="pfv">{p.get('contracts','—')}</div></div>
                 <div><div class="pfl">Entry Credit</div><div class="pfv">{p.get('entry_credit','—')}</div></div>
                 <div><div class="pfl">Stop</div><div class="pfv" style="color:#cf222e">{p.get('stop_price','—')}</div></div>
                 <div><div class="pfl">Target</div><div class="pfv" style="color:#1a7f37">{p.get('profit_target_price','—')}</div></div>
-                <div><div class="pfl">Expiry</div><div class="pfv">{datetime.strptime(str(p.get('expiry','')), '%Y%m%d').strftime('%d %b %Y') if str(p.get('expiry','')).isdigit() and len(str(p.get('expiry',''))) == 8 else p.get('expiry','—')}</div></div>
+                <div><div class="pfl">Expiry</div><div class="pfv">{_exp_fmt}</div></div>
                 <div><div class="pfl">Entry Time</div><div class="pfv">{entry_time_card}</div></div>
                 <div><div class="pfl">Mark</div><div class="pfv">{_mark_str}</div></div>
                 <div><div class="pfl">Unrealized P&amp;L</div><div class="pfv" style="color:{_pnl_col};font-weight:600">{_pnl_str}</div></div>
               </div>
-            </div>""", unsafe_allow_html=True)
+            </div>"""
+
+        # Summary bar above the scrollable card list
+        _n_total = len(_all_pos)
+        _n_shown = len(_sorted_pos)
+        _unreal_col = "#1a7f37" if _total_unreal >= 0 else "#cf222e"
+        _unreal_disp = (f'<span style="color:{_unreal_col};font-weight:600;">{"+" if _total_unreal>=0 else ""}${_total_unreal:,.2f}</span>' if _has_marks else '<span style="color:#8c959f;">—</span>')
+        _cap_note = (f' &nbsp;<span style="color:#8c959f;font-weight:400;">· showing {_n_shown} of {_n_total} most recent</span>' if _n_total > _POS_CAP else "")
+        st.markdown(
+            f'<div style="display:flex;align-items:center;gap:16px;margin-bottom:8px;">'
+            f'<span style="font-family:Inter,sans-serif;font-size:11px;font-weight:700;color:#57606a;">'
+            f'{_n_total} position{"s" if _n_total!=1 else ""} open{_cap_note}</span>'
+            f'<span style="font-family:Inter,sans-serif;font-size:11px;color:#57606a;">Unrealized P&amp;L (shown): {_unreal_disp}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        # Scrollable card container — caps height at ~3 cards, scrolls for more
+        st.markdown(
+            f'<div style="max-height:480px;overflow-y:auto;padding-right:4px;">{_cards_html}</div>',
+            unsafe_allow_html=True,
+        )
 
     # ── Last signal ───────────────────────────────────────────────────────────
     if isinstance(live_sig, dict) and live_sig:
@@ -820,8 +850,11 @@ with t_trades:
         def _tab_pos_ts(p):
             try: return datetime.fromisoformat(str(p.get("entry_ts","")).replace("Z","+00:00"))
             except: return datetime.min.replace(tzinfo=UTC)
+        _TAB_CAP = 30
+        _open_pos_all = sorted(_open_pos, key=_tab_pos_ts, reverse=True)
+        _open_pos_shown = _open_pos_all[:_TAB_CAP]
         rows_html = ""
-        for p in sorted(_open_pos, key=_tab_pos_ts, reverse=True):
+        for p in _open_pos_shown:
             strat      = p.get("strategy", "—")
             expiry     = p.get("expiry", "—")
             legs_raw   = p.get("legs", []) if isinstance(p.get("legs"), list) else []
@@ -845,7 +878,9 @@ with t_trades:
                     entry_time = str(entry_ts_raw)
             else:
                 entry_time = "—"
-            mark = float(_sm.get(strat, 0) or 0)
+            _sp = p.get("short_put_strike") or p.get("short_call_strike") or ""
+            _mk = f"{strat}_{_sp}" if _sp else strat
+            mark = float(_sm.get(_mk, 0) or 0)
             mark_s = f"{mark:.2f}" if mark > 0 else "—"
             if entry_cred and mark > 0 and contracts:
                 pv  = (float(entry_cred) - mark) * 100 * int(contracts)
@@ -876,11 +911,13 @@ with t_trades:
             "letter-spacing:.8px;text-transform:uppercase;color:#8c959f;"
             "margin-bottom:6px;margin-top:2px;"
         )
+        _tab_total = len(_open_pos_all)
+        _tab_cap_note = f" — showing {_TAB_CAP} of {_tab_total} most recent" if _tab_total > _TAB_CAP else ""
         st.markdown(
-            f'<div style="{_label_style}">Open Positions</div>'
-            f'<div style="overflow-x:auto;margin-bottom:16px;">'
-            f'<table style="width:100%;border-collapse:collapse;border:1px solid #d0d7de;border-radius:8px;">'
-            f'<thead><tr>{hdr}</tr></thead><tbody>{rows_html}</tbody>'
+            f'<div style="{_label_style}">Open Positions ({_tab_total}){_tab_cap_note}</div>'
+            f'<div style="overflow-x:auto;overflow-y:auto;max-height:320px;margin-bottom:16px;border:1px solid #d0d7de;border-radius:8px;">'
+            f'<table style="width:100%;border-collapse:collapse;">'
+            f'<thead style="position:sticky;top:0;z-index:1;"><tr>{hdr}</tr></thead><tbody>{rows_html}</tbody>'
             f'</table></div>',
             unsafe_allow_html=True,
         )
