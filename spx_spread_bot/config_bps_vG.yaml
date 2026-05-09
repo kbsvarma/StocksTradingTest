@@ -1,8 +1,8 @@
-# BPS Variant G — Research-optimised config
+# BPS Variant G — Live-ready config
 # 50pt width | 1.0% OTM | VIX < 25 gate | Skip if VIX rising > 3pts
-# Derived from 12-year backtest (2014-2026): Sharpe 5.11, $12,437/yr/contract
-# Best performing config across all market regimes — zero losing years in 12yr test
-# Paper mode — validate before going live
+# Profit target DISABLED — let winners expire worthless (PDT-safe, keeps full credit)
+# Stop loss active at 2x credit — protects against reversals
+# 12-yr backtest: Sharpe 2.82, $9,024/yr/contract (0DTE, VIX<25, no direction filter)
 
 capital: 3000
 max_contracts: 1
@@ -16,6 +16,7 @@ target_credit: 2.00
 stop_multiplier: 2.0
 min_stop_distance: 0.0
 profit_target_pct: 0.50
+disable_profit_target: true   # let winners expire worthless — PDT-safe, keeps full credit
 otm_pct_low_vix: 0.010
 otm_pct_high_vix: 0.010
 vix_min: 12.0

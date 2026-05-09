@@ -88,7 +88,10 @@ class ExecutionEngine:
 
             if status == "FILLED":
                 fill_price = limit_price if _paper_simulated else self._avg_fill_price(trade)
-                stop_price = round(fill_price * self.cfg.stop_multiplier, 2)
+                stop_price = round(max(
+                    fill_price * self.cfg.stop_multiplier,
+                    fill_price + self.cfg.min_stop_distance,
+                ), 2)
                 profit_target = round(fill_price * (1 - self.cfg.profit_target_pct), 2)
 
                 open_position = OpenPosition(
@@ -135,7 +138,7 @@ class ExecutionEngine:
         IBKR rejects StopOrder on many SMART-routed index-option BAG combos.
         Stop-loss enforcement is therefore handled in the 1-second monitor loop.
         """
-        if self.cfg.paper_trading:
+        if self.cfg.paper_trading or self.cfg.disable_profit_target:
             pos.stop_order_id = None
             pos.profit_order_id = None
             self.logger.order_event(
@@ -145,10 +148,10 @@ class ExecutionEngine:
                     "profit_order_id": None,
                     "stop_price": pos.stop_price,
                     "stop_mechanism": "monitor_market_close",
-                    "profit_target": pos.profit_target_price,
+                    "profit_target": "disabled" if self.cfg.disable_profit_target else pos.profit_target_price,
                 },
             )
-            return True, "paper_simulated"
+            return True, "paper_simulated" if self.cfg.paper_trading else "profit_target_disabled"
 
         combo = self._build_combo(pos.legs)
 
@@ -212,6 +215,22 @@ class ExecutionEngine:
         return False, "combo timed out — will retry"
 
     def close_open_position_limit(self, pos: OpenPosition, limit_price: float, reason: str) -> tuple[bool, float]:
+        # Paper mode: IB cancels limit combo orders immediately (no real position
+        # exists since entry was paper-simulated).  Simulate an instant fill at
+        # the submitted limit price so profit targets close correctly in paper mode.
+        if self.cfg.paper_trading:
+            self.logger.order_event(
+                "LIMIT_CLOSE_SUBMITTED",
+                {
+                    "order_id": 0,
+                    "strategy": pos.strategy,
+                    "reason": reason,
+                    "limit_price": limit_price,
+                    "paper_simulated": True,
+                },
+            )
+            return True, limit_price
+
         combo = self._build_combo(pos.legs)
         order = LimitOrder("BUY", pos.contracts, round(limit_price, 2), tif="DAY")
         self._apply_combo_routing(order, leg_count=len(pos.legs))

@@ -26,6 +26,10 @@ class BotConfig:
     stop_multiplier: float = 2.0
     min_stop_distance: float = 0.0  # floor on stop distance above entry (e.g. 0.50 for XSP)
     profit_target_pct: float = 0.50
+    # Set to true to disable the intraday 50% profit target entirely.
+    # Position will only exit via stop-loss, EOD close, or natural expiry.
+    # Recommended for accounts under $25K to avoid PDT day-trade burns.
+    disable_profit_target: bool = False
     otm_pct_low_vix: float = 0.018
     otm_pct_high_vix: float = 0.025
     vix_min: float = 12.0

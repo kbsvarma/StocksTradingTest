@@ -62,19 +62,22 @@ class PositionMonitor:
             if mark is not None:
                 # Log to tick_events (high-frequency) rather than order_events
                 # to prevent order_events.jsonl from bloating with every 30s poll.
-                self.logger.tick_event_raw(
-                    "SPREAD_MARK",
-                    {
-                        "strategy": pos.strategy,
-                        "mark": mark,
-                        "spread_bid": quote["bid"] if quote else None,
-                        "spread_ask": quote["ask"] if quote else None,
-                        "stop": pos.stop_price,
-                        "profit_target": pos.profit_target_price,
-                        "short_put_strike": pos.short_put_strike,
-                        "short_call_strike": pos.short_call_strike,
-                    },
-                )
+                sp = pos.short_put_strike or pos.short_call_strike or ""
+                mark_key = f"{pos.strategy}_{sp}" if sp else pos.strategy
+                mark_payload = {
+                    "strategy": pos.strategy,
+                    "mark": mark,
+                    "spread_bid": quote["bid"] if quote else None,
+                    "spread_ask": quote["ask"] if quote else None,
+                    "stop": pos.stop_price,
+                    "profit_target": pos.profit_target_price,
+                    "short_put_strike": pos.short_put_strike,
+                    "short_call_strike": pos.short_call_strike,
+                }
+                self.logger.tick_event_raw("SPREAD_MARK", mark_payload)
+                # Also update the small sidecar so _write_status doesn't need
+                # to tail-scan the 100MB+ tick_events.jsonl.
+                self.logger.update_spread_mark(mark_key, mark_payload)
         else:
             quote = None
 
@@ -85,7 +88,7 @@ class PositionMonitor:
                     return MonitorOutcome(closed=True, reason=ExitReason.STOP_LOSS, exit_price=mark, detail=detail)
                 return MonitorOutcome(closed=False, detail=f"stop-loss close failed: {detail}")
 
-            if mark <= pos.profit_target_price:
+            if not self.cfg.disable_profit_target and mark <= pos.profit_target_price:
                 # If broker-side GTC profit order is working OR already filled,
                 # do not submit a second close — a filled GTC means the position
                 # is already flat; a second BUY would open an untracked long.
