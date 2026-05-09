@@ -1,0 +1,25 @@
+[Unit]
+Description=SPX BPS Bot — vD (50pt, 0.5% OTM, VIX<30)
+After=network-online.target spx-ibgateway.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__BOT_USER__
+WorkingDirectory=__BOT_ROOT__
+Environment=PYTHONUNBUFFERED=1
+ExecStart=__BOT_ROOT__/.venv/bin/python __BOT_ROOT__/main.py __BOT_ROOT__/config_bps_vD.yaml
+Restart=always
+RestartSec=20
+TimeoutStopSec=45
+KillSignal=SIGINT
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+SyslogIdentifier=spx-spread-bot-vD
+
+[Install]
+WantedBy=multi-user.target
