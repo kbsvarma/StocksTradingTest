@@ -223,6 +223,10 @@ class MarketDataService:
         # on every signal evaluation while keeping prices fresh (10-second TTL).
         self._yf_spx_cache: tuple[float, float] = (0.0, 0.0)
         self._yf_vix_cache: tuple[float, float] = (0.0, 0.0)
+        # Day-open cache: (open_price, date_str) — open doesn't change intraday,
+        # so we cache by date rather than by time.
+        self._yf_open_cache: tuple[float, str] = (0.0, "")
+        self._yf_vix_open_cache: tuple[float, str] = (0.0, "")
 
     def connect(self) -> None:
         if self.ib.isConnected():
@@ -410,6 +414,63 @@ class MarketDataService:
         self._yf_vix_cache = (price, _time.time())
         return price
 
+    def get_spx_open(self, current_date: "date") -> float:
+        """Return the SPX day-open price via yfinance, cached by date.
+
+        The open doesn't change intraday so we cache keyed on the date string
+        rather than a TTL. On a new trading day the cache misses and re-fetches.
+        Returns 0.0 on failure so callers can treat a zero as 'unavailable'
+        and fail open rather than blocking an entry.
+        """
+        cached_open, cached_date = self._yf_open_cache
+        if cached_open > 0 and cached_date == current_date.isoformat():
+            return cached_open
+        try:
+            info = _yf.Ticker("^GSPC").fast_info
+            open_price = float(getattr(info, "open", None) or 0.0)
+            if open_price <= 0:
+                hist = _yf.Ticker("^GSPC").history(period="1d")
+                if not hist.empty:
+                    open_price = float(hist["Open"].iloc[-1])
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(f"SPX open price fetch failed: {exc}")
+            return cached_open if cached_open > 0 else 0.0
+        if open_price <= 0:
+            return cached_open if cached_open > 0 else 0.0
+        if self.cfg.underlying_symbol.upper() == "XSP":
+            open_price = open_price / 10.0
+        open_price = round(open_price, 2)
+        self._yf_open_cache = (open_price, current_date.isoformat())
+        self.logger.info(f"SPX day open cached: {open_price:.2f} for {current_date}")
+        return open_price
+
+    def get_vix_open(self, current_date: "date") -> float:
+        """Return today's VIX opening price via yfinance, cached by date.
+
+        Used to detect intraday VIX spikes: if VIX has risen more than
+        cfg.vix_max_daily_rise points from the open, the signal engine skips.
+        Returns 0.0 on failure so callers treat zero as 'unavailable' and fail open.
+        """
+        cached_open, cached_date = self._yf_vix_open_cache
+        if cached_open > 0 and cached_date == current_date.isoformat():
+            return cached_open
+        try:
+            info = _yf.Ticker("^VIX").fast_info
+            open_price = float(getattr(info, "open", None) or 0.0)
+            if open_price <= 0:
+                hist = _yf.Ticker("^VIX").history(period="1d")
+                if not hist.empty:
+                    open_price = float(hist["Open"].iloc[-1])
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(f"VIX open price fetch failed: {exc}")
+            return cached_open if cached_open > 0 else 0.0
+        if open_price <= 0:
+            return cached_open if cached_open > 0 else 0.0
+        open_price = round(open_price, 2)
+        self._yf_vix_open_cache = (open_price, current_date.isoformat())
+        self.logger.info(f"VIX day open cached: {open_price:.2f} for {current_date}")
+        return open_price
+
     def load_option_chain(self) -> OptionChainSnapshot:
         if self._option_chain:
             return self._option_chain
@@ -539,8 +600,13 @@ class MarketDataService:
         # ticks within ~1s of subscription. We subscribe, wait 2s for data to
         # flow, read the tickers, then cancel the subscriptions.
         stream_tickers = []
-        for c in contracts:
-            stream_tickers.append(self.ib.reqMktData(c, "", False, False))
+        try:
+            for c in contracts:
+                stream_tickers.append(self.ib.reqMktData(c, "", False, False))
+        except Exception as _req_exc:  # noqa: BLE001
+            # Gateway disconnected mid-subscription — treat as no quote rather than crashing.
+            self.logger.warning(f"get_credit_quote reqMktData failed ({_req_exc}); skipping candidate")
+            return None
         self.ib.sleep(2.0)
         for c in contracts:
             try:
@@ -574,7 +640,10 @@ class MarketDataService:
 
         credit_bid = short_bid_total - long_ask_total
         credit_ask = short_ask_total - long_bid_total
-        if credit_bid <= 0 or credit_ask <= 0:
+        # Only hard-reject when the best-case credit (ask side) is also non-positive.
+        # credit_bid can be negative on OTM 0DTE spreads with wide bid/ask — that is
+        # normal and should not disqualify the candidate; min_credit on the mid filters it.
+        if credit_ask <= 0:
             return None
 
         mid = round((credit_bid + credit_ask) / 2.0, 2)

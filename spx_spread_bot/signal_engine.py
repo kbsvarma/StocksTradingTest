@@ -66,6 +66,41 @@ class SignalEngine:
                 vix_price=0.0,
             )
 
+        # VIX daily-rise gate: skip if VIX has risen more than cfg.vix_max_daily_rise
+        # points from today's open.  Applies only when the threshold is set (> 0).
+        # Fails open — if the VIX open price is unavailable we do NOT block the trade.
+        if self.cfg.vix_max_daily_rise > 0:
+            vix_open = self.market.get_vix_open(now.date())
+            if vix_open > 0:
+                vix_rise = vix_price - vix_open
+                if vix_rise > self.cfg.vix_max_daily_rise:
+                    return SignalResult(
+                        decision=Decision.SKIP,
+                        reason=(
+                            f"VIX daily-rise filter: rose {vix_rise:.2f}pts from open "
+                            f"({vix_open:.2f} → {vix_price:.2f}), limit={self.cfg.vix_max_daily_rise:.1f}pts"
+                        ),
+                        spx_price=spx_price,
+                        vix_price=vix_price,
+                    )
+
+        # Per-tick direction filter: only enter when SPX >= today's open.
+        # This is NOT a day-level skip — the bot keeps scanning every tick so
+        # it will enter the moment the market recovers above the open price.
+        # Fails open (does not block) if the open price is unavailable.
+        if self.cfg.direction_filter_enabled:
+            spx_open = self.market.get_spx_open(now.date())
+            if spx_open > 0 and spx_price < spx_open:
+                self.logger.debug(
+                    f"direction filter: SPX {spx_price:.2f} < open {spx_open:.2f} — watching"
+                )
+                return SignalResult(
+                    decision=Decision.SKIP,
+                    reason=f"direction filter: {spx_price:.2f} < open {spx_open:.2f} — watching",
+                    spx_price=spx_price,
+                    vix_price=vix_price,
+                )
+
         regime = self._resolve_regime(vix_price)
         if regime is None:
             return SignalResult(
@@ -275,7 +310,11 @@ class SignalEngine:
             OptionLegSpec(right="P", strike=long_put, direction=LegDirection.LONG, quantity=1),
         ]
         quote = self.market.get_credit_quote(expiry, legs)
-        if not quote or quote.mid < self.cfg.min_credit:
+        if not quote:
+            self.logger.warning(f"BPS quote=None sp={short_put} lp={long_put} exp={expiry}")
+            return None
+        if quote.mid < self.cfg.min_credit:
+            self.logger.warning(f"BPS below min_credit sp={short_put} lp={long_put} mid={quote.mid:.2f} min={self.cfg.min_credit}")
             return None
 
         max_loss = self._estimate_max_loss_dollars(legs, quote.mid)

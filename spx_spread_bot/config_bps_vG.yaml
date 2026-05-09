@@ -1,0 +1,84 @@
+# BPS Variant G — Research-optimised config
+# 50pt width | 1.0% OTM | VIX < 25 gate | Skip if VIX rising > 3pts
+# Derived from 12-year backtest (2014-2026): Sharpe 5.11, $12,437/yr/contract
+# Best performing config across all market regimes — zero losing years in 12yr test
+# Paper mode — validate before going live
+
+capital: 3000
+max_contracts: 1
+spread_width: 50
+bwb_narrow_wing_width: 25
+bwb_wide_wing_width: 50
+condor_wing_width: 25
+iron_fly_wing_width: 25
+min_credit: 0.80
+target_credit: 2.00
+stop_multiplier: 2.0
+min_stop_distance: 0.0
+profit_target_pct: 0.50
+otm_pct_low_vix: 0.010
+otm_pct_high_vix: 0.010
+vix_min: 12.0
+vix_max: 25.0
+vix_max_daily_rise: 3.0
+
+entry_start: "09:45"
+entry_end: "14:30"
+eod_check: "15:45"
+friday_forced_close: "15:30"
+timezone: "America/New_York"
+
+paper_trading: true
+live_mode_enabled: false
+host: "127.0.0.1"
+port: 4002
+client_id: 66
+market_data_type: 1
+
+underlying_symbol: "SPX"
+underlying_exchange: "CBOE"
+option_exchange: "SMART"
+combo_exchange: "SMART"
+preferred_trading_class: "SPXW"
+currency: "USD"
+
+max_margin_usage_pct: 0.90
+min_available_margin: 500
+
+run_days: [0, 1, 2, 3, 4]
+dte_candidates: [0, 2]
+trade_once_per_day: true
+enabled_strategies: ["BULL_PUT_SPREAD"]
+strategy_priority: ["BULL_PUT_SPREAD"]
+
+paper_max_entries_per_day: 1
+
+max_retries: 3
+retry_price_step: 0.05
+retry_wait_seconds: 120
+fill_timeout_seconds: 300
+protection_deadline_seconds: 10
+
+monitor_interval_seconds: 1
+tick_log_interval_seconds: 0.25
+
+auto_place_on_signal: true
+one_click_confirm: false
+
+macro_provider: "hybrid"
+macro_fail_open: false
+macro_api_key: ""
+manual_macro_dates_csv: "data/manual_macro_dates.csv"
+macro_refresh_hour_et: 6
+
+direction_filter_enabled: true
+
+data_dir: "data/bps_sample/vG_otm010_w50_vix25"
+logs_dir: "logs/bps_sample/vG_otm010_w50_vix25"
+state_file: "data/bps_sample/vG_otm010_w50_vix25/runtime_state.json"
+status_file: "data/bps_sample/vG_otm010_w50_vix25/status.json"
+signal_events_file: "logs/bps_sample/vG_otm010_w50_vix25/signal_events.jsonl"
+order_events_file: "logs/bps_sample/vG_otm010_w50_vix25/order_events.jsonl"
+tick_events_file: "logs/bps_sample/vG_otm010_w50_vix25/tick_events.jsonl"
+daily_summary_file: "logs/bps_sample/vG_otm010_w50_vix25/daily_summary.log"
+trade_csv_file: "data/bps_sample/vG_otm010_w50_vix25/trades.csv"

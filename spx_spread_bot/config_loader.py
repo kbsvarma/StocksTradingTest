@@ -24,11 +24,15 @@ class BotConfig:
     min_credit: float = 1.50
     target_credit: float = 2.00
     stop_multiplier: float = 2.0
+    min_stop_distance: float = 0.0  # floor on stop distance above entry (e.g. 0.50 for XSP)
     profit_target_pct: float = 0.50
     otm_pct_low_vix: float = 0.018
     otm_pct_high_vix: float = 0.025
     vix_min: float = 12.0
     vix_max: float = 30.0
+    # Skip the day if VIX has risen more than this many points from today's open.
+    # Set to 0.0 (default) to disable the filter — vA-vF are unaffected.
+    vix_max_daily_rise: float = 0.0
     entry_start: str = "09:45"
     entry_end: str = "10:15"
     eod_check: str = "15:45"
@@ -51,6 +55,7 @@ class BotConfig:
 
     max_margin_usage_pct: float = 0.50
     min_available_margin: float = 5_000.0
+    paper_max_entries_per_day: int = 100
     max_retries: int = 3
     retry_price_step: float = 0.05
     retry_wait_seconds: int = 120
@@ -83,6 +88,11 @@ class BotConfig:
     macro_fail_open: bool = True
     macro_api_key: str = ""
     manual_macro_dates_csv: str = "data/manual_macro_dates.csv"
+
+    # Intraday direction filter: only enter BPS when SPX >= today's open price.
+    # Evaluated per-tick so the bot keeps scanning — if the market recovers above
+    # the open mid-session, it will enter normally. Does NOT set a day-level skip.
+    direction_filter_enabled: bool = False
 
     data_dir: str = "data"
     logs_dir: str = "logs"
