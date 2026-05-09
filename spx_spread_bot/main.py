@@ -435,19 +435,30 @@ class SPXSpreadBotApp:
             return
 
         # Stop-loss hit today → no re-entry for the rest of the day
-        if self.state.stop_loss_today:
+        if self.state.stop_loss_today and not self.cfg.paper_trading:
             return
 
         enabled = {s.upper() for s in self.cfg.enabled_strategies}
         today_key = now.date().isoformat()
-        # Only block re-entry for strategies that have a position opened TODAY.
-        # Positions carried from a prior day (e.g. 2DTE entered yesterday) do
-        # not consume today's entry slot.
-        same_day_open = self._same_day_open_strategy_set(today_key)
-        attempted = {s.upper() for s in self.state.attempted_strategies_today}
-        outstanding = [s for s in enabled if s not in same_day_open and s not in attempted]
-        if not outstanding:
-            return
+
+        if self.cfg.paper_trading:
+            # Paper mode: up to paper_max_entries_per_day entries per calendar day.
+            # Counter resets at midnight; 2DTE positions carry over but don't consume next day's quota.
+            if self.state.paper_entries_date != today_key:
+                self.state.paper_entries_today = 0
+                self.state.paper_entries_date = today_key
+            if self.state.paper_entries_today >= self.cfg.paper_max_entries_per_day:
+                return
+            outstanding = list(enabled)
+        else:
+            # Live mode: one attempt per strategy per day regardless of outcome.
+            # Positions carried from a prior day (e.g. 2DTE entered yesterday) do
+            # not consume today's entry slot.
+            same_day_open = self._same_day_open_strategy_set(today_key)
+            attempted = {s.upper() for s in self.state.attempted_strategies_today}
+            outstanding = [s for s in enabled if s not in same_day_open and s not in attempted]
+            if not outstanding:
+                return
 
         if not self._ensure_connected():
             return
@@ -541,28 +552,34 @@ class SPXSpreadBotApp:
         any_filled = False
         for cand in ordered_candidates:
             strategy_key = cand.strategy.value.upper()
-            if strategy_key in same_day_open:
-                continue
-            if strategy_key in {s.upper() for s in self.state.attempted_strategies_today}:
-                continue
 
-            per_contract_risk = max(cand.max_loss_per_contract, 1.0)
-            by_cap = int(margin_cap_remaining // per_contract_risk)
-            by_avail = int(available_remaining // per_contract_risk) if available_remaining is not None else self.cfg.max_contracts
-            contracts = max(0, min(self.cfg.max_contracts, by_cap, by_avail))
-            if contracts <= 0:
-                self.state.attempted_strategies_today.append(strategy_key)
-                self.logger.order_event(
-                    "ENTRY_SKIPPED",
-                    {
-                        "strategy": strategy_key,
-                        "reason": "insufficient remaining margin for strategy",
-                        "margin_cap_remaining": margin_cap_remaining,
-                        "available_remaining": available_remaining,
-                        "max_loss_per_contract": per_contract_risk,
-                    },
-                )
-                continue
+            if self.cfg.paper_trading:
+                # Re-check quota inside loop (another iteration may have incremented it)
+                if self.state.paper_entries_today >= self.cfg.paper_max_entries_per_day:
+                    break
+                contracts = self.cfg.max_contracts
+            else:
+                if strategy_key in same_day_open:
+                    continue
+                if strategy_key in {s.upper() for s in self.state.attempted_strategies_today}:
+                    continue
+                per_contract_risk = max(cand.max_loss_per_contract, 1.0)
+                by_cap = int(margin_cap_remaining // per_contract_risk)
+                by_avail = int(available_remaining // per_contract_risk) if available_remaining is not None else self.cfg.max_contracts
+                contracts = max(0, min(self.cfg.max_contracts, by_cap, by_avail))
+                if contracts <= 0:
+                    self.state.attempted_strategies_today.append(strategy_key)
+                    self.logger.order_event(
+                        "ENTRY_SKIPPED",
+                        {
+                            "strategy": strategy_key,
+                            "reason": "insufficient remaining margin for strategy",
+                            "margin_cap_remaining": margin_cap_remaining,
+                            "available_remaining": available_remaining,
+                            "max_loss_per_contract": cand.max_loss_per_contract,
+                        },
+                    )
+                    continue
 
             pos, reason = self.execution.place_entry_with_retries(
                 cand,
@@ -570,7 +587,8 @@ class SPXSpreadBotApp:
                 signal_result.spx_price,
                 signal_result.vix_price,
             )
-            self.state.attempted_strategies_today.append(strategy_key)
+            if not self.cfg.paper_trading:
+                self.state.attempted_strategies_today.append(strategy_key)
 
             if pos is None:
                 self.logger.order_event("ENTRY_SKIPPED", {"strategy": strategy_key, "reason": reason})
@@ -580,10 +598,13 @@ class SPXSpreadBotApp:
             self.state.open_positions.append(pos)
             any_filled = True
 
-            consumed = cand.max_loss_per_contract * contracts
-            margin_cap_remaining = max(margin_cap_remaining - consumed, 0.0)
-            if available_remaining is not None:
-                available_remaining = max(available_remaining - consumed, 0.0)
+            if self.cfg.paper_trading:
+                self.state.paper_entries_today += 1
+            else:
+                consumed = cand.max_loss_per_contract * contracts
+                margin_cap_remaining = max(margin_cap_remaining - consumed, 0.0)
+                if available_remaining is not None:
+                    available_remaining = max(available_remaining - consumed, 0.0)
 
             self.logger.order_event(
                 "ENTRY_FILLED",
@@ -651,16 +672,29 @@ class SPXSpreadBotApp:
                 )
             else:
                 # Profit target / EOD expiry / EOD force close / Friday close:
-                # natural exit — allow a fresh entry attempt later today by
-                # removing this strategy from the attempted list.
-                self.state.attempted_strategies_today = [
-                    s for s in self.state.attempted_strategies_today
-                    if s.upper() != strategy_key
-                ]
-                self.logger.order_event(
-                    "REENTRY_UNLOCKED",
-                    {"strategy": strategy_key, "exit_reason": outcome.reason.value if outcome.reason else "unknown"},
-                )
+                # When trade_once_per_day=true (live vG), keep strategy in
+                # attempted list so the bot cannot re-enter the same day.
+                # This prevents the REENTRY bug that burned PDT day trades.
+                # Paper mode is unaffected — it uses paper_entries_today, not
+                # attempted_strategies_today, as its entry gate.
+                if self.cfg.trade_once_per_day:
+                    self.logger.order_event(
+                        "REENTRY_BLOCKED",
+                        {
+                            "strategy": strategy_key,
+                            "exit_reason": outcome.reason.value if outcome.reason else "unknown",
+                            "reason": "trade_once_per_day=true; no re-entry after completed trade",
+                        },
+                    )
+                else:
+                    self.state.attempted_strategies_today = [
+                        s for s in self.state.attempted_strategies_today
+                        if s.upper() != strategy_key
+                    ]
+                    self.logger.order_event(
+                        "REENTRY_UNLOCKED",
+                        {"strategy": strategy_key, "exit_reason": outcome.reason.value if outcome.reason else "unknown"},
+                    )
 
             pnl_per_contract = self._pnl_per_contract(pos.entry_credit, outcome.exit_price, outcome.reason)
             total_pnl = pnl_per_contract * pos.contracts
@@ -788,32 +822,20 @@ class SPXSpreadBotApp:
 
     def _write_status(self, last_signal: dict | None = None) -> None:
         self._sync_state_aliases()
-        # Read latest spread mark from order_events (written by monitor every ~2s)
-        # SPREAD_MARK events are written to tick_events (high-frequency log).
+        # Read latest spread marks from the small sidecar written by monitor.py.
+        # The sidecar (spread_marks.json) contains one entry per open position and
+        # is updated atomically on every monitor poll — no need to tail-scan the
+        # large tick_events.jsonl (which can grow to 100MB+ and buries mark events).
         spread_marks: dict[str, float] = {}
         try:
-            tick_events_path = Path(self.cfg.tick_events_file)
-            if tick_events_path.exists():
-                # Read only the tail of the file to avoid loading the full log (can grow to 10MB+).
-                # 8KB is enough for ~100 recent lines at ~80 bytes each.
-                _TAIL_BYTES = 8192
-                with tick_events_path.open("rb") as _tf:
-                    _tf.seek(0, 2)
-                    _fsize = _tf.tell()
-                    _tf.seek(max(0, _fsize - _TAIL_BYTES))
-                    _raw = _tf.read()
-                lines = _raw.decode("utf-8", errors="replace").splitlines()
-                for line in reversed(lines):
-                    try:
-                        ev = json.loads(line)
-                        if ev.get("event") == "SPREAD_MARK":
-                            strat = ev.get("strategy", "")
-                            if strat and strat not in spread_marks:
-                                spread_marks[strat] = float(ev.get("mark", 0.0))
-                        if len(spread_marks) >= 4:
-                            break
-                    except Exception:  # noqa: BLE001
-                        pass
+            sidecar_path = Path(self.cfg.tick_events_file).parent / "spread_marks.json"
+            if sidecar_path.exists():
+                raw = json.loads(sidecar_path.read_text())
+                for key, val in raw.items():
+                    if isinstance(val, dict):
+                        spread_marks[key] = float(val.get("mark", 0.0))
+                    else:
+                        spread_marks[key] = float(val)
         except Exception:  # noqa: BLE001
             pass
 
@@ -861,6 +883,10 @@ class SPXSpreadBotApp:
 
     def _reconcile_state_with_broker(self) -> None:
         if not self.state.open_positions:
+            return
+        # Paper fills are simulated in-bot and never reach IB, so broker will
+        # always report zero positions — skip reconciliation entirely.
+        if self.cfg.paper_trading:
             return
 
         ib_positions = self.ib.positions()
@@ -961,6 +987,8 @@ class SPXSpreadBotApp:
             self.state.stop_loss_today = False
             self.state.attempted_strategies_today = []
             self.state.skip_reason_today = ""
+            self.state.paper_entries_today = 0
+            self.state.paper_entries_date = today_key
 
         self._sync_state_aliases()
         self.state_store.save(self.state)
