@@ -12,7 +12,7 @@ bwb_narrow_wing_width: 3
 bwb_wide_wing_width: 5
 condor_wing_width: 3
 iron_fly_wing_width: 3
-min_credit: 0.08                # XSP: scaled from $0.80 SPX minimum
+min_credit: 0.15                # XSP: only enter when meaningful premium available
 target_credit: 0.20             # XSP: scaled from $2.00 SPX target
 stop_multiplier: 2.0
 min_stop_distance: 0.0
