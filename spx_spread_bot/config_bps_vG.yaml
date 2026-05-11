@@ -1,27 +1,29 @@
-# BPS Variant G — Live-ready config
-# 50pt width | 1.0% OTM | VIX < 25 gate | Skip if VIX rising > 3pts
+# BPS Variant G — Live-ready config (XSP)
+# Underlying: XSP (mini-SPX, 1/10 size) | 5pt width | 1.0% OTM
+# VIX < 25 gate | Skip if VIX rising > 3pts | Direction filter on
 # Profit target DISABLED — let winners expire worthless (PDT-safe, keeps full credit)
 # Stop loss active at 2x credit — protects against reversals
-# 12-yr backtest: Sharpe 2.82, $9,024/yr/contract (0DTE, VIX<25, no direction filter)
+# 1 contract | $472 margin | ~$902/yr expected (scaled from SPX 12yr backtest)
 
 capital: 3000
 max_contracts: 1
-spread_width: 50
-bwb_narrow_wing_width: 25
-bwb_wide_wing_width: 50
-condor_wing_width: 25
-iron_fly_wing_width: 25
-min_credit: 0.80
-target_credit: 2.00
+spread_width: 5                 # XSP: 5pt = equivalent to 50pt on SPX
+bwb_narrow_wing_width: 3
+bwb_wide_wing_width: 5
+condor_wing_width: 3
+iron_fly_wing_width: 3
+min_credit: 0.08                # XSP: scaled from $0.80 SPX minimum
+target_credit: 0.20             # XSP: scaled from $2.00 SPX target
 stop_multiplier: 2.0
 min_stop_distance: 0.0
 profit_target_pct: 0.50
-disable_profit_target: true   # let winners expire worthless — PDT-safe, keeps full credit
+disable_profit_target: true     # let winners expire worthless — PDT-safe, keeps full credit
 otm_pct_low_vix: 0.010
 otm_pct_high_vix: 0.010
 vix_min: 12.0
 vix_max: 25.0
 vix_max_daily_rise: 3.0
+expiry_safety_distance_points: 5.0   # XSP: scaled from 50pt SPX
 
 entry_start: "09:45"
 entry_end: "14:30"
@@ -36,15 +38,15 @@ port: 4002
 client_id: 66
 market_data_type: 1
 
-underlying_symbol: "SPX"
+underlying_symbol: "XSP"
 underlying_exchange: "CBOE"
 option_exchange: "SMART"
 combo_exchange: "SMART"
-preferred_trading_class: "SPXW"
+preferred_trading_class: "XSP"
 currency: "USD"
 
 max_margin_usage_pct: 0.90
-min_available_margin: 500
+min_available_margin: 50        # XSP: scaled from $500 SPX minimum
 
 run_days: [0, 1, 2, 3, 4]
 dte_candidates: [0, 2]
@@ -74,12 +76,12 @@ macro_refresh_hour_et: 6
 
 direction_filter_enabled: true
 
-data_dir: "data/bps_sample/vG_otm010_w50_vix25"
-logs_dir: "logs/bps_sample/vG_otm010_w50_vix25"
-state_file: "data/bps_sample/vG_otm010_w50_vix25/runtime_state.json"
-status_file: "data/bps_sample/vG_otm010_w50_vix25/status.json"
-signal_events_file: "logs/bps_sample/vG_otm010_w50_vix25/signal_events.jsonl"
-order_events_file: "logs/bps_sample/vG_otm010_w50_vix25/order_events.jsonl"
-tick_events_file: "logs/bps_sample/vG_otm010_w50_vix25/tick_events.jsonl"
-daily_summary_file: "logs/bps_sample/vG_otm010_w50_vix25/daily_summary.log"
-trade_csv_file: "data/bps_sample/vG_otm010_w50_vix25/trades.csv"
+data_dir: "data/xsp_live/vG_otm010_w5_vix25"
+logs_dir: "logs/xsp_live/vG_otm010_w5_vix25"
+state_file: "data/xsp_live/vG_otm010_w5_vix25/runtime_state.json"
+status_file: "data/xsp_live/vG_otm010_w5_vix25/status.json"
+signal_events_file: "logs/xsp_live/vG_otm010_w5_vix25/signal_events.jsonl"
+order_events_file: "logs/xsp_live/vG_otm010_w5_vix25/order_events.jsonl"
+tick_events_file: "logs/xsp_live/vG_otm010_w5_vix25/tick_events.jsonl"
+daily_summary_file: "logs/xsp_live/vG_otm010_w5_vix25/daily_summary.log"
+trade_csv_file: "data/xsp_live/vG_otm010_w5_vix25/trades.csv"
