@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
+import re
+import sys
 from collections import deque
 from dataclasses import dataclass
 from datetime import UTC, datetime, time as dtime
@@ -14,7 +17,10 @@ import pandas as pd
 import streamlit as st
 import yfinance as yf
 
-ROOT = Path(__file__).resolve().parent
+ROOT        = Path(__file__).resolve().parent
+REPO_ROOT   = ROOT.parent
+WEBULL_DATA = ROOT / "data" / "webull_live" / "vG_spx_w50_vix25"
+WEBULL_LOGS = ROOT / "logs" / "webull_live" / "vG_spx_w50_vix25"
 
 @dataclass(frozen=True)
 class BotView:
@@ -33,13 +39,13 @@ BOT_VIEWS = {
         system_log_file=ROOT/"logs"/"system.log",
     ),
     "XSP Live": BotView(
-        name="SPX-XSP-Live Bot", symbol="SPX", expected_mode="PAPER",
+        name="SPX-XSP-Live Bot", symbol="XSP", expected_mode="PAPER",
         strategy_scope="BULL PUT SPREAD",
-        status_file=ROOT/"data"/"spx_live"/"status.json",
-        trades_file=ROOT/"data"/"spx_live"/"trades.csv",
-        signal_events_file=ROOT/"logs"/"spx_live"/"signal_events.jsonl",
-        order_events_file=ROOT/"logs"/"spx_live"/"order_events.jsonl",
-        system_log_file=ROOT/"logs"/"spx_live"/"system.log",
+        status_file=ROOT/"data"/"xsp_live"/"vG_otm010_w5_vix25"/"status.json",
+        trades_file=ROOT/"data"/"xsp_live"/"vG_otm010_w5_vix25"/"trades.csv",
+        signal_events_file=ROOT/"logs"/"xsp_live"/"vG_otm010_w5_vix25"/"signal_events.jsonl",
+        order_events_file=ROOT/"logs"/"xsp_live"/"vG_otm010_w5_vix25"/"order_events.jsonl",
+        system_log_file=ROOT/"logs"/"xsp_live"/"vG_otm010_w5_vix25"/"daily_summary.log",
     ),
 }
 
@@ -291,7 +297,6 @@ button[data-testid="baseButton-secondary"]:hover {
   border-color: var(--blu) !important; background: var(--blu-bg) !important;
 }
 
-
 /* ── Scrollbar ───────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
@@ -343,14 +348,12 @@ def _rl(p, n=200):
 
 @st.cache_data(ttl=60)
 def _yf_spx_price() -> float:
-    """Fetch last SPX price from Yahoo Finance (^GSPC). Cached 60s."""
     try:
         ticker = yf.Ticker("^GSPC")
         info = ticker.fast_info
         price = getattr(info, "last_price", None) or getattr(info, "regularMarketPrice", None)
         if price and price > 0:
             return float(price)
-        # fallback: last close from history
         hist = ticker.history(period="2d")
         if not hist.empty:
             return float(hist["Close"].iloc[-1])
@@ -358,15 +361,76 @@ def _yf_spx_price() -> float:
         pass
     return 0.0
 
+@st.cache_data(ttl=120)
+def _webull_nvda_shares() -> str:
+    """Fetch NVDA share count from Webull account positions API (account_v2)."""
+    try:
+        env_path = REPO_ROOT / ".webull_env"
+        if env_path.exists():
+            for line in env_path.read_text().splitlines():
+                m = re.match(r'export\s+(\w+)="([^"]+)"', line.strip())
+                if m:
+                    os.environ[m.group(1)] = m.group(2)
+
+        sys.path.insert(0, str(REPO_ROOT))
+        from webull.core.client import ApiClient
+        from webull.trade.trade_client import TradeClient
+
+        tc = TradeClient(ApiClient(
+            app_key=os.environ["WEBULL_APP_KEY"],
+            app_secret=os.environ["WEBULL_APP_SECRET"],
+            region_id="us",
+        ))
+        resp = tc.account_v2.get_account_position("QJJGQCBGAN8M2JL2C1OA1J37KB")
+        body = json.loads(resp.text)
+        positions = body if isinstance(body, list) else body.get("data", [])
+        for pos in positions:
+            if not isinstance(pos, dict): continue
+            sym = str(pos.get("symbol", "")).upper()
+            if sym == "NVDA":
+                return str(pos.get("quantity") or pos.get("position") or pos.get("qty") or "?")
+        return "0"
+    except Exception:
+        return "—"
+
+def _webull_mark(pos: dict) -> float | None:
+    """Live spread mark for an open Webull position via yfinance."""
+    try:
+        short = float(pos.get("short_strike", 0))
+        long_ = float(pos.get("long_strike", 0))
+        expiry = str(pos.get("expiry", ""))
+        sym = str(pos.get("yf_options_symbol", "^SPX"))
+        if not (short and long_ and expiry):
+            return None
+        chain = yf.Ticker(sym).option_chain(expiry)
+        puts = chain.puts.set_index("strike")
+        short_row = puts.loc[short]
+        long_row  = puts.loc[long_]
+        sb = float(short_row.get("bid", 0) or 0)
+        sa = float(short_row.get("ask", 0) or 0)
+        lb = float(long_row.get("bid", 0) or 0)
+        la = float(long_row.get("ask", 0) or 0)
+        if sb <= 0 or la <= 0:
+            return None
+        return round((sb + sa) / 2 - (lb + la) / 2, 2)
+    except Exception:
+        return None
+
+def _rt_webull(p: Path) -> pd.DataFrame:
+    if not p.exists() or p.stat().st_size == 0: return pd.DataFrame()
+    try: df = pd.read_csv(p)
+    except: return pd.DataFrame()
+    for c in ["PnL pts", "PnL USD", "Entry Credit", "Short Strike", "Long Strike"]:
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+    return df
 
 def _rt(p):
     if not p.exists() or p.stat().st_size == 0: return pd.DataFrame()
     try: df = pd.read_csv(p)
     except: return pd.DataFrame()
     if df.empty: return df
-    # Handle both title-case CSV headers and legacy snake_case
     df = df.rename(columns={
-        # Title-case (actual CSV format)
         "Entry time":           "Entry",
         "Exit time":            "Exit",
         "Exit reason":          "Exit Reason",
@@ -380,7 +444,6 @@ def _rt(p):
         "Long strike":          "Long",
         "SPX price at entry":   "SPX",
         "VIX at entry":         "VIX",
-        # Legacy snake_case fallback
         "date":                 "Date",
         "strategy":             "Strategy",
         "contracts":            "Cts",
@@ -428,6 +491,17 @@ def _stats(df):
     return dict(total=float(pnl.sum()), avg=float(pnl.mean()) if n else 0.,
                 wr=wins/n if n else 0., mdd=_mdd(pnl), n=float(n), today=tp)
 
+def _webull_stats(df: pd.DataFrame) -> dict:
+    z = dict(total=0., avg=0., wr=0., mdd=0., n=0., today=0.)
+    if df.empty or "PnL USD" not in df.columns: return z
+    pnl = pd.to_numeric(df["PnL USD"], errors="coerce").fillna(0.)
+    n = len(df)
+    wins = int((pnl > 0).sum())
+    today = datetime.now().strftime("%Y-%m-%d")
+    tp = float(pnl[df["Date"].astype(str) == today].sum()) if "Date" in df.columns else 0.
+    return dict(total=float(pnl.sum()), avg=float(pnl.mean()) if n else 0.,
+                wr=wins / n if n else 0., mdd=_mdd(pnl), n=float(n), today=tp)
+
 def _pos(state):
     raw = state.get("open_positions")
     if isinstance(raw, list): return [p for p in raw if isinstance(p, dict)]
@@ -455,76 +529,6 @@ def _kpi(label, val, sub="", c=""):
 def _rule(label):
     st.markdown(f'<div class="sr"><span>{label}</span><hr></div>', unsafe_allow_html=True)
 
-
-# ── Bot selection via query params ──────────────────────────────────────────
-
-bot_key = st.query_params.get("bot", "SPX Paper")
-if bot_key not in BOT_VIEWS:
-    bot_key = "SPX Paper"
-
-is_live = bot_key == "XSP Live"
-
-bot    = BOT_VIEWS[bot_key]
-status = _rj(bot.status_file)
-state  = status.get("state", {}) if isinstance(status, dict) else {}
-if not isinstance(state, dict): state = {}
-trades   = _rt(bot.trades_file)
-stats    = _stats(trades)
-pos_lst  = _pos(state)
-last_sig = status.get("last_signal") if isinstance(status, dict) else None
-
-connected   = bool(status.get("connected"))
-paper_mode  = bool(status.get("paper_trading", True))
-actual_mode = "PAPER" if paper_mode else "LIVE"
-mode_match  = actual_mode == bot.expected_mode
-
-# ── Machine health (from psutil written by the bot process) ─────────────────
-_sys = status.get("system", {}) if isinstance(status, dict) else {}
-def _sys_row() -> str:
-    if not _sys:
-        return ""
-    cpu  = _sys.get("cpu_pct")
-    ru   = _sys.get("ram_used_gb");  rt = _sys.get("ram_total_gb")
-    rp   = _sys.get("ram_pct")
-    su   = _sys.get("swap_used_mb", 0)
-    du   = _sys.get("disk_used_gb"); dt = _sys.get("disk_total_gb")
-    ram_col  = "#cf222e" if (rp or 0) > 85 else "#d4a72c" if (rp or 0) > 70 else "#8c959f"
-    swap_col = "#cf222e" if (su or 0) > 200 else "#8c959f"
-    cpu_col  = "#cf222e" if (cpu or 0) > 80 else "#d4a72c" if (cpu or 0) > 50 else "#8c959f"
-    sep = '<span style="color:#d0d7de;margin:0 5px;">·</span>'
-    parts = []
-    if cpu  is not None: parts.append(f'<span style="color:{cpu_col}">CPU {cpu}%</span>')
-    if ru   is not None: parts.append(f'<span style="color:{ram_col}">RAM {ru}/{rt}GB</span>')
-    if su   is not None: parts.append(f'<span style="color:{swap_col}">Swap {int(su)}MB</span>')
-    if du   is not None: parts.append(f'<span style="color:#8c959f">Disk {du}/{dt}GB</span>')
-    return sep.join(parts)
-
-conn_b = _b("CONNECTED", "grn") if connected else _b("OFFLINE", "red")
-mode_b = _b(actual_mode, "blu" if paper_mode else "grn")
-sync_b = _b("SYNC ✓", "grn") if mode_match else _b("MISMATCH", "amb")
-
-# Bot-process alive indicator — based on age of last status write (bot writes every 2s)
-_ts_raw = status.get("ts", "") if isinstance(status, dict) else ""
-_ts_age_s = 9999.0
-if _ts_raw:
-    try:
-        _ts_age_s = (datetime.now(UTC) - datetime.fromisoformat(_ts_raw).astimezone(UTC)).total_seconds()
-    except Exception:
-        pass
-if _ts_age_s < 30:
-    alive_b = _b("● ALIVE", "grn")
-elif _ts_age_s < 300:
-    alive_b = _b("● STALE", "amb")
-else:
-    alive_b = _b("● DOWN", "red")
-
-now_et = datetime.now(ET).strftime("%H:%M:%S  ET")
-
-# ── Topbar — fully inline styles so Streamlit scoping cannot interfere ──────
-_S  = "font-family:Inter,system-ui,sans-serif;"
-_M  = "font-family:'JetBrains Mono',ui-monospace,monospace;"
-bot_qp = bot_key.replace(" ", "+")
-
 def _seg(label, href, active, live=False):
     if active:
         c = "#1a7f37" if live else "#0969da"
@@ -532,45 +536,340 @@ def _seg(label, href, active, live=False):
         s = f"background:#fff;color:{c};border:1px solid {bc};box-shadow:0 1px 2px rgba(31,35,40,.06);"
     else:
         s = "background:transparent;color:#57606a;border:1px solid transparent;"
-    return (f'<a href="{href}" target="_self" style="{_S}display:inline-block;padding:5px 14px;border-radius:4px;'
-            f'font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;text-decoration:none;{s}">'
-            f'{label}</a>')
+    return (f'<a href="{href}" target="_self" style="font-family:Inter,system-ui,sans-serif;display:inline-block;'
+            f'padding:5px 14px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;'
+            f'white-space:nowrap;text-decoration:none;{s}">{label}</a>')
 
-spx_btn = _seg("📊 SPX Paper", "?bot=SPX+Paper", bot_key == "SPX Paper")
-xsp_btn = _seg("🔴 XSP Live",  "?bot=XSP+Live",  bot_key == "XSP Live", live=True)
 
-st.markdown(f"""
-<div style="{_S}display:flex;align-items:center;justify-content:space-between;
-            background:#ffffff;border:1px solid #d0d7de;border-radius:8px;
-            padding:10px 16px;margin-bottom:10px;
-            box-shadow:0 1px 2px rgba(31,35,40,.06);">
+# ── Query params ──────────────────────────────────────────────────────────────
+
+broker    = st.query_params.get("broker", "ibkr").lower()
+is_webull = broker == "webull"
+bot_key   = "XSP Live"  # IBKR always uses XSP Live
+_M  = "font-family:'JetBrains Mono',ui-monospace,monospace;"
+_S  = "font-family:Inter,system-ui,sans-serif;"
+now_et = datetime.now(ET).strftime("%H:%M:%S  ET")
+
+# ── Topbar ────────────────────────────────────────────────────────────────────
+
+xsp_btn    = _seg("🏦 IBKR",    "?broker=ibkr",    not is_webull)
+webull_btn = _seg("🔴 Webull",  "?broker=webull",   is_webull,     live=True)
+
+if not is_webull:
+    bot       = BOT_VIEWS[bot_key]
+    status    = _rj(bot.status_file)
+    state_raw = status.get("state", {}) if isinstance(status, dict) else {}
+    if not isinstance(state_raw, dict): state_raw = {}
+    connected  = bool(status.get("connected"))
+    paper_mode = bool(status.get("paper_trading", True))
+    actual_mode = "PAPER" if paper_mode else "LIVE"
+    conn_b = _b("CONNECTED", "grn") if connected else _b("OFFLINE", "red")
+    mode_b = _b(actual_mode, "blu" if paper_mode else "grn")
+    _ts_raw = status.get("ts", "") if isinstance(status, dict) else ""
+    _ts_age_s = None
+    if _ts_raw:
+        try: _ts_age_s = (datetime.now(UTC) - datetime.fromisoformat(_ts_raw).astimezone(UTC)).total_seconds()
+        except: pass
+    alive_b = (_b("● ALIVE","grn") if _ts_age_s is not None and _ts_age_s < 30
+               else _b("● STALE","amb") if _ts_age_s is not None and _ts_age_s < 300
+               else _b("● DOWN","red"))
+    subtitle = f"{bot.symbol} · {bot.strategy_scope}"
+    badges   = f"{conn_b}&nbsp; {mode_b}&nbsp; {alive_b}"
+    topbar_name = bot.name
+    refresh_href = "?broker=ibkr"
+else:
+    wb_hb = _rj(WEBULL_DATA / "heartbeat.json")
+    _wb_ts = wb_hb.get("ts", "")
+    _wb_age = 9999.0
+    if _wb_ts:
+        try: _wb_age = (datetime.now(UTC) - datetime.fromisoformat(_wb_ts).astimezone(UTC)).total_seconds()
+        except: pass
+    alive_b = _b("● ALIVE","grn") if _wb_age < 120 else _b("● STALE","amb") if _wb_age < 900 else _b("● DOWN","red")
+    badges  = f"{_b('LIVE','grn')}&nbsp; {alive_b}"
+    subtitle = "SPXW · Bull Put Spread · 0DTE · Webull"
+    topbar_name = "Webull SPXW Bot"
+    refresh_href = "?broker=webull"
+
+st.html(f"""
+<div style="{_S}display:flex;align-items:center;justify-content:space-between;background:#ffffff;border:1px solid #d0d7de;border-radius:8px;padding:10px 16px;margin-bottom:10px;box-shadow:0 1px 2px rgba(31,35,40,.06);">
   <div style="display:flex;align-items:center;gap:10px;">
-    <div style="width:32px;height:32px;border-radius:7px;flex-shrink:0;
-                background:linear-gradient(135deg,#0969da,#2196f3);
-                display:flex;align-items:center;justify-content:center;font-size:15px;">📈</div>
+    <div style="width:32px;height:32px;border-radius:7px;flex-shrink:0;background:linear-gradient(135deg,#0969da,#2196f3);display:flex;align-items:center;justify-content:center;font-size:15px;">📈</div>
     <div>
-      <div style="{_S}font-size:14px;font-weight:700;color:#1f2328;letter-spacing:-.2px;">
-        {bot.name}&nbsp; {conn_b}&nbsp; {mode_b}&nbsp; {sync_b}&nbsp; {alive_b}
-      </div>
-      <div style="{_S}font-size:11px;color:#8c959f;margin-top:1px;">
-        {bot.symbol}&nbsp;·&nbsp;{bot.strategy_scope}
-      </div>
-      {f'<div style="{_S}font-size:10px;margin-top:3px;font-family:\'JetBrains Mono\',ui-monospace,monospace;">{_sys_row()}</div>' if _sys else ''}
+      <div style="{_S}font-size:14px;font-weight:700;color:#1f2328;letter-spacing:-.2px;">{topbar_name}&nbsp; {badges}</div>
+      <div style="{_S}font-size:11px;color:#8c959f;margin-top:1px;">{subtitle}</div>
     </div>
   </div>
-  <div style="display:flex;align-items:center;gap:10px;">
-    <div style="display:inline-flex;background:#f6f8fa;border:1px solid #d0d7de;
-                border-radius:6px;padding:3px;gap:2px;">
-      {spx_btn}{xsp_btn}
+  <div style="display:flex;align-items:center;gap:8px;">
+    <div style="display:inline-flex;background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:3px;gap:2px;">{xsp_btn}{webull_btn}</div>
+    <span style="{_M}font-size:11px;color:#57606a;background:#f6f8fa;border:1px solid #d0d7de;border-radius:5px;padding:4px 10px;letter-spacing:.4px;">{now_et}</span>
+    <a href="{refresh_href}" target="_self" style="{_S}background:#1f2328;color:#fff;text-decoration:none;border-radius:6px;font-size:12px;font-weight:600;padding:6px 14px;border:1px solid #1f2328;white-space:nowrap;display:inline-block;">↻ Refresh</a>
+  </div>
+</div>
+""")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# WEBULL VIEW
+# ══════════════════════════════════════════════════════════════════════════════
+
+if is_webull:
+
+    @st.fragment(run_every=30)
+    def _webull_live() -> None:
+        wb_state   = _rj(WEBULL_DATA / "state.json")
+        wb_hb      = _rj(WEBULL_DATA / "heartbeat.json")
+        wb_trades  = _rt_webull(WEBULL_DATA / "trades.csv")
+        wb_stats   = _webull_stats(wb_trades)
+
+        open_pos = wb_state.get("open_position")
+        has_pos  = isinstance(open_pos, dict) and open_pos
+
+        wins_n   = int(wb_state.get("wins", 0) or 0)
+        losses_n = int(wb_state.get("losses", 0) or 0)
+
+        # Heartbeat age
+        _wb_ts  = wb_hb.get("ts", "")
+        _wb_age = 9999.0
+        if _wb_ts:
+            try: _wb_age = (datetime.now(UTC) - datetime.fromisoformat(_wb_ts).astimezone(UTC)).total_seconds()
+            except: pass
+        hb_disp = _ts(_wb_ts)
+
+        # Bot-down alert
+        if _wb_age > 900:
+            _ac, _ab = "#cf222e", "rgba(207,34,46,0.07)"
+            _am = f"Webull bot appears DOWN — last heartbeat {int(_wb_age//60)}m ago."
+            if has_pos:
+                _am += " <strong>Open position unmonitored — stop-loss not active.</strong>"
+            st.markdown(
+                f'<div style="border:1px solid {_ac};background:{_ab};border-radius:6px;'
+                f'padding:8px 14px;margin-bottom:8px;font-size:12px;color:{_ac};font-family:Inter,sans-serif;">'
+                f'🔴&nbsp; {_am}</div>', unsafe_allow_html=True)
+        elif _wb_age > 120:
+            st.markdown(
+                '<div style="border:1px solid #9a6700;background:rgba(154,103,0,0.07);border-radius:6px;'
+                'padding:8px 14px;margin-bottom:8px;font-size:12px;color:#9a6700;font-family:Inter,sans-serif;">'
+                f'⚠️&nbsp; Webull bot heartbeat stale — last write {int(_wb_age)}s ago.</div>',
+                unsafe_allow_html=True)
+
+        # SPX price
+        spx_price = _yf_spx_price()
+        now_et_dt = datetime.now(ET)
+        _is_mkt   = (now_et_dt.weekday() < 5 and dtime(9, 30) <= now_et_dt.time() <= dtime(16, 0))
+        price_val = f"{spx_price:,.2f}" if spx_price else "—"
+        price_badge = (
+            '<span class="b b-grn" style="font-size:9px;padding:2px 6px;margin-left:6px">REAL-TIME</span>'
+            if _is_mkt else
+            '<span class="b b-amb" style="font-size:9px;padding:2px 6px;margin-left:6px">AFTER HRS</span>'
+        )
+
+        # NVDA canary
+        nvda_shares = _webull_nvda_shares()
+        nvda_color  = "#1a7f37" if nvda_shares not in ("—", "0", "") else "#8c959f"
+
+        # Mark + unrealized PnL for open position
+        mark     = None
+        unreal   = 0.0
+        mark_str = "—"
+        if has_pos:
+            mark = _webull_mark(open_pos)
+            if mark is not None:
+                cred = float(open_pos.get("entry_credit", 0) or 0)
+                qty  = int(open_pos.get("quantity", 1) or 1)
+                unreal   = (cred - mark) * 100 * qty
+                mark_str = f"{mark:.2f}"
+
+        net_pnl       = wb_stats["today"] + unreal
+        net_pnl_color = "#1a7f37" if net_pnl > 0 else "#cf222e" if net_pnl < 0 else "#1f2328"
+        net_pnl_val   = _cash(net_pnl, sign=True) if (has_pos or wb_stats["today"] != 0) else "—"
+
+        skip = wb_state.get("skip_reason_today") or wb_hb.get("trading_date", "—")
+
+        st.markdown(f"""
+<div class="strip">
+  <div class="sc">
+    <div class="sl">SPX Price {price_badge}</div>
+    <div class="sv" style="font-size:15px;font-weight:600">{price_val}</div>
+    <div class="ss">{"Real-time · Yahoo" if _is_mkt else "Last close"}</div>
+  </div>
+  <div class="sc">
+    <div class="sl">Portfolio · Webull</div>
+    <div class="sv" style="font-size:15px;font-weight:600;color:{nvda_color}">NVDA&nbsp;{nvda_shares}</div>
+    <div class="ss">shares · API connected</div>
+  </div>
+  <div class="sc">
+    <div class="sl">Heartbeat</div>
+    <div class="sv" style="font-size:11px">{hb_disp}</div>
+    <div class="ss">Last bot write</div>
+  </div>
+  <div class="sc">
+    <div class="sl">Net PnL Today</div>
+    <div class="sv" style="color:{net_pnl_color}">{net_pnl_val}</div>
+    <div class="ss">Realized + unrealized</div>
+  </div>
+  <div class="sc">
+    <div class="sl">Open Position</div>
+    <div class="sv">{"1" if has_pos else "0"}</div>
+    <div class="ss">Active trade</div>
+  </div>
+  <div class="sc">
+    <div class="sl">W / L</div>
+    <div class="sv">
+      <span style="color:#1a7f37">{wins_n}W</span>
+      <span style="color:#8c959f"> / </span>
+      <span style="color:#cf222e">{losses_n}L</span>
     </div>
-    <span style="{_M}font-size:11px;color:#57606a;background:#f6f8fa;border:1px solid #d0d7de;
-                 border-radius:5px;padding:4px 10px;letter-spacing:.4px;">{now_et}</span>
-    <a href="?bot={bot_qp}" target="_self" style="{_S}background:#1f2328;color:#fff;text-decoration:none;
-       border-radius:6px;font-size:12px;font-weight:600;padding:6px 14px;
-       border:1px solid #1f2328;white-space:nowrap;display:inline-block;">↻ Refresh</a>
+    <div class="ss">All time</div>
+  </div>
+  <div class="sc">
+    <div class="sl">Trading Date</div>
+    <div class="sv" style="font-size:11px;color:#57606a">{wb_state.get("trading_date","—")}</div>
+    <div class="ss">{"Traded" if wb_state.get("trade_taken_today") else "No trade yet"}</div>
   </div>
 </div>
 """, unsafe_allow_html=True)
+
+        # ── KPI row ──────────────────────────────────────────────────────────
+        _rule("Performance")
+        total, avg, mdd = wb_stats["total"], wb_stats["avg"], wb_stats["mdd"]
+        st.markdown('<div class="kpis">' + "".join([
+            _kpi("Total PnL",    _cash(total, sign=True), f"Avg {_cash(avg)} per trade",                   _acc(total)),
+            _kpi("Today PnL",    _cash(wb_stats["today"], sign=True), "Since midnight ET",                 _acc(wb_stats["today"])),
+            _kpi("Win Rate",     _pct(wb_stats["wr"]),    f"{wins_n}W  {losses_n}L  of {int(wb_stats['n'])} trades", "t"),
+            _kpi("Max Drawdown", _cash(mdd),               "Peak-to-trough",                              "r" if mdd < 0 else ""),
+            _kpi("Total Trades", str(int(wb_stats["n"])), f"Avg {_cash(avg, sign=True)} each",             "b"),
+        ]) + '</div>', unsafe_allow_html=True)
+
+        # ── Open position card ───────────────────────────────────────────────
+        _rule("Open Position")
+        if not has_pos:
+            st.markdown('<div class="nd">No open position</div>', unsafe_allow_html=True)
+        else:
+            cred  = float(open_pos.get("entry_credit", 0) or 0)
+            stop  = float(open_pos.get("stop_price", 0) or 0)
+            qty   = int(open_pos.get("quantity", 1) or 1)
+            expiry_raw = str(open_pos.get("expiry", "—"))
+            entry_ts_raw = open_pos.get("entry_ts", "")
+            entry_time = "—"
+            if entry_ts_raw:
+                try:
+                    _edt = datetime.fromisoformat(str(entry_ts_raw).replace("Z", "+00:00")).astimezone(ET)
+                    entry_time = _edt.strftime("%Y-%m-%d  %H:%M ET")
+                except: entry_time = str(entry_ts_raw)
+
+            unreal_col = "#1a7f37" if unreal >= 0 else "#cf222e"
+            unreal_str = f'{"+" if unreal>=0 else ""}${unreal:,.2f}' if mark is not None else "—"
+            stop_pct_away = abs(mark - stop) / stop * 100 if (mark and stop) else None
+            stop_note = f"{stop_pct_away:.1f}% away" if stop_pct_away is not None else ""
+
+            st.markdown(f"""<div class="pc">
+  <div class="pc-h">
+    <div class="pc-n">{open_pos.get("symbol","SPXW")} Bull Put Spread</div>
+    {_b("OPEN","grn")}
+  </div>
+  <div class="pf">
+    <div><div class="pfl">Short Put</div><div class="pfv">{int(open_pos.get("short_strike",0))} P</div></div>
+    <div><div class="pfl">Long Put</div><div class="pfv">{int(open_pos.get("long_strike",0))} P</div></div>
+    <div><div class="pfl">Expiry</div><div class="pfv">{expiry_raw}</div></div>
+    <div><div class="pfl">Quantity</div><div class="pfv">{qty} contract{"s" if qty!=1 else ""}</div></div>
+    <div><div class="pfl">Entry Credit</div><div class="pfv">{cred:.2f}</div></div>
+    <div><div class="pfl">Stop</div><div class="pfv" style="color:#cf222e">{stop:.2f} <span style="font-size:10px;color:#8c959f">{stop_note}</span></div></div>
+    <div><div class="pfl">Mark</div><div class="pfv">{mark_str}</div></div>
+    <div><div class="pfl">Unrealized P&amp;L</div><div class="pfv" style="color:{unreal_col};font-weight:600">{unreal_str}</div></div>
+    <div><div class="pfl">Entry SPX</div><div class="pfv">{open_pos.get("entry_spx","—")}</div></div>
+    <div><div class="pfl">Entry VIX</div><div class="pfv">{open_pos.get("entry_vix","—")}</div></div>
+    <div><div class="pfl">Entry Time</div><div class="pfv" style="font-size:11px">{entry_time}</div></div>
+    <div><div class="pfl">Order ID</div><div class="pfv" style="font-size:10px;color:#8c959f">{str(open_pos.get("client_order_id","—"))[:16]}…</div></div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+    _webull_live()
+
+    # ── Activity tabs ────────────────────────────────────────────────────────
+    _rule("Activity Log")
+    t_trades, t_sigs, t_orders, t_log = st.tabs([
+        "  Trades  ", "  Signals  ", "  Orders  ", "  System Log  "
+    ])
+
+    with t_trades:
+        wt = _rt_webull(WEBULL_DATA / "trades.csv")
+        if wt.empty:
+            st.markdown('<div class="nd">No closed trades recorded yet</div>', unsafe_allow_html=True)
+        else:
+            want = ["Date","Symbol","Expiry","Short Strike","Long Strike",
+                    "Entry Credit","SPX at Entry","VIX at Entry",
+                    "Exit Price","PnL pts","PnL USD","Exit Reason","Notes"]
+            show = [c for c in want if c in wt.columns]
+            disp = wt[show].tail(250).iloc[::-1].copy()
+            if "PnL USD" in disp.columns:
+                disp["PnL USD"] = disp["PnL USD"].apply(
+                    lambda x: (f"+${x:,.2f}" if x > 0 else f"-${abs(x):,.2f}") if pd.notna(x) else "—")
+            st.dataframe(disp, use_container_width=True, hide_index=True, height=390)
+
+    with t_sigs:
+        sigs = _rjl(WEBULL_LOGS / "signal_events.jsonl", 300)
+        if not sigs:
+            st.markdown('<div class="nd">No signal events yet</div>', unsafe_allow_html=True)
+        else:
+            sdf = pd.DataFrame(sigs)
+            want = ["ts","event","reason","spx","vix","short_strike","long_strike","credit_mid","expiry"]
+            st.dataframe(sdf[[c for c in want if c in sdf.columns]].tail(300).iloc[::-1],
+                         use_container_width=True, hide_index=True, height=320)
+
+    with t_orders:
+        ords = _rjl(WEBULL_LOGS / "order_events.jsonl", 300)
+        if not ords:
+            st.markdown('<div class="nd">No order events yet</div>', unsafe_allow_html=True)
+        else:
+            odf = pd.DataFrame(ords)
+            want = ["ts","event","symbol","expiry","short_strike","long_strike",
+                    "mark","stop","entry_credit","filled","fill_price","detail"]
+            st.dataframe(odf[[c for c in want if c in odf.columns]].tail(300).iloc[::-1],
+                         use_container_width=True, hide_index=True, height=320)
+
+    with t_log:
+        lines = _rl(WEBULL_LOGS / "daily_summary.log", 200)
+        if not lines:
+            st.markdown('<div class="nd">No system logs yet</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="log-w"><div class="log-h">System Log</div>', unsafe_allow_html=True)
+            st.code("\n".join(lines), language="text")
+            st.markdown("</div>", unsafe_allow_html=True)
+
+    st.stop()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# IBKR VIEW  (unchanged)
+# ══════════════════════════════════════════════════════════════════════════════
+
+trades   = _rt(bot.trades_file)
+stats    = _stats(trades)
+pos_lst  = _pos(state_raw)
+last_sig = status.get("last_signal") if isinstance(status, dict) else None
+
+connected   = bool(status.get("connected"))
+paper_mode  = bool(status.get("paper_trading", True))
+actual_mode = "PAPER" if paper_mode else "LIVE"
+mode_match  = actual_mode == bot.expected_mode
+
+_sys = status.get("system", {}) if isinstance(status, dict) else {}
+def _sys_row() -> str:
+    if not _sys: return ""
+    cpu  = _sys.get("cpu_pct")
+    ru   = _sys.get("ram_used_gb");  rt = _sys.get("ram_total_gb")
+    rp   = _sys.get("ram_pct");      su = _sys.get("swap_used_mb", 0)
+    du   = _sys.get("disk_used_gb"); dt = _sys.get("disk_total_gb")
+    ram_col  = "#cf222e" if (rp or 0) > 85 else "#d4a72c" if (rp or 0) > 70 else "#8c959f"
+    swap_col = "#cf222e" if (su or 0) > 200 else "#8c959f"
+    cpu_col  = "#cf222e" if (cpu or 0) > 80 else "#d4a72c" if (cpu or 0) > 50 else "#8c959f"
+    sep = '<span style="color:#d0d7de;margin:0 5px;">·</span>'
+    parts = []
+    if cpu is not None: parts.append(f'<span style="color:{cpu_col}">CPU {cpu}%</span>')
+    if ru  is not None: parts.append(f'<span style="color:{ram_col}">RAM {ru}/{rt}GB</span>')
+    if su  is not None: parts.append(f'<span style="color:{swap_col}">Swap {int(su)}MB</span>')
+    if du  is not None: parts.append(f'<span style="color:#8c959f">Disk {du}/{dt}GB</span>')
+    return sep.join(parts)
 
 # ── Live section — auto-refreshes every 2 s ──────────────────────────────────
 @st.fragment(run_every=2)
@@ -589,79 +888,67 @@ def _live_section() -> None:
     hb       = _ts(live_status.get("ts"))
     skip     = live_state.get("skip_reason_today","") or "—"
 
-    # ── Bot-down alert banner (auto-refreshes every 2s) ──────────────────────
     _live_ts_raw = live_status.get("ts", "") if isinstance(live_status, dict) else ""
-    _live_age_s  = 9999.0
+    _live_age_s  = None
     if _live_ts_raw:
-        try:
-            _live_age_s = (datetime.now(UTC) - datetime.fromisoformat(_live_ts_raw).astimezone(UTC)).total_seconds()
-        except Exception:
-            pass
+        try: _live_age_s = (datetime.now(UTC) - datetime.fromisoformat(_live_ts_raw).astimezone(UTC)).total_seconds()
+        except: pass
     _has_open = len(live_pos) > 0
-    if _live_age_s > 300:
-        _alert_color, _alert_bg, _alert_icon, _alert_msg = (
-            "#cf222e", "rgba(207,34,46,0.07)", "🔴",
-            f"Bot process appears DOWN — last heartbeat {int(_live_age_s//60)}m ago."
-            + (" <strong>Open position unmonitored — stop-loss not active.</strong>" if _has_open else "")
-        )
+    if _live_age_s is None or _live_age_s > 300:
+        if _live_age_s is None:
+            _alert_msg = "Bot not running — no status written yet."
+        else:
+            _alert_msg = f"Bot process appears DOWN — last heartbeat {int(_live_age_s//60)}m ago."
+        if _has_open:
+            _alert_msg += " <strong>Open position unmonitored — stop-loss not active.</strong>"
         st.markdown(
-            f'<div style="border:1px solid {_alert_color};background:{_alert_bg};border-radius:6px;'
-            f'padding:8px 14px;margin-bottom:8px;font-size:12px;color:{_alert_color};font-family:Inter,sans-serif;">'
-            f'{_alert_icon}&nbsp; {_alert_msg}</div>',
-            unsafe_allow_html=True,
-        )
+            f'<div style="border:1px solid #cf222e;background:rgba(207,34,46,0.07);border-radius:6px;'
+            f'padding:8px 14px;margin-bottom:8px;font-size:12px;color:#cf222e;font-family:Inter,sans-serif;">'
+            f'🔴&nbsp; {_alert_msg}</div>', unsafe_allow_html=True)
     elif _live_age_s > 60:
         _alert_color, _alert_bg = "#9a6700", "rgba(154,103,0,0.07)"
         st.markdown(
             f'<div style="border:1px solid {_alert_color};background:{_alert_bg};border-radius:6px;'
             f'padding:8px 14px;margin-bottom:8px;font-size:12px;color:{_alert_color};font-family:Inter,sans-serif;">'
             f'⚠️&nbsp; Bot heartbeat stale — last write {int(_live_age_s)}s ago. May be reconnecting.</div>',
-            unsafe_allow_html=True,
-        )
+            unsafe_allow_html=True)
 
     net_liq     = live_status.get("net_liquidation")
     nliq_val    = _cash(net_liq) if net_liq is not None else "—"
     nliq_color  = "#1a7f37" if (net_liq or 0) > 0 else "#1f2328"
     mode_label  = "Paper" if bool(live_status.get("paper_trading", True)) else "Live"
 
-    # ── Underlying price ──────────────────────────────────────────────────────
-    now_et      = datetime.now(ET)
-    _is_market  = (now_et.weekday() < 5
-                   and dtime(9, 30) <= now_et.time() <= dtime(16, 0))
+    now_et_dt   = datetime.now(ET)
+    _is_market  = (now_et_dt.weekday() < 5 and dtime(9, 30) <= now_et_dt.time() <= dtime(16, 0))
     raw_price   = live_status.get("underlying_price", 0) or 0
     price_source = "ib"
     if not raw_price:
-        # IB not streaming — fall back to Yahoo Finance
         spx_yf    = _yf_spx_price()
         raw_price = spx_yf / 10 if bot.symbol == "XSP" else spx_yf
         price_source = "yf"
     if raw_price > 0:
         price_val = f"{raw_price:,.2f}"
         if _is_market and price_source == "ib":
-            price_badge = ('<span class="b b-grn" style="font-size:9px;padding:2px 6px;margin-left:6px">'
-                           '<span class="dot dg"></span>&nbsp;LIVE</span>')
+            price_badge = '<span class="b b-grn" style="font-size:9px;padding:2px 6px;margin-left:6px"><span class="dot dg"></span>&nbsp;LIVE</span>'
             price_sub = "Real-time · IB"
         elif _is_market:
-            price_badge = ('<span class="b b-grn" style="font-size:9px;padding:2px 6px;margin-left:6px">'
-                           'REAL-TIME</span>')
+            price_badge = '<span class="b b-grn" style="font-size:9px;padding:2px 6px;margin-left:6px">REAL-TIME</span>'
             price_sub = "Real-time · Yahoo"
         else:
-            price_badge = ('<span class="b b-amb" style="font-size:9px;padding:2px 6px;margin-left:6px">'
-                           'AFTER HRS</span>')
+            price_badge = '<span class="b b-amb" style="font-size:9px;padding:2px 6px;margin-left:6px">AFTER HRS</span>'
             price_sub = "Last close"
     else:
-        price_val   = "—"
-        price_badge = ""
-        price_sub   = ""
+        price_val = "—"; price_badge = ""; price_sub = ""
 
-    # ── Net PnL (unrealized) ─────────────────────────────────────────────────
     spread_marks = live_status.get("spread_marks", {}) if isinstance(live_status, dict) else {}
     unrealized_pnl: float = 0.0
     for pos in live_pos:
         strat  = pos.get("strategy", "")
         credit = float(pos.get("entry_credit") or 0)
         contr  = int(pos.get("contracts") or 1)
-        mark   = float(spread_marks.get(strat, 0) or 0)
+        _sp    = pos.get("short_put_strike") or pos.get("short_call_strike") or ""
+        _mkey  = f"{strat}_{_sp}" if _sp else strat
+        mark   = float(spread_marks.get(_mkey, 0) or 0)
         if credit > 0 and mark > 0:
             unrealized_pnl += (credit - mark) * 100 * contr
     net_pnl       = live_stats["today"] + unrealized_pnl
@@ -712,7 +999,6 @@ def _live_section() -> None:
 </div>
 """, unsafe_allow_html=True)
 
-    # ── KPI row ──────────────────────────────────────────────────────────────
     _rule("Performance")
     total, avg, mdd = live_stats["total"], live_stats["avg"], live_stats["mdd"]
     st.markdown('<div class="kpis">' + "".join([
@@ -723,7 +1009,6 @@ def _live_section() -> None:
         _kpi("Total Trades", str(int(live_stats['n'])), f"Avg {_cash(avg,sign=True)} each",             "b"),
     ]) + '</div>', unsafe_allow_html=True)
 
-    # ── Open positions — card view (sorted by entry time asc) ────────────────
     _rule("Open Positions")
     if not live_pos:
         st.markdown('<div class="nd">No open positions</div>', unsafe_allow_html=True)
@@ -733,40 +1018,34 @@ def _live_section() -> None:
             except: return datetime.min.replace(tzinfo=UTC)
 
         _POS_CAP = 30
-        _all_pos = sorted(live_pos, key=_pos_ts, reverse=True)  # newest first
+        _all_pos = sorted(live_pos, key=_pos_ts, reverse=True)
         _sorted_pos = _all_pos[:_POS_CAP]
-        _total_unreal = 0.0
-        _has_marks = False
-        _cards_html = ""
+        _total_unreal = 0.0; _has_marks = False; _cards_html = ""
         for p in _sorted_pos:
             entry_ts_raw = p.get("entry_ts", "")
             if entry_ts_raw:
                 try:
-                    _et_dt = datetime.fromisoformat(str(entry_ts_raw).replace("Z", "+00:00")).astimezone(ET)
+                    _et_dt = datetime.fromisoformat(str(entry_ts_raw).replace("Z","+00:00")).astimezone(ET)
                     entry_time_card = _et_dt.strftime("%Y-%m-%d  %H:%M:%S")
-                except Exception:
-                    entry_time_card = str(entry_ts_raw)
-            else:
-                entry_time_card = "—"
+                except: entry_time_card = str(entry_ts_raw)
+            else: entry_time_card = "—"
 
-            strat_key   = p.get("strategy", "")
-            _sp_strike  = p.get("short_put_strike") or p.get("short_call_strike") or ""
-            _mark_key   = f"{strat_key}_{_sp_strike}" if _sp_strike else strat_key
-            _cred       = float(p.get("entry_credit") or 0)
-            _contr      = int(p.get("contracts") or 1)
-            _mark       = float(spread_marks.get(_mark_key, 0) or 0)
+            strat_key  = p.get("strategy","")
+            _sp_strike = p.get("short_put_strike") or p.get("short_call_strike") or ""
+            _mark_key  = f"{strat_key}_{_sp_strike}" if _sp_strike else strat_key
+            _cred      = float(p.get("entry_credit") or 0)
+            _contr     = int(p.get("contracts") or 1)
+            _mark      = float(spread_marks.get(_mark_key, 0) or 0)
             if _mark > 0 and _cred > 0:
-                _pnl_val  = (_cred - _mark) * 100 * _contr
-                _pnl_col  = "#1a7f37" if _pnl_val >= 0 else "#cf222e"
-                _pnl_str  = f'{"+" if _pnl_val>=0 else ""}${_pnl_val:,.2f}'
-                _mark_str = f"{_mark:.2f}"
-                _total_unreal += _pnl_val
-                _has_marks = True
+                _pnl_val = (_cred - _mark) * 100 * _contr
+                _pnl_col = "#1a7f37" if _pnl_val >= 0 else "#cf222e"
+                _pnl_str = f'{"+" if _pnl_val>=0 else ""}${_pnl_val:,.2f}'
+                _mark_str = f"{_mark:.2f}"; _total_unreal += _pnl_val; _has_marks = True
             else:
                 _pnl_col, _pnl_str, _mark_str = "#8c959f", "—", "—"
 
             _exp_raw = str(p.get('expiry',''))
-            _exp_fmt = datetime.strptime(_exp_raw, '%Y%m%d').strftime('%d %b %Y') if _exp_raw.isdigit() and len(_exp_raw) == 8 else (_exp_raw or '—')
+            _exp_fmt = datetime.strptime(_exp_raw,'%Y%m%d').strftime('%d %b %Y') if _exp_raw.isdigit() and len(_exp_raw)==8 else (_exp_raw or '—')
             _cards_html += f"""<div class="pc">
               <div class="pc-h"><div class="pc-n">{p.get('strategy','—')}</div>{_b('OPEN','grn')}</div>
               <div class="pf">
@@ -781,9 +1060,7 @@ def _live_section() -> None:
               </div>
             </div>"""
 
-        # Summary bar above the scrollable card list
-        _n_total = len(_all_pos)
-        _n_shown = len(_sorted_pos)
+        _n_total = len(_all_pos); _n_shown = len(_sorted_pos)
         _unreal_col = "#1a7f37" if _total_unreal >= 0 else "#cf222e"
         _unreal_disp = (f'<span style="color:{_unreal_col};font-weight:600;">{"+" if _total_unreal>=0 else ""}${_total_unreal:,.2f}</span>' if _has_marks else '<span style="color:#8c959f;">—</span>')
         _cap_note = (f' &nbsp;<span style="color:#8c959f;font-weight:400;">· showing {_n_shown} of {_n_total} most recent</span>' if _n_total > _POS_CAP else "")
@@ -792,16 +1069,9 @@ def _live_section() -> None:
             f'<span style="font-family:Inter,sans-serif;font-size:11px;font-weight:700;color:#57606a;">'
             f'{_n_total} position{"s" if _n_total!=1 else ""} open{_cap_note}</span>'
             f'<span style="font-family:Inter,sans-serif;font-size:11px;color:#57606a;">Unrealized P&amp;L (shown): {_unreal_disp}</span>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-        # Scrollable card container — caps height at ~3 cards, scrolls for more
-        st.markdown(
-            f'<div style="max-height:480px;overflow-y:auto;padding-right:4px;">{_cards_html}</div>',
-            unsafe_allow_html=True,
-        )
+            f'</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="max-height:480px;overflow-y:auto;padding-right:4px;">{_cards_html}</div>', unsafe_allow_html=True)
 
-    # ── Last signal ───────────────────────────────────────────────────────────
     if isinstance(live_sig, dict) and live_sig:
         _rule("Last Signal")
         dec = str(live_sig.get("decision","—")).upper()
@@ -820,16 +1090,13 @@ def _live_section() -> None:
 
 _live_section()
 
-# ── Activity tabs ─────────────────────────────────────────────────────────────
 _rule("Activity Log")
-
 t_trades, t_sigs, t_orders, t_log = st.tabs([
     "  Trades  ", "  Signals  ", "  Orders  ", "  System Log  "
 ])
 
 with t_trades:
-    # ── Open positions table ──────────────────────────────────────────────────
-    _open_pos = pos_lst  # use the outer-scope list (not live-fragment, but fine for display)
+    _open_pos = pos_lst
     if _open_pos:
         _M2 = "font-family:'JetBrains Mono',ui-monospace,monospace;"
         _S2 = "font-family:Inter,system-ui,sans-serif;"
@@ -838,10 +1105,9 @@ with t_trades:
                "border-bottom:1px solid #d0d7de;white-space:nowrap;text-align:left;")
         _TD = f"{_M2}font-size:12px;color:#1f2328;padding:8px 12px;border-bottom:1px solid #eaeef2;white-space:nowrap;"
         _sm = status.get("spread_marks", {}) if isinstance(status, dict) else {}
-
         cols = ["Strategy","Expiry","Short Strike","Long Strike","Contracts",
                 "Entry Credit","Stop","Target","Entry Time ET","Mark","P&L"]
-        hdr  = "".join(f'<th style="{_TH}">{c}</th>' for c in cols)
+        hdr = "".join(f'<th style="{_TH}">{c}</th>' for c in cols)
 
         def _pos_strike_str(legs_raw, direction, right):
             return [l["strike"] for l in legs_raw
@@ -850,44 +1116,38 @@ with t_trades:
         def _tab_pos_ts(p):
             try: return datetime.fromisoformat(str(p.get("entry_ts","")).replace("Z","+00:00"))
             except: return datetime.min.replace(tzinfo=UTC)
+
         _TAB_CAP = 30
-        _open_pos_all = sorted(_open_pos, key=_tab_pos_ts, reverse=True)
+        _open_pos_all   = sorted(_open_pos, key=_tab_pos_ts, reverse=True)
         _open_pos_shown = _open_pos_all[:_TAB_CAP]
         rows_html = ""
         for p in _open_pos_shown:
-            strat      = p.get("strategy", "—")
-            expiry     = p.get("expiry", "—")
-            legs_raw   = p.get("legs", []) if isinstance(p.get("legs"), list) else []
-            sp_put  = (_pos_strike_str(legs_raw,"SHORT","P") or [p.get("short_put_strike")])[0] or None
-            lp_put  = (_pos_strike_str(legs_raw,"LONG", "P") or [p.get("long_put_strike")])[0]  or None
-            sp_call = (_pos_strike_str(legs_raw,"SHORT","C") or [p.get("short_call_strike")])[0] or None
-            lp_call = (_pos_strike_str(legs_raw,"LONG", "C") or [p.get("long_call_strike")])[0]  or None
+            strat    = p.get("strategy","—"); expiry = p.get("expiry","—")
+            legs_raw = p.get("legs",[]) if isinstance(p.get("legs"),list) else []
+            sp_put   = (_pos_strike_str(legs_raw,"SHORT","P") or [p.get("short_put_strike")])[0] or None
+            lp_put   = (_pos_strike_str(legs_raw,"LONG", "P") or [p.get("long_put_strike")])[0]  or None
+            sp_call  = (_pos_strike_str(legs_raw,"SHORT","C") or [p.get("short_call_strike")])[0] or None
+            lp_call  = (_pos_strike_str(legs_raw,"LONG", "C") or [p.get("long_call_strike")])[0]  or None
             def _sk(put, call):
                 parts = ([f"{put:.0f}P"] if put else []) + ([f"{call:.0f}C"] if call else [])
                 return " / ".join(parts) or "—"
-            contracts  = p.get("contracts", "—")
-            entry_cred = p.get("entry_credit")
-            stop_p     = p.get("stop_price")
-            target_p   = p.get("profit_target_price")
-            entry_ts_raw = p.get("entry_ts", "")
+            contracts = p.get("contracts","—"); entry_cred = p.get("entry_credit")
+            stop_p = p.get("stop_price"); target_p = p.get("profit_target_price")
+            entry_ts_raw = p.get("entry_ts","")
             if entry_ts_raw:
                 try:
                     _edt = datetime.fromisoformat(str(entry_ts_raw).replace("Z","+00:00")).astimezone(ET)
                     entry_time = _edt.strftime("%Y-%m-%d  %H:%M ET")
-                except Exception:
-                    entry_time = str(entry_ts_raw)
-            else:
-                entry_time = "—"
+                except: entry_time = str(entry_ts_raw)
+            else: entry_time = "—"
             _sp = p.get("short_put_strike") or p.get("short_call_strike") or ""
             _mk = f"{strat}_{_sp}" if _sp else strat
-            mark = float(_sm.get(_mk, 0) or 0)
-            mark_s = f"{mark:.2f}" if mark > 0 else "—"
+            mark = float(_sm.get(_mk, 0) or 0); mark_s = f"{mark:.2f}" if mark > 0 else "—"
             if entry_cred and mark > 0 and contracts:
                 pv  = (float(entry_cred) - mark) * 100 * int(contracts)
                 pc  = "#1a7f37" if pv >= 0 else "#cf222e"
                 pnl = f'<span style="color:{pc};font-weight:600;">{"+" if pv>=0 else ""}${pv:,.2f}</span>'
-            else:
-                pnl = "—"
+            else: pnl = "—"
             def _fv(v, color=None):
                 s = f"{float(v):.2f}" if v is not None else "—"
                 return (f'<span style="color:{color};font-weight:600;">{s}</span>' if color and v is not None else s)
@@ -906,11 +1166,8 @@ with t_trades:
                 f'<td style="{_TD}">{pnl}</td>'
                 f'</tr>'
             )
-        _label_style = (
-            "font-family:Inter,sans-serif;font-size:9px;font-weight:700;"
-            "letter-spacing:.8px;text-transform:uppercase;color:#8c959f;"
-            "margin-bottom:6px;margin-top:2px;"
-        )
+        _label_style = ("font-family:Inter,sans-serif;font-size:9px;font-weight:700;"
+                        "letter-spacing:.8px;text-transform:uppercase;color:#8c959f;margin-bottom:6px;margin-top:2px;")
         _tab_total = len(_open_pos_all)
         _tab_cap_note = f" — showing {_TAB_CAP} of {_tab_total} most recent" if _tab_total > _TAB_CAP else ""
         st.markdown(
@@ -918,23 +1175,13 @@ with t_trades:
             f'<div style="overflow-x:auto;overflow-y:auto;max-height:320px;margin-bottom:16px;border:1px solid #d0d7de;border-radius:8px;">'
             f'<table style="width:100%;border-collapse:collapse;">'
             f'<thead style="position:sticky;top:0;z-index:1;"><tr>{hdr}</tr></thead><tbody>{rows_html}</tbody>'
-            f'</table></div>',
-            unsafe_allow_html=True,
-        )
+            f'</table></div>', unsafe_allow_html=True)
 
-    # ── Closed trades ─────────────────────────────────────────────────────────
-    _label_style = (
-        "font-family:Inter,sans-serif;font-size:9px;font-weight:700;"
-        "letter-spacing:.8px;text-transform:uppercase;color:#8c959f;"
-        "margin-bottom:6px;"
-    )
+    _label_style = ("font-family:Inter,sans-serif;font-size:9px;font-weight:700;"
+                    "letter-spacing:.8px;text-transform:uppercase;color:#8c959f;margin-bottom:6px;")
     st.markdown(f'<div style="{_label_style}">Closed Trades</div>', unsafe_allow_html=True)
     if trades.empty:
-        st.markdown(
-            '<div style="font-family:Inter,sans-serif;font-size:12px;color:#8c959f;'
-            'padding:12px 4px;">No closed trades recorded yet</div>',
-            unsafe_allow_html=True,
-        )
+        st.markdown('<div style="font-family:Inter,sans-serif;font-size:12px;color:#8c959f;padding:12px 4px;">No closed trades recorded yet</div>', unsafe_allow_html=True)
     else:
         want = ["Date","Entry","Exit","Short","Long","SPX","VIX","Credit","Cts","PnL/ct","Total PnL","W/L","Exit Reason","Strategy","Notes"]
         show = [c for c in want if c in trades.columns]
