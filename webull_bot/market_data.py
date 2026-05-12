@@ -32,7 +32,21 @@ class SpreadQuote:
     ask: float           # optimistic credit
 
 
+def _try_ibkr_spot(symbol: str) -> Optional[float]:
+    """IBKR-first spot. Returns None on any failure so caller falls back to yfinance."""
+    try:
+        from webull_bot.ibkr_market_data import get_index_spot_ibkr
+        return get_index_spot_ibkr(symbol)
+    except Exception:
+        return None
+
+
 def get_spx_price(yf_symbol: str = "^GSPC") -> float:
+    # IBKR-first
+    ibkr_price = _try_ibkr_spot("SPX")
+    if ibkr_price and ibkr_price > 100:
+        return float(ibkr_price)
+    # yfinance fallback
     ticker = yf.Ticker(yf_symbol)
     info = ticker.fast_info
     price = getattr(info, "last_price", None) or getattr(info, "regularMarketPrice", None)
@@ -45,6 +59,11 @@ def get_spx_price(yf_symbol: str = "^GSPC") -> float:
 
 
 def get_vix_price() -> float:
+    # IBKR-first
+    ibkr_price = _try_ibkr_spot("VIX")
+    if ibkr_price and ibkr_price > 0:
+        return float(ibkr_price)
+    # yfinance fallback
     ticker = yf.Ticker("^VIX")
     info = ticker.fast_info
     price = getattr(info, "last_price", None) or getattr(info, "regularMarketPrice", None)
@@ -195,6 +214,114 @@ def find_best_spread(
             )
 
     return best
+
+
+def find_top_spreads(
+    spx_price: float,
+    otm_pct: float,
+    spread_width: float,
+    yf_options_symbol: str = "^SPX",
+    expiry: Optional[str] = None,
+    top_n: int = 4,
+) -> list[SpreadQuote]:
+    """Return the top N bull put spread candidates around the OTM target.
+
+    Unlike find_best_spread this:
+    - Scans a wider window (10 strikes around target, not 5)
+    - Applies NO min_credit filter — returns everything with a positive mid
+      so the user can see the full picture and choose
+    - Sorts by credit descending (highest credit first)
+    - Returns up to top_n results
+
+    Used for the force-entry recommendation display only.
+    """
+    if expiry is None:
+        expiry = get_0dte_expiry(yf_options_symbol)
+    if expiry is None:
+        return []
+
+    # IBKR-first: real-time bid/ask from the gateway
+    try:
+        from webull_bot.ibkr_market_data import get_top_spreads_ibkr
+        ibkr_results = get_top_spreads_ibkr(
+            spx_price=spx_price,
+            otm_pct=otm_pct,
+            spread_width=spread_width,
+            expiry=expiry,
+            symbol="SPXW",
+            top_n=top_n,
+        )
+        if ibkr_results:
+            return [SpreadQuote(**r) for r in ibkr_results]
+    except Exception:
+        pass
+
+    # yfinance fallback
+    ticker = yf.Ticker(yf_options_symbol)
+    try:
+        chain = ticker.option_chain(expiry)
+    except Exception:
+        return []
+
+    puts = chain.puts.copy()
+    if puts.empty:
+        return []
+
+    target_short = round(spx_price * (1.0 - otm_pct) / 5) * 5
+    available = sorted(puts["strike"].tolist())
+    if not available:
+        return []
+
+    # Wider window: 10 nearest strikes around target
+    candidates = sorted(available, key=lambda s: abs(s - target_short))[:10]
+    puts_idx = puts.set_index("strike")
+
+    results: list[SpreadQuote] = []
+
+    for short_strike in candidates:
+        ideal_long = short_strike - spread_width
+        below = [s for s in available if s <= ideal_long]
+        if not below:
+            continue
+        long_strike = max(below)
+        if short_strike - long_strike < spread_width * 0.8:
+            continue
+
+        try:
+            short_row = puts_idx.loc[short_strike]
+            long_row  = puts_idx.loc[long_strike]
+        except KeyError:
+            continue
+
+        short_bid = float(short_row.get("bid", 0) or 0)
+        short_ask = float(short_row.get("ask", 0) or 0)
+        long_bid  = float(long_row.get("bid", 0) or 0)
+        long_ask  = float(long_row.get("ask", 0) or 0)
+
+        if short_bid <= 0 or long_ask <= 0:
+            continue
+
+        short_mid = (short_bid + short_ask) / 2
+        long_mid  = (long_bid + long_ask) / 2
+        net_credit_mid = short_mid - long_mid
+        spread_bid = short_bid - long_ask
+        spread_ask = short_ask - long_bid
+
+        if net_credit_mid <= 0:
+            continue
+
+        results.append(SpreadQuote(
+            short_strike=float(short_strike),
+            long_strike=float(long_strike),
+            expiry=expiry,
+            mid=round(net_credit_mid, 2),
+            bid=round(spread_bid, 2),
+            ask=round(spread_ask, 2),
+        ))
+
+    # Sort by credit descending — richest credit first
+    results.sort(key=lambda q: q.mid, reverse=True)
+    return results[:top_n]
 
 
 def get_spread_mark(

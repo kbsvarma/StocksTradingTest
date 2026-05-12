@@ -22,6 +22,8 @@ class OpenPosition:
     entry_ts: str               # ISO timestamp
     client_order_id: str
     yf_options_symbol: str = "SPX"
+    short_iid: str = ""         # Webull instrument_id of the short put leg
+    long_iid: str = ""          # Webull instrument_id of the long put leg
 
 
 @dataclass

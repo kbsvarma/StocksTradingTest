@@ -27,3 +27,10 @@ env/
 
 # ── Claude Code internal ──────────────────────────────────────
 .claude/
+
+# ── Webull secrets & SDK logs (never commit) ──────────────────
+.webull_env
+.webull_env.*
+webull_*_sdk.log
+webull_*_sdk.log.*
+webull_bot/data/

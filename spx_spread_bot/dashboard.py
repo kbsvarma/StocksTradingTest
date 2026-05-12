@@ -361,6 +361,21 @@ def _yf_spx_price() -> float:
         pass
     return 0.0
 
+@st.cache_data(ttl=60)
+def _yf_vix_price() -> float:
+    try:
+        ticker = yf.Ticker("^VIX")
+        info = ticker.fast_info
+        price = getattr(info, "last_price", None) or getattr(info, "regularMarketPrice", None)
+        if price and price > 0:
+            return float(price)
+        hist = ticker.history(period="2d")
+        if not hist.empty:
+            return float(hist["Close"].iloc[-1])
+    except Exception:
+        pass
+    return 0.0
+
 @st.cache_data(ttl=120)
 def _webull_nvda_shares() -> str:
     """Fetch NVDA share count from Webull account positions API (account_v2)."""
@@ -543,7 +558,7 @@ def _seg(label, href, active, live=False):
 
 # ── Query params ──────────────────────────────────────────────────────────────
 
-broker    = st.query_params.get("broker", "ibkr").lower()
+broker    = st.query_params.get("broker", "webull").lower()
 is_webull = broker == "webull"
 bot_key   = "XSP Live"  # IBKR always uses XSP Live
 _M  = "font-family:'JetBrains Mono',ui-monospace,monospace;"
@@ -560,52 +575,21 @@ if not is_webull:
     status    = _rj(bot.status_file)
     state_raw = status.get("state", {}) if isinstance(status, dict) else {}
     if not isinstance(state_raw, dict): state_raw = {}
-    connected  = bool(status.get("connected"))
-    paper_mode = bool(status.get("paper_trading", True))
-    actual_mode = "PAPER" if paper_mode else "LIVE"
-    conn_b = _b("CONNECTED", "grn") if connected else _b("OFFLINE", "red")
-    mode_b = _b(actual_mode, "blu" if paper_mode else "grn")
-    _ts_raw = status.get("ts", "") if isinstance(status, dict) else ""
-    _ts_age_s = None
-    if _ts_raw:
-        try: _ts_age_s = (datetime.now(UTC) - datetime.fromisoformat(_ts_raw).astimezone(UTC)).total_seconds()
-        except: pass
-    alive_b = (_b("● ALIVE","grn") if _ts_age_s is not None and _ts_age_s < 30
-               else _b("● STALE","amb") if _ts_age_s is not None and _ts_age_s < 300
-               else _b("● DOWN","red"))
-    subtitle = f"{bot.symbol} · {bot.strategy_scope}"
-    badges   = f"{conn_b}&nbsp; {mode_b}&nbsp; {alive_b}"
-    topbar_name = bot.name
     refresh_href = "?broker=ibkr"
 else:
-    wb_hb = _rj(WEBULL_DATA / "heartbeat.json")
-    _wb_ts = wb_hb.get("ts", "")
-    _wb_age = 9999.0
-    if _wb_ts:
-        try: _wb_age = (datetime.now(UTC) - datetime.fromisoformat(_wb_ts).astimezone(UTC)).total_seconds()
-        except: pass
-    alive_b = _b("● ALIVE","grn") if _wb_age < 120 else _b("● STALE","amb") if _wb_age < 900 else _b("● DOWN","red")
-    badges  = f"{_b('LIVE','grn')}&nbsp; {alive_b}"
-    subtitle = "SPXW · Bull Put Spread · 0DTE · Webull"
-    topbar_name = "Webull SPXW Bot"
     refresh_href = "?broker=webull"
 
+# Navigation bar (static — broker toggle, clock, refresh)
 st.html(f"""
-<div style="{_S}display:flex;align-items:center;justify-content:space-between;background:#ffffff;border:1px solid #d0d7de;border-radius:8px;padding:10px 16px;margin-bottom:10px;box-shadow:0 1px 2px rgba(31,35,40,.06);">
-  <div style="display:flex;align-items:center;gap:10px;">
-    <div style="width:32px;height:32px;border-radius:7px;flex-shrink:0;background:linear-gradient(135deg,#0969da,#2196f3);display:flex;align-items:center;justify-content:center;font-size:15px;">📈</div>
-    <div>
-      <div style="{_S}font-size:14px;font-weight:700;color:#1f2328;letter-spacing:-.2px;">{topbar_name}&nbsp; {badges}</div>
-      <div style="{_S}font-size:11px;color:#8c959f;margin-top:1px;">{subtitle}</div>
-    </div>
-  </div>
-  <div style="display:flex;align-items:center;gap:8px;">
-    <div style="display:inline-flex;background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:3px;gap:2px;">{xsp_btn}{webull_btn}</div>
-    <span style="{_M}font-size:11px;color:#57606a;background:#f6f8fa;border:1px solid #d0d7de;border-radius:5px;padding:4px 10px;letter-spacing:.4px;">{now_et}</span>
-    <a href="{refresh_href}" target="_self" style="{_S}background:#1f2328;color:#fff;text-decoration:none;border-radius:6px;font-size:12px;font-weight:600;padding:6px 14px;border:1px solid #1f2328;white-space:nowrap;display:inline-block;">↻ Refresh</a>
-  </div>
+<div style="{_S}display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:6px;">
+  <div style="display:inline-flex;background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:3px;gap:2px;">{xsp_btn}{webull_btn}</div>
+  <span style="{_M}font-size:11px;color:#57606a;background:#f6f8fa;border:1px solid #d0d7de;border-radius:5px;padding:4px 10px;letter-spacing:.4px;">{now_et}</span>
+  <a href="{refresh_href}" target="_self" style="{_S}background:#1f2328;color:#fff;text-decoration:none;border-radius:6px;font-size:12px;font-weight:600;padding:6px 14px;border:1px solid #1f2328;white-space:nowrap;display:inline-block;">↻ Refresh</a>
 </div>
 """)
+
+# Status card placeholder — filled by the live fragment (IBKR) or Webull fragment
+_topbar_slot = st.empty()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -634,6 +618,28 @@ if is_webull:
             try: _wb_age = (datetime.now(UTC) - datetime.fromisoformat(_wb_ts).astimezone(UTC)).total_seconds()
             except: pass
         hb_disp = _ts(_wb_ts)
+        if _wb_age < 60:
+            hb_rel = f"{int(_wb_age)}s ago"
+        elif _wb_age < 3600:
+            hb_rel = f"{int(_wb_age // 60)}m ago"
+        else:
+            hb_rel = f"{int(_wb_age // 3600)}h {int((_wb_age % 3600) // 60)}m ago"
+        hb_color = "#1a7f37" if _wb_age < 120 else "#9a6700" if _wb_age < 900 else "#cf222e"
+
+        # Live status card for Webull
+        _wb_alv = (_b("● ALIVE","grn") if _wb_age < 120
+                   else _b("● STALE","amb") if _wb_age < 900
+                   else _b("● DOWN","red"))
+        with _topbar_slot:
+            st.html(f"""
+<div style="{_S}display:flex;align-items:center;gap:10px;background:#ffffff;border:1px solid #d0d7de;border-radius:8px;padding:10px 16px;margin-bottom:10px;box-shadow:0 1px 2px rgba(31,35,40,.06);">
+  <div style="width:32px;height:32px;border-radius:7px;flex-shrink:0;background:linear-gradient(135deg,#1a7f37,#2ea043);display:flex;align-items:center;justify-content:center;font-size:15px;">📈</div>
+  <div>
+    <div style="{_S}font-size:14px;font-weight:700;color:#1f2328;letter-spacing:-.2px;">Webull SPXW Bot&nbsp; {_b('LIVE','grn')}&nbsp; {_wb_alv}</div>
+    <div style="{_S}font-size:11px;color:#8c959f;margin-top:1px;">SPXW · Bull Put Spread · 0DTE · Webull</div>
+  </div>
+</div>
+""")
 
         # Bot-down alert
         if _wb_age > 900:
@@ -654,6 +660,9 @@ if is_webull:
 
         # SPX price
         spx_price = _yf_spx_price()
+        vix_price = _yf_vix_price()
+        vix_val = f"{vix_price:.1f}" if vix_price else "—"
+        vix_color = "#cf222e" if vix_price > 25 else "#9a6700" if vix_price < 12 else "#1f2328"
         now_et_dt = datetime.now(ET)
         _is_mkt   = (now_et_dt.weekday() < 5 and dtime(9, 30) <= now_et_dt.time() <= dtime(16, 0))
         price_val = f"{spx_price:,.2f}" if spx_price else "—"
@@ -662,10 +671,6 @@ if is_webull:
             if _is_mkt else
             '<span class="b b-amb" style="font-size:9px;padding:2px 6px;margin-left:6px">AFTER HRS</span>'
         )
-
-        # NVDA canary
-        nvda_shares = _webull_nvda_shares()
-        nvda_color  = "#1a7f37" if nvda_shares not in ("—", "0", "") else "#8c959f"
 
         # Mark + unrealized PnL for open position
         mark     = None
@@ -681,50 +686,46 @@ if is_webull:
 
         net_pnl       = wb_stats["today"] + unreal
         net_pnl_color = "#1a7f37" if net_pnl > 0 else "#cf222e" if net_pnl < 0 else "#1f2328"
-        net_pnl_val   = _cash(net_pnl, sign=True) if (has_pos or wb_stats["today"] != 0) else "—"
 
-        skip = wb_state.get("skip_reason_today") or wb_hb.get("trading_date", "—")
+        trade_status_val = "Traded ✓" if wb_state.get("trade_taken_today") else "No trade yet"
+        trade_status_col = "#1a7f37" if wb_state.get("trade_taken_today") else "#8c959f"
+        net_pnl_disp = _cash(net_pnl, sign=True) if (has_pos or wb_stats["today"] != 0) else "$0.00"
 
         st.markdown(f"""
-<div class="strip">
+<div class="strip" style="grid-template-columns:repeat(6,1fr)">
   <div class="sc">
     <div class="sl">SPX Price {price_badge}</div>
-    <div class="sv" style="font-size:15px;font-weight:600">{price_val}</div>
+    <div class="sv" style="font-size:16px;font-weight:700">{price_val}</div>
     <div class="ss">{"Real-time · Yahoo" if _is_mkt else "Last close"}</div>
   </div>
   <div class="sc">
-    <div class="sl">Portfolio · Webull</div>
-    <div class="sv" style="font-size:15px;font-weight:600;color:{nvda_color}">NVDA&nbsp;{nvda_shares}</div>
-    <div class="ss">shares · API connected</div>
+    <div class="sl">VIX</div>
+    <div class="sv" style="font-size:16px;font-weight:700;color:{vix_color}">{vix_val}</div>
+    <div class="ss">Volatility index</div>
   </div>
   <div class="sc">
-    <div class="sl">Heartbeat</div>
-    <div class="sv" style="font-size:11px">{hb_disp}</div>
-    <div class="ss">Last bot write</div>
+    <div class="sl">Bot Heartbeat</div>
+    <div class="sv" style="font-size:14px;font-weight:600;color:{hb_color}">{hb_rel}</div>
+    <div class="ss">{hb_disp}</div>
   </div>
   <div class="sc">
     <div class="sl">Net PnL Today</div>
-    <div class="sv" style="color:{net_pnl_color}">{net_pnl_val}</div>
+    <div class="sv" style="color:{net_pnl_color};font-weight:700">{net_pnl_disp}</div>
     <div class="ss">Realized + unrealized</div>
   </div>
   <div class="sc">
     <div class="sl">Open Position</div>
-    <div class="sv">{"1" if has_pos else "0"}</div>
-    <div class="ss">Active trade</div>
+    <div class="sv" style="font-size:16px;font-weight:700">{"1" if has_pos else "0"}</div>
+    <div class="ss">{"Active trade" if has_pos else "No position"}</div>
   </div>
   <div class="sc">
-    <div class="sl">W / L</div>
+    <div class="sl">W / L · {wb_state.get("trading_date","—")}</div>
     <div class="sv">
-      <span style="color:#1a7f37">{wins_n}W</span>
+      <span style="color:#1a7f37;font-weight:700">{wins_n}W</span>
       <span style="color:#8c959f"> / </span>
-      <span style="color:#cf222e">{losses_n}L</span>
+      <span style="color:#cf222e;font-weight:700">{losses_n}L</span>
     </div>
-    <div class="ss">All time</div>
-  </div>
-  <div class="sc">
-    <div class="sl">Trading Date</div>
-    <div class="sv" style="font-size:11px;color:#57606a">{wb_state.get("trading_date","—")}</div>
-    <div class="ss">{"Traded" if wb_state.get("trade_taken_today") else "No trade yet"}</div>
+    <div class="ss" style="color:{trade_status_col}">{trade_status_val}</div>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -840,9 +841,35 @@ if is_webull:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# IBKR VIEW  (unchanged)
+# IBKR VIEW — bot is currently disabled
 # ══════════════════════════════════════════════════════════════════════════════
 
+st.html(f"""
+<div style="{_S}max-width:680px;margin:64px auto 0 auto;padding:32px 36px;
+            background:#fff;border:1px solid #d0d7de;border-radius:10px;
+            box-shadow:0 1px 3px rgba(0,0,0,0.04);text-align:center;">
+  <div style="font-size:42px;line-height:1;margin-bottom:14px;">🏦</div>
+  <div style="font-size:18px;font-weight:700;color:#1f2328;margin-bottom:6px;">
+    IBKR / XSP Bot — Disabled
+  </div>
+  <div style="font-size:13px;color:#57606a;line-height:1.55;margin-bottom:22px;">
+    The IBKR SPX-XSP bot has been turned off so attention stays on the
+    Webull SPX BPS bot (one live strategy at a time).
+    Services <code style="background:#f6f8fa;padding:1px 6px;border-radius:4px;font-size:12px;">xsp-spread-bot</code> and
+    <code style="background:#f6f8fa;padding:1px 6px;border-radius:4px;font-size:12px;">xsp-ibgateway</code>
+    are stopped and disabled. The 8&nbsp;AM&nbsp;ET auto-restart cron has been neutralized.
+  </div>
+  <a href="?broker=webull" target="_self"
+     style="display:inline-block;background:#1f2328;color:#fff;text-decoration:none;
+            padding:9px 20px;border-radius:6px;font-size:13px;font-weight:600;">
+    → Go to Webull bot
+  </a>
+</div>
+""")
+st.stop()
+
+
+# (IBKR view code below is preserved but never reached.)
 trades   = _rt(bot.trades_file)
 stats    = _stats(trades)
 pos_lst  = _pos(state_raw)
@@ -893,6 +920,28 @@ def _live_section() -> None:
     if _live_ts_raw:
         try: _live_age_s = (datetime.now(UTC) - datetime.fromisoformat(_live_ts_raw).astimezone(UTC)).total_seconds()
         except: pass
+
+    # ── Live status card (refreshes every 2s — never frozen) ─────────────────
+    _conn   = bool(live_status.get("connected"))
+    _paper  = bool(live_status.get("paper_trading", True))
+    _mode   = "PAPER" if _paper else "LIVE"
+    _conn_b = _b("CONNECTED", "grn") if _conn else _b("OFFLINE", "red")
+    _mode_b = _b(_mode, "blu" if _paper else "grn")
+    _alv_b  = (_b("● ALIVE","grn") if _live_age_s is not None and _live_age_s < 30
+               else _b("● STALE","amb") if _live_age_s is not None and _live_age_s < 300
+               else _b("● DOWN","red"))
+    _badges = f"{_conn_b}&nbsp; {_mode_b}&nbsp; {_alv_b}"
+    _sub    = f"{bot.symbol} · {bot.strategy_scope}"
+    with _topbar_slot:
+        st.html(f"""
+<div style="{_S}display:flex;align-items:center;gap:10px;background:#ffffff;border:1px solid #d0d7de;border-radius:8px;padding:10px 16px;margin-bottom:10px;box-shadow:0 1px 2px rgba(31,35,40,.06);">
+  <div style="width:32px;height:32px;border-radius:7px;flex-shrink:0;background:linear-gradient(135deg,#0969da,#2196f3);display:flex;align-items:center;justify-content:center;font-size:15px;">📈</div>
+  <div>
+    <div style="{_S}font-size:14px;font-weight:700;color:#1f2328;letter-spacing:-.2px;">{bot.name}&nbsp; {_badges}</div>
+    <div style="{_S}font-size:11px;color:#8c959f;margin-top:1px;">{_sub}</div>
+  </div>
+</div>
+""")
     _has_open = len(live_pos) > 0
     if _live_age_s is None or _live_age_s > 300:
         if _live_age_s is None:
@@ -1088,7 +1137,8 @@ def _live_section() -> None:
                 f'<div class="reason"><span class="reason-k">Reason</span>{live_sig["reason"]}</div>',
                 unsafe_allow_html=True)
 
-_live_section()
+if not is_webull:
+    _live_section()
 
 _rule("Activity Log")
 t_trades, t_sigs, t_orders, t_log = st.tabs([
