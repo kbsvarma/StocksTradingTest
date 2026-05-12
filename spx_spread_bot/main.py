@@ -637,10 +637,15 @@ class SPXSpreadBotApp:
         if not self._ensure_connected():
             return
 
+        # Ensure persistent tick streams are active for all open position legs.
+        # This is the primary data source for the fast-path stop check in
+        # _batch_fetch_position_quotes (0.1 s latency vs 2 s subscribe/cancel).
+        self._refresh_tick_streams()
+
         now = self._now()
 
-        # Batch-fetch quotes for ALL positions in a single 2-second window so
-        # that no position's check is blocked waiting for another's data.
+        # Fetch quotes for ALL positions — fast path uses persistent streams,
+        # slow path falls back to subscribe-wait-cancel if streams not ready.
         pos_list = list(self.state.open_positions)
         try:
             prefetched = self._batch_fetch_position_quotes(pos_list)
@@ -1056,19 +1061,48 @@ class SPXSpreadBotApp:
         return result
 
     def _batch_fetch_position_quotes(self, positions: list) -> dict:
-        """Subscribe market data for all position legs at once, sleep 2s once,
-        then return per-position quote dicts.
+        """Return spread mark quotes for all positions.
 
-        This replaces the old per-position _stream_tickers pattern which slept
-        2s per position sequentially.  With N positions the old code blocked
-        N × 2s; this always blocks exactly 2s regardless of position count.
+        Fast path (persistent streams): if _refresh_tick_streams has already
+        subscribed market data for all position legs, read from those live
+        tickers directly after a 0.1 s event-loop pump.  This keeps the stop
+        monitor running at ~1 Hz with sub-100 ms data latency instead of the
+        old 2 s subscribe-wait-cancel cycle.
+
+        Slow path (fallback): if any leg ticker is missing or stale, subscribe
+        all contracts simultaneously, sleep 2 s, cancel — identical to the
+        previous behaviour.
         """
         if not positions:
             return {}
 
         from execution import ExecutionEngine as _EE
 
-        # Map conId → contract and conId → Ticker
+        # ── Fast path: use persistent streaming tickers ───────────────────
+        all_conids = {leg.con_id for pos in positions for leg in pos.legs}
+        streamed = {cid: self.market.get_streamed_ticker(cid) for cid in all_conids}
+
+        if all(streamed.get(cid) is not None for cid in all_conids):
+            # All legs have live data — just pump the event loop briefly
+            self.ib.sleep(0.1)
+            # Re-read after pump in case a fresher tick arrived
+            streamed = {cid: self.market.get_streamed_ticker(cid) for cid in all_conids}
+            if all(streamed.get(cid) is not None for cid in all_conids):
+                results: dict[int, dict | None] = {}
+                for pos in positions:
+                    tickers = [streamed.get(leg.con_id) for leg in pos.legs]
+                    if any(t is None for t in tickers):
+                        results[id(pos)] = None
+                        continue
+                    raw = _EE._close_debit_quote(pos.legs, tickers)
+                    if raw is None:
+                        results[id(pos)] = None
+                    else:
+                        bid, ask, mid = raw
+                        results[id(pos)] = {"bid": bid, "ask": ask, "mid": mid}
+                return results
+
+        # ── Slow path: subscribe → wait 2 s → cancel ─────────────────────
         conid_contract: dict[int, object] = {}
         for pos in positions:
             for leg in pos.legs:

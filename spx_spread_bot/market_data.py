@@ -693,6 +693,20 @@ class MarketDataService:
         self._ticker_handlers.clear()
         self._tickers.clear()
 
+    def get_streamed_ticker(self, conid: int):
+        """Return the live streaming Ticker for *conid* if one exists and has
+        received at least one valid price tick (bid, ask, or last > 0).
+        Returns None if the stream is not active or data has not arrived yet.
+        """
+        for ticker in self._tickers:
+            if ticker.contract and int(getattr(ticker.contract, "conId", 0) or 0) == conid:
+                bid = float(ticker.bid or 0.0)
+                ask = float(ticker.ask or 0.0)
+                last = float(ticker.last or 0.0)
+                if bid > 0 or ask > 0 or last > 0:
+                    return ticker
+        return None
+
     def _log_tick_if_due(self, ticker: Ticker, ticker_symbol: str) -> None:
         now = datetime.now(self.tz)
         last = self._last_tick_log_at.get(ticker_symbol)
