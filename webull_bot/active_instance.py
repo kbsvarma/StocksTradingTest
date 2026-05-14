@@ -98,16 +98,35 @@ def active_instance(use_cache: bool = True) -> str:
     return val
 
 
+def _trust_local_role() -> bool:
+    """True if the bot is configured to trust env WEBULL_INSTANCE_NAME without
+    consulting SSM. Used on hosts that lack AWS credentials (e.g. Mac, where
+    boto3 has no creds to read /webull-bot/active-instance).
+
+    SAFETY TRADE-OFF: with this enabled, an SSM mutex flip won't auto-disable
+    this instance — the operator is responsible for stopping the bot manually.
+    Only set on a host whose role is fixed (always-live or always-paper).
+    """
+    return os.environ.get("WEBULL_TRUST_LOCAL_ROLE") == "1"
+
+
 def is_active_instance() -> bool:
     """True if this instance is the currently-active live trader.
 
-    Fail-CLOSED: returns False if either side is the _UNKNOWN sentinel,
-    or if names don't match. Will only ever return True when both env
-    var and SSM value are valid AND identical.
+    Default: fail-CLOSED. Returns False if either side is the _UNKNOWN
+    sentinel, or if names don't match. Will only ever return True when both
+    env var and SSM value are valid AND identical.
+
+    Override: when WEBULL_TRUST_LOCAL_ROLE=1, trust the local env var only
+    (no SSM call). Used on hosts without AWS credentials.
     """
     me = my_name()
+    if me == _UNKNOWN:
+        return False
+    if _trust_local_role():
+        return me in _VALID_NAMES
     active = active_instance()
-    if me == _UNKNOWN or active == _UNKNOWN:
+    if active == _UNKNOWN:
         return False
     return me == active and me in _VALID_NAMES
 
@@ -115,8 +134,12 @@ def is_active_instance() -> bool:
 def status_line() -> str:
     """Human-readable line for logs/dashboards."""
     me = my_name()
-    active = active_instance()
     me_disp = "<UNSET>" if me == _UNKNOWN else me
+    if _trust_local_role():
+        if is_active_instance():
+            return f"MUTEX: I am '{me_disp}' (TRUST_LOCAL_ROLE=1, SSM bypassed) — real trades enabled."
+        return f"MUTEX: I am '{me_disp}' (TRUST_LOCAL_ROLE=1, but env invalid) — paper-only."
+    active = active_instance()
     active_disp = "<UNKNOWN>" if active == _UNKNOWN else active
     if is_active_instance():
         return f"MUTEX: I am '{me_disp}' and I am the ACTIVE instance — real trades enabled."
