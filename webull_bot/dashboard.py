@@ -6,7 +6,11 @@ Visual style mirrors the Lightsail dashboard (light theme, grid strip, KPI tiles
 from __future__ import annotations
 
 # Install secret-scrub log filter at process start. See webull_bot/log_redact.py.
-from webull_bot import log_redact  # noqa: F401
+# Streamlit runs this file as a script (not `python -m`), so the parent of the
+# webull_bot/ package isn't on sys.path. Add it before the package import.
+import sys as _sys, pathlib as _pathlib
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent.parent))
+from webull_bot import log_redact  # noqa: F401, E402
 
 import json
 import os
