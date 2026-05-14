@@ -44,6 +44,26 @@ class PositionMonitor:
         self.interval = monitor_interval_seconds
         h, m = eod_close_time.split(":")
         self.eod_time = dtime(int(h), int(m))
+        # Heartbeat path = same dir as state.json (so dashboard finds it).
+        from pathlib import Path as _Path
+        self._heartbeat_path = _Path(store.path).parent / "heartbeat.json"
+
+    def _write_heartbeat(self, state: BotState) -> None:
+        """Best-effort heartbeat write — mirrors main._write_heartbeat shape so
+        the dashboard's parse logic stays unchanged."""
+        import json as _json
+        from datetime import datetime as _dt
+        hb = {
+            "ts": _dt.now(ET).isoformat(),
+            "trading_date": state.trading_date,
+            "trade_taken_today": state.trade_taken_today,
+            "total_trades": state.total_trades,
+            "wins": state.wins,
+            "losses": state.losses,
+            "total_pnl": round(state.total_pnl, 2),
+            "has_open_position": state.open_position is not None,
+        }
+        self._heartbeat_path.write_text(_json.dumps(hb), encoding="utf-8")
 
     def run_until_closed(self, state: BotState) -> MonitorOutcome:
         """Block until the position is closed (stop, EOD, or expiry)."""
@@ -92,6 +112,14 @@ class PositionMonitor:
                 # _close_state runs, it can record which source informed the
                 # exit decision (set even if mark is None — caller will see).
                 self._last_exit_source = source
+
+                # Heartbeat — write on every monitor tick so dashboard knows
+                # bot is alive even when in monitor mode (not just entry-scan).
+                # Best-effort: never raise into the trading loop.
+                try:
+                    self._write_heartbeat(state)
+                except Exception:
+                    pass
 
                 if mark is not None:
                     self.logger.info(
