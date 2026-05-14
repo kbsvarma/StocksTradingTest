@@ -5,6 +5,9 @@ Visual style mirrors the Lightsail dashboard (light theme, grid strip, KPI tiles
 """
 from __future__ import annotations
 
+# Install secret-scrub log filter at process start. See webull_bot/log_redact.py.
+from webull_bot import log_redact  # noqa: F401
+
 import json
 import os
 import shutil

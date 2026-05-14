@@ -23,6 +23,9 @@ Usage:
 """
 from __future__ import annotations
 
+# Install secret-scrub log filter BEFORE any SDK import. See webull_bot/log_redact.py.
+from webull_bot import log_redact  # noqa: F401
+
 import argparse
 import subprocess
 import sys

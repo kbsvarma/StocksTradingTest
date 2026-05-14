@@ -9,6 +9,11 @@ Or with a virtual env:
 """
 from __future__ import annotations
 
+# Install the secret-scrub log filter BEFORE any SDK import. Side-effect import
+# registers a logging.Filter on root + webullsdkcore loggers that redacts
+# APP_KEY/APP_SECRET/Telegram-token substrings from any log record.
+from webull_bot import log_redact  # noqa: F401
+
 import signal
 import sys
 import time
@@ -65,7 +70,9 @@ def _sync_to_remote(data_dir: Path) -> None:
             r = subprocess.run(
                 [
                     "rsync", "-az", "--timeout=15",
-                    "-e", f"ssh -i {_SFTP_KEY} -o StrictHostKeyChecking=no -o ConnectTimeout=10",
+                    # accept-new: trust the host key on first connect, then verify on subsequent
+                    # (vs StrictHostKeyChecking=no which trusts every connection — MITM-able)
+                    "-e", f"ssh -i {_SFTP_KEY} -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10",
                     f"{data_dir}/",
                     f"{_SFTP_USER}@{_SFTP_HOST}:{_SFTP_REMOTE_DIR}/",
                 ],
@@ -509,9 +516,26 @@ def force_entry_now() -> None:
       5. Places ONE market order. No retries, no loops.
 
     What is bypassed: VIX gate, direction filter, entry window, position guard.
-    What is NOT bypassed: symbol whitelist (SPXW/SPX/NDXP/NDX only).
+    What is NOT bypassed: symbol whitelist (SPXW/SPX/NDXP only).
+
+    Concurrency: protected by an exclusive flock on /tmp/webull-force-entry.lock
+    so only ONE force-entry CLI can run at a time. A second concurrent
+    invocation aborts immediately rather than racing the first.
     """
     from datetime import date as _date, datetime as _dt
+    import fcntl as _fcntl
+
+    # ── Exclusive lock — prevent concurrent force-entry invocations ──────
+    _lockfile_path = "/tmp/webull-force-entry.lock"
+    try:
+        _lockfile = open(_lockfile_path, "w")
+        _fcntl.flock(_lockfile.fileno(), _fcntl.LOCK_EX | _fcntl.LOCK_NB)
+    except BlockingIOError:
+        print(f"[FORCE-ENTRY] another invocation already running (lock {_lockfile_path}). Aborting.")
+        return
+    except Exception as exc:
+        print(f"[FORCE-ENTRY] could not acquire lock ({exc}). Aborting for safety.")
+        return
 
     cfg = load_config()
     trade_client = build_trade_client()

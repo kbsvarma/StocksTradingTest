@@ -16,8 +16,8 @@ from webull.trade.trade_client import TradeClient
 # ── Symbol whitelist ──────────────────────────────────────────────────────────
 # The ONLY option symbols this engine is ever allowed to touch.
 # Any call that passes a symbol outside this set is rejected before any API call.
-# NDXP/NDX are listed for future use — not currently traded.
-ALLOWED_OPTION_SYMBOLS: frozenset[str] = frozenset({"SPXW", "SPX", "NDXP", "NDX"})
+# Only PM-settled weeklies — never AM-settled monthlies (NDX, SPX-without-W).
+ALLOWED_OPTION_SYMBOLS: frozenset[str] = frozenset({"SPXW", "SPX", "NDXP"})
 
 # ── DRY RUN MODE (paper / shadow) ────────────────────────────────────────────
 # Two independent gates either of which forces dry-run behavior:
@@ -25,10 +25,11 @@ ALLOWED_OPTION_SYMBOLS: frozenset[str] = frozenset({"SPXW", "SPX", "NDXP", "NDX"
 #   2. SSM mutex /webull-bot/active-instance — if I'm not the active one
 #      (see webull_bot/active_instance.py), I run paper regardless.
 #
-# Both gates fail-safe: any error in checking → assume dry-run.
+# Both gates fail-CLOSED: any error or ambiguity → dry-run.
+# Env var is read on EVERY call (not cached at import) so emergency overrides
+# work even mid-process.
 
-DRY_RUN_LOCAL = os.environ.get("WEBULL_DRY_RUN") == "1"
-if DRY_RUN_LOCAL:
+if os.environ.get("WEBULL_DRY_RUN") == "1":
     import sys as _sys
     _banner = "█" * 70
     print(_banner, file=_sys.stderr, flush=True)
@@ -37,21 +38,27 @@ if DRY_RUN_LOCAL:
 
 
 def _dry_run_active() -> bool:
-    """Return True if any dry-run gate is in effect (env OR mutex says paper)."""
-    if DRY_RUN_LOCAL:
+    """Return True if any dry-run gate is in effect.
+
+    Fail-CLOSED design: any uncertainty → dry-run.
+    Env var checked on every call (no module-level cache) so a runtime
+    override via os.environ takes effect immediately.
+    """
+    # Gate 1: explicit env flag
+    if os.environ.get("WEBULL_DRY_RUN") == "1":
         return True
+    # Gate 2: SSM mutex — fail-closed on any error or "unknown" sentinel
     try:
         from webull_bot.active_instance import is_active_instance
         if not is_active_instance():
             return True
     except Exception:
-        # If we can't verify mutex, fail-safe → dry-run
         return True
     return False
 
 
-# Backward-compat alias used in older code paths
-DRY_RUN = DRY_RUN_LOCAL
+# Backward-compat alias (deprecated — use _dry_run_active() instead)
+DRY_RUN = os.environ.get("WEBULL_DRY_RUN") == "1"
 
 
 def _synth_fill(client_order_id: str, fill_price: float, detail: str) -> "FillResult":
@@ -123,16 +130,29 @@ class ExecutionEngine:
             if open_count > 0 or orders:
                 return True, f"BLOCKED: {open_count} open order(s) already working"
 
-            # 2. Check account positions for any existing SPXW option holdings
-            resp2 = self.trade.account.get_account_position(account_id=self.account_id)
-            holdings = resp2.json().get("holdings", [])
-            has_next = resp2.json().get("has_next", False)
-            if has_next and holdings:
-                last_id = holdings[-1]["instrument_id"]
-                resp3 = self.trade.account.get_account_position(
-                    account_id=self.account_id, last_instrument_id=last_id
-                )
-                holdings += resp3.json().get("holdings", [])
+            # 2. Check account positions — paginate to completion (max 20 pages
+            #    as a sanity ceiling). Aborts on any partial-fail to fail-closed.
+            holdings: list[dict] = []
+            last_id = None
+            for _page in range(20):
+                if last_id:
+                    r = self.trade.account.get_account_position(
+                        account_id=self.account_id, last_instrument_id=last_id,
+                    )
+                else:
+                    r = self.trade.account.get_account_position(
+                        account_id=self.account_id,
+                    )
+                d = r.json()
+                page_holdings = d.get("holdings", [])
+                holdings.extend(page_holdings)
+                if not d.get("has_next") or not page_holdings:
+                    break
+                last_id = page_holdings[-1]["instrument_id"]
+            else:
+                # Hit the 20-page ceiling without seeing has_next=False —
+                # fail-closed so we never trade with incomplete position view.
+                return True, "BLOCKED: position pagination exceeded 20 pages — fail-closed"
 
             spxw_opts = [
                 h for h in holdings
@@ -181,12 +201,16 @@ class ExecutionEngine:
         retry_price_step: float = 0.05,
         retry_wait_seconds: int = 60,
         fill_timeout_seconds: int = 300,
-        allow_multiple: bool = False,   # must be explicitly True to bypass guard
     ) -> FillResult:
         """Place a bull put spread and wait for fill.
 
         Retries by improving the limit price (lowering the credit we demand)
         if not filled within retry_wait_seconds.
+
+        The position guard (`has_live_position_or_order`) is UNCONDITIONAL —
+        there is no parameter to skip it. If a stacked-position workflow is
+        ever needed, route through `place_spread_market` (force-entry) which
+        is gated by interactive confirmation.
         """
         # ── Symbol whitelist — reject anything outside SPX/NDXP family ──────
         _assert_allowed_symbol(symbol)
@@ -199,17 +223,16 @@ class ExecutionEngine:
             return _synth_fill(cid, float(limit_price),
                                f"DRY_RUN: would have placed {symbol} {int(short_strike)}/{int(long_strike)} qty={quantity}")
 
-        # ── Hard guard: never place if already live ───────────────────────
-        if not allow_multiple:
-            blocked, reason = self.has_live_position_or_order()
-            if blocked:
-                return FillResult(
-                    filled=False,
-                    client_order_id="",
-                    fill_price=0.0,
-                    status="BLOCKED",
-                    detail=reason,
-                )
+        # ── Hard guard: never place if already live (UNCONDITIONAL) ───────
+        blocked, reason = self.has_live_position_or_order()
+        if blocked:
+            return FillResult(
+                filled=False,
+                client_order_id="",
+                fill_price=0.0,
+                status="BLOCKED",
+                detail=reason,
+            )
 
         client_order_id = uuid.uuid4().hex
         current_limit = limit_price

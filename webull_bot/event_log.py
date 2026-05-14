@@ -56,17 +56,51 @@ def _today_path() -> Path:
     return _LOG_DIR / f"events-{today}.jsonl"
 
 
+# Field-name patterns we will never write to the event log, even if a caller
+# accidentally passes them. Belt-and-suspenders against credential leaks.
+_SECRET_KEY_PATTERNS = (
+    "key", "secret", "token", "password", "passwd", "credential",
+    "x-app-", "x-signature", "authorization", "auth",
+)
+
+# Substring patterns we will scrub from any string VALUE that goes into the log.
+# Conservative — catches the actual known-secret prefixes used in this project.
+_SECRET_VALUE_PREFIXES = (
+    "e97032ca51136cae",  # Webull APP_KEY
+    "7898b703c3a902a1",  # Webull APP_SECRET
+    "8842241204:AAFsVnZZ",  # Telegram bot token
+)
+
+
+def _safe_field(k: str, v) -> tuple[str, object]:
+    """Sanitize a single (key, value) pair before logging. Returns redacted form if suspicious."""
+    kl = str(k).lower()
+    if any(p in kl for p in _SECRET_KEY_PATTERNS):
+        return (k, "<REDACTED:key-name-matched-secret-pattern>")
+    if isinstance(v, str) and any(p in v for p in _SECRET_VALUE_PREFIXES):
+        return (k, "<REDACTED:value-matched-known-secret-prefix>")
+    if isinstance(v, dict):
+        # Recurse one level — events shouldn't have deeply-nested structures
+        return (k, {ik: _safe_field(ik, iv)[1] for ik, iv in v.items()})
+    return (k, v)
+
+
 def log_event(event_type: str, **fields) -> None:
-    """Append one JSON line to today's events file. Best-effort, never raises."""
+    """Append one JSON line to today's events file. Best-effort, never raises.
+
+    Field names matching credential patterns (key, secret, token, etc.) are
+    redacted. String values containing known credential prefixes are redacted.
+    Belt-and-suspenders — callers should not pass secrets in the first place.
+    """
     try:
         _ensure_dir()
+        sanitized = dict(_safe_field(k, v) for k, v in fields.items())
         record = {
             "ts_utc": datetime.now(UTC).isoformat(),
             "ts_et":  datetime.now(ET).isoformat(),
             "event":  event_type,
-            **fields,
+            **sanitized,
         }
-        # Convert any non-JSON-serializable to str (cheap fallback)
         line = json.dumps(record, default=str, separators=(",", ":"))
         with _lock:
             with open(_today_path(), "a", encoding="utf-8") as f:
