@@ -67,6 +67,13 @@ class BotLogger:
         pnl_usd: float,
         exit_reason: str,
         notes: str = "",
+        # Data-source provenance — recorded so post-mortems can tell whether
+        # IBKR or yfinance drove this trade. Defaults to "unknown" if caller
+        # didn't pass explicitly (older callers / older data).
+        spx_source: str = "unknown",
+        vix_source: str = "unknown",
+        chain_source: str = "unknown",
+        exit_source: str = "unknown",
     ) -> None:
         row = {
             "Date": date,
@@ -82,6 +89,10 @@ class BotLogger:
             "PnL USD": pnl_usd,
             "Exit Reason": exit_reason,
             "Notes": notes,
+            "SPX Source": spx_source,
+            "VIX Source": vix_source,
+            "Chain Source": chain_source,
+            "Exit Source": exit_source,
         }
         fieldnames = list(row.keys())
         with self._lock:

@@ -76,7 +76,9 @@ class PositionMonitor:
                     expiry=pos.expiry,
                 )
                 source = "IBKR"
+                from webull_bot import data_source_health as _dsh
                 if mark is None:
+                    _dsh.report("ibkr", up=False)
                     mark = get_spread_mark(
                         short_strike=pos.short_strike,
                         long_strike=pos.long_strike,
@@ -84,6 +86,12 @@ class PositionMonitor:
                         yf_options_symbol=pos.yf_options_symbol,
                     )
                     source = "yfinance"
+                else:
+                    _dsh.report("ibkr", up=True)
+                # Remember the source used for THIS tick so that whenever
+                # _close_state runs, it can record which source informed the
+                # exit decision (set even if mark is None — caller will see).
+                self._last_exit_source = source
 
                 if mark is not None:
                     self.logger.info(
@@ -213,6 +221,10 @@ class PositionMonitor:
         else:
             state.losses += 1
 
+        # Capture source provenance: entry-time sources from the OpenPosition
+        # record; exit source = whatever the most recent monitor tick used.
+        # `getattr` keeps backward compat with old state.json files that don't
+        # have these fields (loaded via state.py's filtered constructor).
         self.logger.append_trade(
             date=state.trading_date,
             symbol=pos.symbol,
@@ -226,6 +238,10 @@ class PositionMonitor:
             pnl_pts=round(pnl_pts, 2),
             pnl_usd=round(pnl_usd, 2),
             exit_reason=reason,
+            spx_source=getattr(pos, "spx_source", "unknown"),
+            vix_source=getattr(pos, "vix_source", "unknown"),
+            chain_source=getattr(pos, "chain_source", "unknown"),
+            exit_source=getattr(self, "_last_exit_source", "unknown"),
         )
 
         state.open_position = None

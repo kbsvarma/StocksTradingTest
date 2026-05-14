@@ -21,6 +21,29 @@ ET = ZoneInfo("America/New_York")
 _CHAIN_CACHE: dict[str, tuple[float, object]] = {}
 _CHAIN_TTL = 60.0  # seconds before re-fetching chain
 
+# Last-known data source per fetch type. Updated on every call to the public
+# get_*/find_* helpers below. Callers query via last_*_source() to record into
+# event log / trades.csv. Single-threaded use within the bot — these helpers
+# are called from the main run loop, not from Telegram daemon threads.
+_last_spx_source: str = "unknown"
+_last_vix_source: str = "unknown"
+_last_chain_source: str = "unknown"
+
+
+def last_spx_source() -> str:
+    """Source ('IBKR' / 'yfinance' / 'unknown') of the most recent SPX price fetch."""
+    return _last_spx_source
+
+
+def last_vix_source() -> str:
+    """Source ('IBKR' / 'yfinance' / 'unknown') of the most recent VIX price fetch."""
+    return _last_vix_source
+
+
+def last_chain_source() -> str:
+    """Source of the most recent options-chain / spread scan."""
+    return _last_chain_source
+
 
 @dataclass
 class SpreadQuote:
@@ -42,11 +65,18 @@ def _try_ibkr_spot(symbol: str) -> Optional[float]:
 
 
 def get_spx_price(yf_symbol: str = "^GSPC") -> float:
+    """SPX spot. IBKR-first, yfinance fallback. Updates last_spx_source()."""
+    global _last_spx_source
+    from webull_bot import data_source_health as _dsh
     # IBKR-first
     ibkr_price = _try_ibkr_spot("SPX")
     if ibkr_price and ibkr_price > 100:
+        _last_spx_source = "IBKR"
+        _dsh.report("ibkr", up=True)
         return float(ibkr_price)
+    _dsh.report("ibkr", up=False)
     # yfinance fallback
+    _last_spx_source = "yfinance"
     ticker = yf.Ticker(yf_symbol)
     info = ticker.fast_info
     price = getattr(info, "last_price", None) or getattr(info, "regularMarketPrice", None)
@@ -59,11 +89,18 @@ def get_spx_price(yf_symbol: str = "^GSPC") -> float:
 
 
 def get_vix_price() -> float:
+    """VIX spot. IBKR-first, yfinance fallback. Updates last_vix_source()."""
+    global _last_vix_source
+    from webull_bot import data_source_health as _dsh
     # IBKR-first
     ibkr_price = _try_ibkr_spot("VIX")
     if ibkr_price and ibkr_price > 0:
+        _last_vix_source = "IBKR"
+        _dsh.report("ibkr", up=True)
         return float(ibkr_price)
+    _dsh.report("ibkr", up=False)
     # yfinance fallback
+    _last_vix_source = "yfinance"
     ticker = yf.Ticker("^VIX")
     info = ticker.fast_info
     price = getattr(info, "last_price", None) or getattr(info, "regularMarketPrice", None)
@@ -137,7 +174,13 @@ def find_best_spread(
 
     Scans strikes around the 1% OTM target. Returns the spread with credit
     closest to $2.00 that meets the min_credit threshold.
+
+    NOTE: yfinance-only. No IBKR fallback wired here yet — separate gap.
+    Sets last_chain_source() to 'yfinance' so trade records reflect reality.
     """
+    global _last_chain_source
+    _last_chain_source = "yfinance"
+
     if expiry is None:
         expiry = get_0dte_expiry(yf_options_symbol)
     if expiry is None:
@@ -240,6 +283,8 @@ def find_top_spreads(
     if expiry is None:
         return []
 
+    global _last_chain_source
+    from webull_bot import data_source_health as _dsh
     # IBKR-first: real-time bid/ask from the gateway
     try:
         from webull_bot.ibkr_market_data import get_top_spreads_ibkr
@@ -252,11 +297,15 @@ def find_top_spreads(
             top_n=top_n,
         )
         if ibkr_results:
+            _last_chain_source = "IBKR"
+            _dsh.report("ibkr", up=True)
             return [SpreadQuote(**r) for r in ibkr_results]
     except Exception:
         pass
+    _dsh.report("ibkr", up=False)
 
     # yfinance fallback
+    _last_chain_source = "yfinance"
     ticker = yf.Ticker(yf_options_symbol)
     try:
         chain = ticker.option_chain(expiry)

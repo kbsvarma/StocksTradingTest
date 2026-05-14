@@ -25,6 +25,12 @@ class OpenPosition:
     yf_options_symbol: str = "SPX"
     short_iid: str = ""         # Webull instrument_id of the short put leg
     long_iid: str = ""          # Webull instrument_id of the long put leg
+    # Data-source provenance — recorded at entry so post-mortems know which
+    # source drove the decision. Defaults preserve backward compat with
+    # state.json files written before these fields existed.
+    spx_source: str = "unknown"
+    vix_source: str = "unknown"
+    chain_source: str = "unknown"
 
 
 @dataclass

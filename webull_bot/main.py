@@ -250,7 +250,9 @@ def run() -> None:
 
         vix_ok, vix_reason, vix_price = _check_vix_gate(cfg, logger, today)
         from webull_bot.event_log import log_event as _le
-        _le("signal_eval", spx=spx_price, vix=vix_price, vix_ok=vix_ok, vix_reason=vix_reason)
+        from webull_bot.market_data import last_spx_source, last_vix_source
+        _le("signal_eval", spx=spx_price, vix=vix_price, vix_ok=vix_ok, vix_reason=vix_reason,
+            spx_source=last_spx_source(), vix_source=last_vix_source())
         if not vix_ok:
             logger.info(f"[main] VIX gate: SKIP — {vix_reason}")
             logger.signal_event("SKIP", {"reason": vix_reason, "vix": vix_price, "spx": spx_price})
@@ -357,6 +359,8 @@ def run() -> None:
             continue
 
         # ── Record position ──────────────────────────────────────────────
+        from webull_bot.market_data import last_spx_source, last_vix_source, last_chain_source
+        _spx_src, _vix_src, _chain_src = last_spx_source(), last_vix_source(), last_chain_source()
         stop_price = round(fill.fill_price * cfg["stop_multiplier"], 2)
         pos = OpenPosition(
             symbol=cfg["symbol"],
@@ -371,7 +375,14 @@ def run() -> None:
             entry_ts=datetime.now(ET).isoformat(),
             client_order_id=fill.client_order_id,
             yf_options_symbol=yf_opts_sym,
+            spx_source=_spx_src,
+            vix_source=_vix_src,
+            chain_source=_chain_src,
         )
+        _le("entry_recorded",
+            short=spread.short_strike, long=spread.long_strike,
+            credit=fill.fill_price, stop=stop_price,
+            spx_source=_spx_src, vix_source=_vix_src, chain_source=_chain_src)
 
         state.open_position = pos
         state.trade_taken_today = True
