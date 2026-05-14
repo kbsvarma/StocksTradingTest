@@ -34,3 +34,6 @@ env/
 webull_*_sdk.log
 webull_*_sdk.log.*
 webull_bot/data/
+webull_bot/logs/
+webull_bot/logs.*
+webull_bot/__pycache__/

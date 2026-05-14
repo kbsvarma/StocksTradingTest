@@ -1,8 +1,18 @@
 """IBKR real-time spread mark via ib_insync — used by the Webull bot monitor.
 
-Connects to IB Gateway on 127.0.0.1:4001 (clientId=42, separate from the
-IBKR trading bot which uses clientId=41).  Falls back to None on any error
+Connects to IB Gateway on 127.0.0.1:4001. Falls back to None on any error
 so the caller can fall back to yfinance.
+
+ClientId convention:
+  - 41: the legacy IBKR trading bot (XSP era)
+  - 42: this Webull bot's daemon (monitor)
+  - 43–47: auto-bump range for ad-hoc scripts (force reports, manual probes)
+           when running alongside the daemon — _connect() tries each in order
+           if the preferred ID is already in use.
+
+Set env var WEBULL_IBKR_CLIENT_ID to override the starting ID for the current
+process. Useful for one-off scripts that want to be explicit about not
+colliding with the daemon.
 
 Usage:
     mark = get_spread_mark_ibkr(short_strike, long_strike, expiry)
@@ -11,25 +21,56 @@ Usage:
 from __future__ import annotations
 
 import math
+import os
 from datetime import datetime
 from typing import Optional
 
 _ib = None  # module-level IB instance — reused across calls
 
+_DEFAULT_CLIENT_ID = int(os.environ.get("WEBULL_IBKR_CLIENT_ID", "42"))
+_FALLBACK_CLIENT_IDS = [43, 44, 45, 46, 47]
 
-def _connect() -> Optional[object]:
-    """Return a connected IB instance, or None if Gateway is unreachable."""
+
+def _connect(client_id: Optional[int] = None) -> Optional[object]:
+    """Return a connected IB instance, or None if Gateway is unreachable.
+
+    Tries the preferred `client_id` (defaults to env-configured value, then 42).
+    If that ID is already in use by another process (Error 326), auto-bumps
+    through _FALLBACK_CLIENT_IDS before giving up. This lets ad-hoc scripts
+    coexist with the running daemon without manual ID juggling.
+    """
     global _ib
     try:
         from ib_insync import IB
         if _ib is not None and _ib.isConnected():
             return _ib
-        ib = IB()
-        ib.RequestTimeout = 6
-        ib.connect("127.0.0.1", 4001, clientId=42, timeout=5, readonly=True)
-        _ib = ib
-        return _ib
-    except Exception as exc:
+
+        preferred = client_id if client_id is not None else _DEFAULT_CLIENT_ID
+        candidates = [preferred] + [
+            cid for cid in _FALLBACK_CLIENT_IDS if cid != preferred
+        ]
+
+        for cid in candidates:
+            try:
+                ib = IB()
+                ib.RequestTimeout = 6
+                ib.connect("127.0.0.1", 4001, clientId=cid, timeout=5, readonly=True)
+                _ib = ib
+                return _ib
+            except TimeoutError:
+                # ib_insync raises bare TimeoutError when IBG rejects the
+                # connect (Error 326 = client id already in use). The actual
+                # "326" message is logged separately and not in the exception.
+                # → try the next clientId.
+                continue
+            except Exception:
+                # Anything else (ConnectionRefusedError when gateway is down,
+                # OSError, etc.) means the gateway itself is the problem,
+                # not the clientId. No point trying more IDs.
+                break
+        _ib = None
+        return None
+    except Exception:
         _ib = None
         return None
 

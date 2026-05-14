@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -70,6 +71,15 @@ class StateStore:
         )
 
     def save(self, state: BotState) -> None:
+        """Atomically persist state.
+
+        Write to <path>.tmp then os.replace() onto the real file. This guarantees
+        the on-disk file is either the previous version or the new version — never
+        a half-written torn JSON, even on power loss, OOM kill, or an rsync that
+        catches the bot mid-write.
+        """
         state.updated_at = datetime.now(UTC).isoformat()
-        payload = asdict(state)
-        self.path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        payload = json.dumps(asdict(state), indent=2)
+        tmp = self.path.with_suffix(self.path.suffix + ".tmp")
+        tmp.write_text(payload, encoding="utf-8")
+        os.replace(tmp, self.path)

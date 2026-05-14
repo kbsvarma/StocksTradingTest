@@ -33,6 +33,9 @@ from webull_bot.market_data import (
 from webull_bot.monitor import PositionMonitor
 from webull_bot.ibkr_market_data import disconnect as ibkr_disconnect
 from webull_bot.state import BotState, OpenPosition, StateStore
+from webull_bot.alerts import (
+    alert_force_entry, alert_close_all, alert_order_event, alert_entry,
+)
 
 ET = ZoneInfo("America/New_York")
 
@@ -172,6 +175,16 @@ def run() -> None:
     logger.info(f"[main] Symbol: {cfg['symbol']}  Width: {cfg['spread_width']}pt  OTM: {cfg['otm_pct']*100:.1f}%")
     logger.info(f"[main] Stop: {cfg['stop_multiplier']}x credit  VIX: {cfg['vix_min']}-{cfg['vix_max']}")
 
+    import os as _os
+    from webull_bot.event_log import log_event as _le
+    _le("bot_start",
+        symbol=cfg["symbol"],
+        spread_width=cfg["spread_width"], otm_pct=cfg["otm_pct"],
+        min_credit=cfg["min_credit"], stop_multiplier=cfg["stop_multiplier"],
+        vix_min=cfg["vix_min"], vix_max=cfg["vix_max"],
+        entry_start=cfg["entry_start"], entry_end=cfg["entry_end"],
+        dry_run=(_os.environ.get("WEBULL_DRY_RUN") == "1"))
+
     trade_client = build_trade_client()
     execution = ExecutionEngine(trade_client, cfg["account_id"])
     monitor = PositionMonitor(
@@ -229,15 +242,19 @@ def run() -> None:
             continue
 
         vix_ok, vix_reason, vix_price = _check_vix_gate(cfg, logger, today)
+        from webull_bot.event_log import log_event as _le
+        _le("signal_eval", spx=spx_price, vix=vix_price, vix_ok=vix_ok, vix_reason=vix_reason)
         if not vix_ok:
             logger.info(f"[main] VIX gate: SKIP — {vix_reason}")
             logger.signal_event("SKIP", {"reason": vix_reason, "vix": vix_price, "spx": spx_price})
+            _le("vix_skip", spx=spx_price, vix=vix_price, reason=vix_reason)
             time.sleep(cfg.get("scan_interval_seconds", 30))
             continue
 
         dir_ok, dir_reason = _check_direction_filter(cfg, spx_price, today)
         if not dir_ok:
             logger.info(f"[main] direction filter: SKIP — {dir_reason}")
+            _le("direction_skip", spx=spx_price, vix=vix_price, reason=dir_reason)
             time.sleep(cfg.get("scan_interval_seconds", 30))
             continue
 
@@ -261,8 +278,14 @@ def run() -> None:
                 f"[main] no qualifying spread found (SPX={spx_price:.2f} VIX={vix_price:.2f}) — watching"
             )
             logger.signal_event("SKIP", {"reason": "no qualifying spread", "spx": spx_price, "vix": vix_price})
+            _le("no_spread", spx=spx_price, vix=vix_price, otm_pct=cfg["otm_pct"], min_credit=cfg["min_credit"])
             time.sleep(cfg.get("scan_interval_seconds", 30))
             continue
+
+        _le("picked_spread",
+            spx=spx_price, vix=vix_price,
+            short_strike=spread.short_strike, long_strike=spread.long_strike,
+            mid=spread.mid, bid=spread.bid, ask=spread.ask)
 
         logger.info(
             f"[main] SIGNAL: {cfg['symbol']} {spread.expiry}  "
@@ -314,6 +337,12 @@ def run() -> None:
             "client_order_id": fill.client_order_id,
             "detail": fill.detail,
         })
+        _le("entry_attempt",
+            symbol=cfg["symbol"], expiry=spread.expiry,
+            short_strike=spread.short_strike, long_strike=spread.long_strike,
+            limit_price=limit_price, qty=cfg.get("quantity", 1),
+            fill_status=fill.status, fill_price=fill.fill_price, filled=fill.filled,
+            client_order_id=fill.client_order_id, detail=fill.detail)
 
         if not fill.filled:
             logger.warning(f"[main] order not filled: {fill.detail}")
@@ -344,6 +373,16 @@ def run() -> None:
         logger.info(
             f"[main] FILLED: credit={fill.fill_price:.2f}  stop={stop_price:.2f}  "
             f"({int(spread.short_strike)}/{int(spread.long_strike)}P)"
+        )
+
+        alert_entry(
+            spread=f"{int(spread.short_strike)}/{int(spread.long_strike)}P",
+            qty=cfg.get("quantity", 1),
+            credit=fill.fill_price,
+            width=int(spread.short_strike - spread.long_strike),
+            spx=spx_price,
+            vix=vix_price,
+            stop_price=stop_price,
         )
 
         # ── Monitor until close ──────────────────────────────────────────
@@ -380,21 +419,30 @@ def close_all_now() -> None:
     store = StateStore(cfg["state_file"])
     state = store.load()
     known: dict[str, float] = {}
+    side: list[dict] = []
     if state.open_position:
         op = state.open_position
         if op.short_iid:
             known[op.short_iid] = float(op.short_strike)
         if op.long_iid:
             known[op.long_iid] = float(op.long_strike)
+        # qty/sign fallback if iids were never captured at placement
+        side.append({
+            "qty": int(op.quantity),
+            "short_strike": float(op.short_strike),
+            "long_strike":  float(op.long_strike),
+        })
     if known:
         _t(f"loaded {len(known)} leg iid→strike entries from state.json")
+    elif side:
+        _t(f"no leg iids in state — qty-match fallback ready ({side[0]['short_strike']:.0f}/{side[0]['long_strike']:.0f} qty={side[0]['qty']})")
     else:
-        _t("no leg iids in state — relying on live position scan only")
+        _t("no state data — relying on live position scan only")
 
     # ── Step 1: Preview ──────────────────────────────────────────────────
     _t(f"fetching open SPXW positions for {expiry} ...")
     preview = execution.preview_close_all_today(
-        expiry=expiry, symbol=cfg["symbol"], known_iid_strikes=known,
+        expiry=expiry, symbol=cfg["symbol"], known_iid_strikes=known, side_strikes=side,
     )
 
     if not preview or all("error" in p or "info" in p for p in preview):
@@ -426,7 +474,7 @@ def close_all_now() -> None:
     # ── Step 3: Execute ──────────────────────────────────────────────────
     _t("placing close orders NOW (parallel) ...")
     results = execution.close_all_today(
-        expiry=expiry, symbol=cfg["symbol"], known_iid_strikes=known,
+        expiry=expiry, symbol=cfg["symbol"], known_iid_strikes=known, side_strikes=side,
     )
     _t("all close threads returned — collecting results")
     print(f"\n{'='*50}")
@@ -443,6 +491,7 @@ def close_all_now() -> None:
             fp_str = f"  fill_price={fp:.2f}" if fp else ""
             print(f"  {spread}  qty={qty}  [{status}]{fp_str}")
     print("[CLOSE-ALL] done.")
+    alert_close_all([r for r in results if isinstance(r, dict) and "spread" in r])
 
 
 def force_entry_now() -> None:
@@ -477,6 +526,62 @@ def force_entry_now() -> None:
     qty = cfg.get("quantity", 1)
 
     print("\n[FORCE-ENTRY] ⚠  BYPASS MODE — VIX / direction / window gates are IGNORED")
+
+    # ── Step 0: existing-position safety gate ────────────────────────────
+    # Per user-mandated protocol (memory/feedback_force_order_protocol.md):
+    # before placing any new force order, scan ALL option positions, show them,
+    # and require explicit 'yes' to proceed. Symbol-agnostic check.
+    from webull_bot.execution import ALLOWED_OPTION_SYMBOLS
+    print("[FORCE-ENTRY] checking existing option positions ...")
+    try:
+        all_h = []
+        last = None
+        for _ in range(5):
+            r = (trade_client.account.get_account_position(
+                    account_id=cfg["account_id"], last_instrument_id=last)
+                 if last else
+                 trade_client.account.get_account_position(account_id=cfg["account_id"]))
+            d = r.json()
+            hs = d.get("holdings", [])
+            all_h.extend(hs)
+            if not d.get("has_next") or not hs: break
+            last = hs[-1]["instrument_id"]
+        existing_opts = [
+            h for h in all_h
+            if h.get("symbol") in ALLOWED_OPTION_SYMBOLS
+            and h.get("instrument_type") == "OPTION"
+        ]
+    except Exception as exc:
+        print(f"[FORCE-ENTRY] could not verify existing positions ({exc}) — aborting for safety.")
+        return
+
+    if existing_opts:
+        print()
+        print("="*62)
+        print("  ⚠  EXISTING OPTION POSITIONS")
+        print("="*62)
+        for h in existing_opts:
+            sym = h.get("symbol")
+            iid = h.get("instrument_id")
+            q   = h.get("qty")
+            cost = h.get("unit_cost")
+            lp   = h.get("last_price")
+            upl  = h.get("unrealized_profit_loss")
+            print(f"  {sym}  iid={iid}  qty={q}  unit_cost={cost}  last={lp}  upl={upl}")
+        print("="*62)
+        print(f"  You have {len(existing_opts)} open option leg(s).")
+        print("  Placing a new SPX BPS adds correlated equity-index exposure.")
+        print()
+        gate = input(
+            "  Knowing this, type 'yes' to proceed with a NEW SPX entry, "
+            "anything else to abort: "
+        ).strip().lower()
+        if gate != "yes":
+            print("[FORCE-ENTRY] aborted — existing-positions gate declined.")
+            return
+        print(f"[FORCE-ENTRY] gate cleared — proceeding with {len(existing_opts)} existing leg(s).")
+    else:
+        print("[FORCE-ENTRY] no existing option positions ✓")
 
     # ── Step 1: fetch SPX price ──────────────────────────────────────────
     print("[FORCE-ENTRY] fetching live SPX price ...")
@@ -605,6 +710,22 @@ def force_entry_now() -> None:
         print("[FORCE-ENTRY] aborted — no order placed.")
         return
 
+    # ── Step 5b: stale-quote guard ─────────────────────────────────────
+    # If SPX has moved more than `force_entry_max_drift_pct` between the
+    # recommendation scan and the user's confirmation, abort. Protects
+    # against placing into a stale spread that's already deep in the red.
+    max_drift_pct = float(cfg.get("force_entry_max_drift_pct", 0.30))  # 0.30%
+    try:
+        spx_now = get_spx_price(cfg.get("yf_price_symbol", "^GSPC"))
+    except Exception as exc:
+        print(f"[FORCE-ENTRY] aborted — could not re-fetch SPX for stale-quote guard ({exc})")
+        return
+    drift_pct = abs(spx_now - spx_price) / spx_price * 100
+    print(f"[FORCE-ENTRY] stale-quote check  scan={spx_price:.2f}  now={spx_now:.2f}  drift={drift_pct:.2f}%  (max={max_drift_pct:.2f}%)")
+    if drift_pct > max_drift_pct:
+        print(f"[FORCE-ENTRY] ⚠  ABORTED — SPX moved {drift_pct:.2f}% since scan (limit {max_drift_pct:.2f}%). Re-scan and retry.")
+        return
+
     # ── Step 6: lock state BEFORE sending ───────────────────────────────
     state.trade_taken_today = True
     store.save(state)
@@ -634,6 +755,12 @@ def force_entry_now() -> None:
     })
 
     print(f"\n[FORCE-ENTRY] Result: [{fill.status}]  {fill.detail}")
+    alert_force_entry(
+        spread=f"{int(spread.short_strike)}/{int(spread.long_strike)}P",
+        qty=qty,
+        fill_price=fill.fill_price,
+        filled=fill.filled,
+    )
 
     if not fill.filled:
         # Roll back lock so the day is not wasted on a rejected/timeout order

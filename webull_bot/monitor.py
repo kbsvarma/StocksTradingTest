@@ -10,7 +10,9 @@ from zoneinfo import ZoneInfo
 from webull_bot.execution import ExecutionEngine
 from webull_bot.logger import BotLogger
 from webull_bot.market_data import get_spread_mark
+from webull_bot.ibkr_market_data import get_spread_mark_ibkr, disconnect as ibkr_disconnect
 from webull_bot.state import BotState, OpenPosition, StateStore
+from webull_bot.alerts import alert_stop_fired, alert_position_closed
 
 
 ET = ZoneInfo("America/New_York")
@@ -67,17 +69,26 @@ class PositionMonitor:
                 return self._book_expiry(pos, state)
 
             if in_market_hours:
-                mark = get_spread_mark(
+                # Try IBKR real-time first, fall back to yfinance
+                mark = get_spread_mark_ibkr(
                     short_strike=pos.short_strike,
                     long_strike=pos.long_strike,
                     expiry=pos.expiry,
-                    yf_options_symbol=pos.yf_options_symbol,
                 )
+                source = "IBKR"
+                if mark is None:
+                    mark = get_spread_mark(
+                        short_strike=pos.short_strike,
+                        long_strike=pos.long_strike,
+                        expiry=pos.expiry,
+                        yf_options_symbol=pos.yf_options_symbol,
+                    )
+                    source = "yfinance"
 
                 if mark is not None:
                     self.logger.info(
                         f"[monitor] mark={mark:.2f}  stop={pos.stop_price:.2f}  "
-                        f"({pos.short_strike}/{pos.long_strike}P)"
+                        f"({pos.short_strike}/{pos.long_strike}P)  [{source}]"
                     )
                     self.logger.order_event("SPREAD_MARK", {
                         "symbol": pos.symbol,
@@ -88,14 +99,27 @@ class PositionMonitor:
                         "stop": pos.stop_price,
                         "entry_credit": pos.entry_credit,
                     })
+                    from webull_bot.event_log import log_event as _le
+                    _le("monitor_tick",
+                        symbol=pos.symbol, expiry=pos.expiry,
+                        short_strike=pos.short_strike, long_strike=pos.long_strike,
+                        mark=mark, stop=pos.stop_price,
+                        entry_credit=pos.entry_credit,
+                        unrealized_pts=round(pos.entry_credit - mark, 2),
+                        source=source)
 
                     if mark >= pos.stop_price:
                         self.logger.warning(
                             f"[monitor] STOP LOSS triggered: mark {mark:.2f} >= stop {pos.stop_price:.2f}"
                         )
+                        _le("stop_triggered", mark=mark, stop=pos.stop_price,
+                            short_strike=pos.short_strike, long_strike=pos.long_strike, source=source)
                         return self._execute_stop(pos, state, mark)
                 else:
                     self.logger.warning("[monitor] mark price unavailable — will retry")
+                    from webull_bot.event_log import log_event as _le
+                    _le("mark_unavailable",
+                        symbol=pos.symbol, short_strike=pos.short_strike, long_strike=pos.long_strike)
 
             time.sleep(self.interval)
 
@@ -131,6 +155,10 @@ class PositionMonitor:
         pnl_usd = pnl_pts * 100 * pos.quantity
 
         self._close_state(state, exit_price, pnl_pts, pnl_usd, "STOP_LOSS")
+        alert_stop_fired(
+            spread=f"{int(pos.short_strike)}/{int(pos.long_strike)}P",
+            mark=mark, stop=pos.stop_price, filled=result.filled,
+        )
 
         return MonitorOutcome(
             closed=True,
@@ -205,4 +233,23 @@ class PositionMonitor:
         self.logger.info(
             f"[monitor] closed: reason={reason} pnl_pts={pnl_pts:.2f} "
             f"pnl_usd=${pnl_usd:.0f}  total_pnl=${state.total_pnl:.0f}"
+        )
+
+        from webull_bot.event_log import log_event as _le
+        _le("position_closed",
+            symbol=pos.symbol, expiry=pos.expiry,
+            short_strike=pos.short_strike, long_strike=pos.long_strike,
+            reason=reason, entry_credit=pos.entry_credit,
+            exit_price=exit_price, pnl_pts=round(pnl_pts, 2), pnl_usd=round(pnl_usd, 2),
+            wins=state.wins, losses=state.losses, total_pnl=round(state.total_pnl, 2))
+
+        alert_position_closed(
+            spread=f"{int(pos.short_strike)}/{int(pos.long_strike)}P",
+            reason=reason,
+            entry_credit=pos.entry_credit,
+            exit_price=exit_price,
+            pnl_usd=pnl_usd,
+            wins=state.wins,
+            losses=state.losses,
+            total_pnl=state.total_pnl,
         )

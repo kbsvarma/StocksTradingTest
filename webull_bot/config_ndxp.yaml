@@ -1,0 +1,29 @@
+# NDXP ad-hoc force-entry config
+# Mirrors SPX config_yaml structure but for NDX 100-pt BPS spreads.
+# Used ONLY by webull_bot/ndxp.py — not loaded by the main daemon.
+
+account_id: QJJGQCBGAN8M2JL2C1OA1J37KB
+
+# ── Symbol + product ──────────────────────────────────────────────────────────
+symbol: NDXP                    # webull/IBKR trading class for PM-settled NDX weeklys
+yf_options_symbol: "^NDX"       # yfinance chain lookup
+yf_price_symbol: "^NDX"         # yfinance spot lookup
+ibkr_index_symbol: NDX          # IBKR Index() contract symbol on CBOE for spot
+
+# ── Spread geometry ───────────────────────────────────────────────────────────
+quantity: 1                     # contracts — locked at 1 per user instruction
+spread_width: 100               # 100-pt width (per backtest)
+otm_pct: 0.01                   # 1% OTM target for short strike
+min_credit: 5.00                # $5.00 min net credit (~$500/contract); backtest avg $6.80-9.40
+
+# ── Risk / exit ───────────────────────────────────────────────────────────────
+stop_multiplier: 2.0            # close if mark >= 2x entry credit
+eod_close_time: "15:45"         # forced expiry book time
+monitor_interval_seconds: 2     # SL polling cadence (same as SPX)
+
+# ── Force-entry safety ────────────────────────────────────────────────────────
+force_entry_max_drift_pct: 0.30 # abort if NDX moves > 0.30% between scan and place
+
+# ── State + logs ──────────────────────────────────────────────────────────────
+state_file: spx_spread_bot/data/webull_live/ndxp/state.json
+log_dir: webull_bot/logs/ndxp

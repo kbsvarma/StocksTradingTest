@@ -11,21 +11,21 @@ yf_options_symbol: "^SPX"       # yfinance ticker for SPX options chain (^SPX ha
 spread_width: 50                # points between short and long put
 
 # ── Entry criteria ────────────────────────────────────────────────────────────
-otm_pct: 0.010                  # 1.0% OTM for short put
-min_credit: 1.50                # minimum credit to accept (SPX points)
+otm_pct: 0.010                  # 1% OTM for short put
+min_credit: 1.20                # minimum credit to accept (SPX points)
 target_credit: 2.00             # target credit for strike scanning
 vix_min: 12.0
 vix_max: 25.0
 vix_max_daily_rise: 3.0         # skip if VIX risen >3pts from day open
-direction_filter_enabled: true  # only enter when SPX >= today's open
+direction_filter_enabled: true  # only enter when SPX >= open (bullish day)
 
 # ── Timing (America/New_York) ─────────────────────────────────────────────────
-entry_start: "09:45"
+entry_start: "10:30"
 entry_end: "14:30"
 eod_close_time: "15:45"        # hard close time (0DTE expires at 16:00)
 timezone: "America/New_York"
 scan_interval_seconds: 30       # how often to scan for entry signal
-monitor_interval_seconds: 30    # how often to check open position mark
+monitor_interval_seconds: 2     # how often to check open position mark
 
 # ── Sizing ────────────────────────────────────────────────────────────────────
 quantity: 1                     # contracts — fixed at 1 for now
@@ -37,7 +37,7 @@ disable_profit_target: true     # let 0DTE winners expire worthless
 
 # ── Order execution ───────────────────────────────────────────────────────────
 limit_price_offset: 0.05        # place limit at mid - offset to get a fill
-max_retries: 5                  # number of price improvement retries
+max_retries: 3                  # number of price improvement retries
 retry_price_step: 0.05          # widen limit by this each retry
 retry_wait_seconds: 60          # wait between retries
 fill_timeout_seconds: 300       # cancel if unfilled after 5 min

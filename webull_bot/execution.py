@@ -4,6 +4,7 @@ Uses TradeClient.order_v3 (OrderOperationV3) which supports US options.
 """
 from __future__ import annotations
 
+import os
 import time
 import uuid
 import threading
@@ -17,6 +18,53 @@ from webull.trade.trade_client import TradeClient
 # Any call that passes a symbol outside this set is rejected before any API call.
 # NDXP/NDX are listed for future use — not currently traded.
 ALLOWED_OPTION_SYMBOLS: frozenset[str] = frozenset({"SPXW", "SPX", "NDXP", "NDX"})
+
+# ── DRY RUN MODE (paper / shadow) ────────────────────────────────────────────
+# Two independent gates either of which forces dry-run behavior:
+#   1. Local env WEBULL_DRY_RUN=1 — explicit per-instance dry-run flag
+#   2. SSM mutex /webull-bot/active-instance — if I'm not the active one
+#      (see webull_bot/active_instance.py), I run paper regardless.
+#
+# Both gates fail-safe: any error in checking → assume dry-run.
+
+DRY_RUN_LOCAL = os.environ.get("WEBULL_DRY_RUN") == "1"
+if DRY_RUN_LOCAL:
+    import sys as _sys
+    _banner = "█" * 70
+    print(_banner, file=_sys.stderr, flush=True)
+    print("█  WEBULL_DRY_RUN=1  —  PAPER MODE, NO REAL ORDERS WILL BE PLACED  █", file=_sys.stderr, flush=True)
+    print(_banner, file=_sys.stderr, flush=True)
+
+
+def _dry_run_active() -> bool:
+    """Return True if any dry-run gate is in effect (env OR mutex says paper)."""
+    if DRY_RUN_LOCAL:
+        return True
+    try:
+        from webull_bot.active_instance import is_active_instance
+        if not is_active_instance():
+            return True
+    except Exception:
+        # If we can't verify mutex, fail-safe → dry-run
+        return True
+    return False
+
+
+# Backward-compat alias used in older code paths
+DRY_RUN = DRY_RUN_LOCAL
+
+
+def _synth_fill(client_order_id: str, fill_price: float, detail: str) -> "FillResult":
+    """Build a FillResult that looks like a successful fill, for dry-run mode."""
+    return FillResult(
+        filled=True,
+        client_order_id=client_order_id,
+        fill_price=fill_price,
+        status="DRY_RUN_FILLED",
+        detail=detail,
+        short_iid=f"DRY-{client_order_id[:8]}-S",
+        long_iid=f"DRY-{client_order_id[:8]}-L",
+    )
 
 
 def _assert_allowed_symbol(symbol: str) -> None:
@@ -143,6 +191,14 @@ class ExecutionEngine:
         # ── Symbol whitelist — reject anything outside SPX/NDXP family ──────
         _assert_allowed_symbol(symbol)
 
+        # ── DRY RUN gate ──────────────────────────────────────────────────
+        if _dry_run_active():
+            cid = uuid.uuid4().hex
+            print(f"[DRY_RUN] place_spread {symbol} {short_strike}/{long_strike} qty={quantity} "
+                  f"limit={limit_price} → synthesizing fill at {limit_price}", flush=True)
+            return _synth_fill(cid, float(limit_price),
+                               f"DRY_RUN: would have placed {symbol} {int(short_strike)}/{int(long_strike)} qty={quantity}")
+
         # ── Hard guard: never place if already live ───────────────────────
         if not allow_multiple:
             blocked, reason = self.has_live_position_or_order()
@@ -238,6 +294,14 @@ class ExecutionEngine:
         - Polls every 2s up to 60s for the fill confirmation.
         """
         _assert_allowed_symbol(symbol)
+
+        # ── DRY RUN gate ──────────────────────────────────────────────────
+        if _dry_run_active():
+            cid = uuid.uuid4().hex
+            print(f"[DRY_RUN] place_spread_market {symbol} {short_strike}/{long_strike} qty={quantity} "
+                  f"→ synthesizing market fill", flush=True)
+            return _synth_fill(cid, 0.0,
+                               f"DRY_RUN: would have force-market placed {symbol} {int(short_strike)}/{int(long_strike)} qty={quantity}")
 
         client_order_id = uuid.uuid4().hex
         # Set limit at $0.05 — below any realistic bid, guarantees fill at market
@@ -353,6 +417,16 @@ class ExecutionEngine:
         """
         _assert_allowed_symbol(symbol)
 
+        # ── DRY RUN gate ──────────────────────────────────────────────────
+        if _dry_run_active():
+            cid = uuid.uuid4().hex
+            # In dry-run, "close at market" assumes we paid 2× credit (stop trigger)
+            est_debit = entry_credit * 2.0
+            print(f"[DRY_RUN] close_spread_market {symbol} {short_strike}/{long_strike} qty={quantity} "
+                  f"→ synthesized close at est_debit={est_debit:.2f}", flush=True)
+            return _synth_fill(cid, est_debit,
+                               f"DRY_RUN: would have closed {symbol} {int(short_strike)}/{int(long_strike)} qty={quantity} at est ${est_debit:.2f}")
+
         client_order_id = uuid.uuid4().hex
         # Max debit we're willing to pay = 2x credit (already at stop) + buffer
         max_debit = round(entry_credit * 2.5, 2)
@@ -439,23 +513,32 @@ class ExecutionEngine:
 
     # ── Fast parallel helpers ─────────────────────────────────────────────────
 
-    def _capture_new_legs(self, prior_iids: set[str]) -> tuple[str, str]:
+    def _capture_new_legs(
+        self, prior_iids: set[str], retries: int = 3, delay_s: float = 1.0,
+    ) -> tuple[str, str]:
         """After a fill, fetch positions and identify the newly-opened short/long leg iids.
 
-        Position objects don't carry strike info, but qty sign tells us which is
-        which: qty < 0 = short put leg, qty > 0 = long put leg.
+        Retries up to `retries` times with `delay_s` between attempts because the
+        Webull positions endpoint can lag the fill confirmation by a second or two.
+        Returns ("", "") only if every attempt fails — close-all will then fall
+        back to matching by qty/sign against state-saved strikes.
         """
-        try:
-            positions = self._fetch_spxw_positions()
-        except Exception:
-            return "", ""
-        new_legs = [p for p in positions if p["instrument_id"] not in prior_iids]
-        short_iid = next(
-            (p["instrument_id"] for p in new_legs if int(p.get("qty", 0)) < 0), ""
-        )
-        long_iid = next(
-            (p["instrument_id"] for p in new_legs if int(p.get("qty", 0)) > 0), ""
-        )
+        for attempt in range(retries):
+            try:
+                positions = self._fetch_spxw_positions()
+            except Exception:
+                positions = []
+            new_legs = [p for p in positions if p["instrument_id"] not in prior_iids]
+            short_iid = next(
+                (p["instrument_id"] for p in new_legs if int(p.get("qty", 0)) < 0), ""
+            )
+            long_iid = next(
+                (p["instrument_id"] for p in new_legs if int(p.get("qty", 0)) > 0), ""
+            )
+            if short_iid and long_iid:
+                return short_iid, long_iid
+            if attempt < retries - 1:
+                time.sleep(delay_s)
         return short_iid, long_iid
 
     def _fetch_strike_map(self) -> dict[str, float]:
@@ -500,13 +583,20 @@ class ExecutionEngine:
     def _build_close_plan(
         self, expiry: str, symbol: str,
         known_iid_strikes: Optional[dict[str, float]] = None,
+        side_strikes: Optional[list[dict]] = None,
     ) -> tuple[list[dict], list[dict]]:
         """Fetch positions + strike map in parallel and return (spreads_to_close, errors).
 
         Hard-rejects any symbol not on ALLOWED_OPTION_SYMBOLS before touching the API.
 
+        Strike resolution order:
+          1. `known_iid_strikes` — authoritative iid→strike map (from state.json)
+          2. Live order-history strike map (rarely useful — combos return shared iid)
+          3. `side_strikes` — list of {"qty", "short_strike", "long_strike"} dicts
+             from state.open_position, used as a last-resort fallback when iids
+             never got captured at placement time. Match by abs(qty).
+
         Each spread dict has: short_strike, long_strike, qty, current_mark, max_debit, symbol, expiry
-        This is the fast path — both API calls fire at the same time.
         """
         _assert_allowed_symbol(symbol)   # hard fence before any network call
 
@@ -558,10 +648,25 @@ class ExecutionEngine:
             long_iid = long_pos["instrument_id"] if long_pos else None
             long_strike = iid_map.get(long_iid) if long_iid else None
 
+            # Fallback: match by qty against state-saved side_strikes
+            if (short_strike is None or long_strike is None) and side_strikes:
+                hit = next(
+                    (s for s in side_strikes if int(s.get("qty", 0)) == qty), None
+                )
+                if hit:
+                    if short_strike is None:
+                        short_strike = float(hit["short_strike"])
+                    if long_strike is None:
+                        long_strike = float(hit["long_strike"])
+                    errors.append({
+                        "info": f"resolved {short_iid}/{long_iid} via qty-match fallback "
+                                f"→ {int(short_strike)}/{int(long_strike)} (qty={qty})"
+                    })
+
             if short_strike is None or long_strike is None:
                 errors.append({
                     "error": f"unknown strikes for {short_iid}/{long_iid} — "
-                             f"map has {len(iid_map)} entries"
+                             f"map has {len(iid_map)} entries, no qty-match in state"
                 })
                 continue
 
@@ -588,6 +693,7 @@ class ExecutionEngine:
     def preview_close_all_today(
         self, expiry: str, symbol: str = "SPXW",
         known_iid_strikes: Optional[dict[str, float]] = None,
+        side_strikes: Optional[list[dict]] = None,
     ) -> list[dict]:
         """Return what close_all_today() would close without placing any orders.
 
@@ -598,7 +704,9 @@ class ExecutionEngine:
         Returns a list of dicts: [{spread, qty, current_mark, max_debit}, ...]
         Error/info dicts are appended if anything went wrong.
         """
-        spreads, errors = self._build_close_plan(expiry, symbol, known_iid_strikes)
+        spreads, errors = self._build_close_plan(
+            expiry, symbol, known_iid_strikes, side_strikes,
+        )
         if errors and not spreads:
             return errors
         return spreads + errors
@@ -606,6 +714,7 @@ class ExecutionEngine:
     def close_all_today(
         self, expiry: str, symbol: str = "SPXW",
         known_iid_strikes: Optional[dict[str, float]] = None,
+        side_strikes: Optional[list[dict]] = None,
     ) -> list[dict]:
         """Emergency close: find every open SPXW option position and close ALL simultaneously.
 
@@ -616,7 +725,9 @@ class ExecutionEngine:
 
         Returns a list of result dicts, one per spread attempted.
         """
-        spreads, errors = self._build_close_plan(expiry, symbol, known_iid_strikes)
+        spreads, errors = self._build_close_plan(
+            expiry, symbol, known_iid_strikes, side_strikes,
+        )
         if not spreads:
             return errors
 
@@ -629,6 +740,23 @@ class ExecutionEngine:
             short_strike = sp["short_strike"]
             long_strike  = sp["long_strike"]
             max_debit    = sp["max_debit"]
+
+            # ── DRY RUN gate ──────────────────────────────────────────────
+            if _dry_run_active():
+                est_debit = float(sp.get("current_mark", 0)) or float(max_debit) / 2
+                print(f"[DRY_RUN] close_all leg {sp.get('spread')} qty={qty} → synth close at {est_debit:.2f}", flush=True)
+                with lock:
+                    thread_results.append({
+                        "spread":      sp["spread"],
+                        "qty":         qty,
+                        "max_debit":   max_debit,
+                        "placed":      True,
+                        "http":        200,
+                        "fill_status": "DRY_RUN_FILLED",
+                        "fill_price":  est_debit,
+                        "detail":      "DRY_RUN — no real order sent",
+                    })
+                return
 
             def _fmts(s: float) -> str:
                 return str(int(s)) if s == int(s) else str(s)
