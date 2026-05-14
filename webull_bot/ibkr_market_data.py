@@ -27,8 +27,23 @@ from typing import Optional
 
 _ib = None  # module-level IB instance — reused across calls
 
-_DEFAULT_CLIENT_ID = int(os.environ.get("WEBULL_IBKR_CLIENT_ID", "42"))
-_FALLBACK_CLIENT_IDS = [43, 44, 45, 46, 47]
+# Default clientId selection:
+#   - When invoked with WEBULL_INSTANCE_NAME set (i.e. from the bot's launchd
+#     plist or systemd unit), use 42 — the daemon owns this id.
+#   - Otherwise (ad-hoc CLI scripts, --report, manual diagnostics), use 46 —
+#     reserved for ad-hoc to avoid colliding with the running daemon's 42.
+# Override either case with explicit WEBULL_IBKR_CLIENT_ID env var.
+_IS_BOT_CONTEXT = bool(os.environ.get("WEBULL_INSTANCE_NAME"))
+_DEFAULT_CLIENT_ID = int(os.environ.get(
+    "WEBULL_IBKR_CLIENT_ID",
+    "42" if _IS_BOT_CONTEXT else "46",
+))
+# Fallbacks: bot starts at 42 and bumps through these on collision; ad-hoc
+# starts at 46 and bumps through 47 / 43-45 (avoiding 42 specifically since
+# that would steal the bot's slot).
+_FALLBACK_CLIENT_IDS = (
+    [43, 44, 45, 46, 47] if _IS_BOT_CONTEXT else [47, 45, 44, 43]
+)
 
 
 def _connect(client_id: Optional[int] = None) -> Optional[object]:
@@ -162,16 +177,27 @@ def get_spread_mark_ibkr(
 
 
 def get_index_spot_ibkr(symbol: str) -> Optional[float]:
-    """Return real-time index spot price (SPX or VIX) from IBKR, or None.
+    """Return real-time index spot price from IBKR, or None.
 
-    Uses the CBOE Index contract. Snapshot reqMktData with a short wait.
+    Exchange routing per symbol:
+      - SPX, SPXW, VIX → CBOE
+      - NDX, NDXP      → NASDAQ
+    NASDAQ index quotes require a separate IBKR market-data subscription;
+    without it, qualifyContracts succeeds but quotes return NaN. In that
+    case this returns None and the caller falls back to yfinance.
     """
     try:
         ib = _connect()
         if ib is None:
             return None
         from ib_insync import Index
-        contract = Index(symbol, exchange="CBOE", currency="USD")
+        sym = symbol.upper().strip()
+        # NDX/NDXP trade on NASDAQ; SPX/SPXW/VIX on CBOE.
+        if sym in ("NDX", "NDXP"):
+            exchange = "NASDAQ"
+        else:
+            exchange = "CBOE"
+        contract = Index(sym, exchange=exchange, currency="USD")
         q = ib.qualifyContracts(contract)
         if not q:
             return None
