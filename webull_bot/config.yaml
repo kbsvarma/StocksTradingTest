@@ -36,9 +36,9 @@ stop_multiplier: 2.0            # close if mark >= 2x entry credit
 disable_profit_target: true     # let 0DTE winners expire worthless
 
 # ── Order execution ───────────────────────────────────────────────────────────
-limit_price_offset: 0.05        # place limit at mid - offset to get a fill
+limit_price_offset: 0.10        # bumped 0.05 → 0.10 on 2026-05-14 — wider offset for higher fill rate
 max_retries: 3                  # number of price improvement retries
-retry_price_step: 0.05          # widen limit by this each retry
+retry_price_step: 0.10          # bumped 0.05 → 0.10 on 2026-05-14 — wider walk per retry
 retry_wait_seconds: 60          # wait between retries
 fill_timeout_seconds: 300       # cancel if unfilled after 5 min
 

@@ -108,6 +108,63 @@ class OrderStatus:
     raw: dict
 
 
+def _extract_webull_error(resp_or_body) -> str:
+    """Pull a human-readable error from a Webull response or response body.
+
+    Used wherever the bot reports a failure so the actual error_code /
+    message surfaces in logs + Telegram instead of being buried in
+    `{...}` JSON. Looks at multiple known field locations Webull uses:
+    top-level error_code/message, nested data.*, items[].reject_reason.
+
+    Returns "" if no error fields are present (caller should fall back
+    to truncated raw text).
+    """
+    import json as _json
+    try:
+        if hasattr(resp_or_body, "text"):
+            body = _json.loads(resp_or_body.text) if resp_or_body.text else {}
+        elif isinstance(resp_or_body, str):
+            body = _json.loads(resp_or_body) if resp_or_body else {}
+        elif isinstance(resp_or_body, dict):
+            body = resp_or_body
+        else:
+            return ""
+    except Exception:
+        return ""
+
+    def _check(d: dict) -> str:
+        if not isinstance(d, dict):
+            return ""
+        # Common error field names across Webull endpoints
+        ec = (d.get("error_code") or d.get("errorCode")
+              or d.get("reject_reason") or d.get("rejectReason"))
+        msg = (d.get("message") or d.get("error_msg") or d.get("errorMsg")
+               or d.get("msg") or d.get("reject_message") or d.get("rejectMessage"))
+        if ec or msg:
+            return f"{ec or ''}: {msg or ''}".strip(": ").strip()
+        return ""
+
+    # Try top-level
+    err = _check(body)
+    if err:
+        return err
+    # Nested under "data"
+    data = body.get("data", body)
+    if isinstance(data, list) and data:
+        data = data[0]
+    err = _check(data) if isinstance(data, dict) else ""
+    if err:
+        return err
+    # items[] (multi-leg orders sometimes carry leg-level rejects)
+    items = body.get("items") or (data.get("items") if isinstance(data, dict) else None)
+    if isinstance(items, list):
+        for it in items:
+            err = _check(it)
+            if err:
+                return err
+    return ""
+
+
 class ExecutionEngine:
     def __init__(self, trade_client: TradeClient, account_id: str):
         self.trade = trade_client
@@ -249,12 +306,15 @@ class ExecutionEngine:
             )
 
             if resp.status_code not in (200, 201):
+                wb_err = _extract_webull_error(resp)
+                detail = (f"HTTP {resp.status_code} | {wb_err}" if wb_err
+                          else f"HTTP {resp.status_code}: {resp.text[:300]}")
                 return FillResult(
                     filled=False,
                     client_order_id=client_order_id,
                     fill_price=0.0,
                     status="REJECTED",
-                    detail=f"HTTP {resp.status_code}: {resp.text[:500]}",
+                    detail=detail,
                 )
 
             # Poll for fill
@@ -272,12 +332,16 @@ class ExecutionEngine:
                         detail=f"filled at {price} on attempt {attempt + 1}",
                     )
                 if status.status in ("CANCELLED", "REJECTED"):
+                    wb_err = _extract_webull_error(status.raw)
+                    detail = (f"order {status.status} on attempt {attempt + 1} | {wb_err}"
+                              if wb_err
+                              else f"order {status.status} on attempt {attempt + 1}")
                     return FillResult(
                         filled=False,
                         client_order_id=client_order_id,
                         fill_price=0.0,
                         status=status.status,
-                        detail=f"order {status.status} on attempt {attempt + 1}",
+                        detail=detail,
                     )
 
             if attempt < max_retries:
@@ -377,12 +441,15 @@ class ExecutionEngine:
         )
 
         if resp.status_code not in (200, 201):
+            wb_err = _extract_webull_error(resp)
+            detail = (f"FORCE MARKET HTTP {resp.status_code} | {wb_err}" if wb_err
+                      else f"FORCE MARKET HTTP {resp.status_code}: {resp.text[:300]}")
             return FillResult(
                 filled=False,
                 client_order_id=client_order_id,
                 fill_price=0.0,
                 status="REJECTED",
-                detail=f"FORCE MARKET HTTP {resp.status_code}: {resp.text[:500]}",
+                detail=detail,
             )
 
         # Snapshot pre-existing SPXW position iids so we can identify the new legs after fill
@@ -406,12 +473,15 @@ class ExecutionEngine:
                     long_iid=long_iid,
                 )
             if status.status in ("CANCELLED", "REJECTED"):
+                wb_err = _extract_webull_error(status.raw)
+                detail = (f"FORCE MARKET order {status.status} | {wb_err}" if wb_err
+                          else f"FORCE MARKET order {status.status}")
                 return FillResult(
                     filled=False,
                     client_order_id=client_order_id,
                     fill_price=0.0,
                     status=status.status,
-                    detail=f"FORCE MARKET order {status.status}",
+                    detail=detail,
                 )
 
         return FillResult(
@@ -502,15 +572,21 @@ class ExecutionEngine:
         )
 
         if resp.status_code not in (200, 201):
+            wb_err = _extract_webull_error(resp)
+            detail = (f"close HTTP {resp.status_code} | {wb_err}" if wb_err
+                      else f"close HTTP {resp.status_code}: {resp.text[:300]}")
             return FillResult(
                 filled=False,
                 client_order_id=client_order_id,
                 fill_price=0.0,
                 status="REJECTED",
-                detail=f"close HTTP {resp.status_code}: {resp.text[:500]}",
+                detail=detail,
             )
 
-        # Poll up to 2 minutes for close fill
+        # Poll up to 2 minutes for close fill. Capture last-known status info
+        # so that if we exit on REJECTED, the detail string carries Webull's
+        # actual reason (e.g. FIX_UN_DFD_CANCEL).
+        last_rejected_detail = ""
         deadline = time.monotonic() + 120
         while time.monotonic() < deadline:
             time.sleep(5)
@@ -524,7 +600,19 @@ class ExecutionEngine:
                     detail="stop-loss close filled",
                 )
             if status.status in ("CANCELLED", "REJECTED"):
-                break
+                wb_err = _extract_webull_error(status.raw)
+                last_rejected_detail = (f"close {status.status} | {wb_err}"
+                                        if wb_err
+                                        else f"close {status.status}")
+                # Return the rejected status so the caller (monitor) can
+                # see WHY it failed and decide retry strategy.
+                return FillResult(
+                    filled=False,
+                    client_order_id=client_order_id,
+                    fill_price=0.0,
+                    status=status.status,
+                    detail=last_rejected_detail,
+                )
 
         return FillResult(
             filled=False,

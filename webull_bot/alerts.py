@@ -151,6 +151,61 @@ def alert_stop_fired(spread: str, mark: float, stop: float, filled: bool) -> boo
 
 
 @_safe
+def alert_close_failed_retry(spread: str, attempt: int, error: str,
+                              mark: float, stop: float, next_retry_sec: int) -> bool:
+    """Fires on EVERY failed close attempt during stop-loss retry loop.
+
+    Per memory/sl_close_failure_handling.md: bot must NOT abandon position
+    on close failure. User needs to know each attempt failed so they can
+    intervene manually if needed.
+    """
+    msg = (
+        f"⚠️  STOP-LOSS CLOSE FAILED — attempt {attempt}\n"
+        f"Spread: {spread}\n"
+        f"Mark: {mark:.2f}  Stop: {stop:.2f}\n"
+        f"Reason: {error[:200]}\n"
+        f"POSITION STILL OPEN — bot will retry in {next_retry_sec}s.\n"
+        f"({_now_et()})"
+    )
+    return send_alert(msg)
+
+
+@_safe
+def alert_close_failed_eod(spread: str, attempts: int, last_error: str,
+                            mark: float, stop: float) -> bool:
+    """Fires when EOD reached with stop-loss close still failing.
+
+    This is the loudest alert — user MUST manually close in the Webull
+    app or position will run to expiry uncontrolled.
+    """
+    msg = (
+        f"🚨🚨 MANUAL ACTION REQUIRED 🚨🚨\n"
+        f"STOP-LOSS CLOSE FAILED {attempts}× — EOD REACHED.\n"
+        f"Spread: {spread}\n"
+        f"Mark: {mark:.2f}  Stop: {stop:.2f}\n"
+        f"Last error: {last_error[:200]}\n"
+        f"POSITION STILL OPEN AT WEBULL.\n"
+        f"GO TO THE APP AND CLOSE IT NOW or it expires uncontrolled.\n"
+        f"({_now_et()})"
+    )
+    return send_alert(msg)
+
+
+@_safe
+def alert_close_resolved_externally(spread: str, attempts: int) -> bool:
+    """Fires when bot detects position closed externally during retry loop
+    (user manually closed in app, or order from a previous attempt eventually
+    filled). Bot stops retrying."""
+    msg = (
+        f"✅  Position closed externally — bot stops retrying close.\n"
+        f"Spread: {spread}\n"
+        f"Attempts before detection: {attempts}\n"
+        f"({_now_et()})"
+    )
+    return send_alert(msg)
+
+
+@_safe
 def alert_position_closed(
     spread: str, reason: str, entry_credit: float, exit_price: float,
     pnl_usd: float, wins: int, losses: int, total_pnl: float,

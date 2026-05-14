@@ -12,7 +12,11 @@ from webull_bot.logger import BotLogger
 from webull_bot.market_data import get_spread_mark
 from webull_bot.ibkr_market_data import get_spread_mark_ibkr, disconnect as ibkr_disconnect
 from webull_bot.state import BotState, OpenPosition, StateStore
-from webull_bot.alerts import alert_stop_fired, alert_position_closed
+from webull_bot.alerts import (
+    alert_stop_fired, alert_position_closed,
+    alert_close_failed_retry, alert_close_failed_eod,
+    alert_close_resolved_externally,
+)
 
 
 ET = ZoneInfo("America/New_York")
@@ -160,49 +164,154 @@ class PositionMonitor:
             time.sleep(self.interval)
 
     def _execute_stop(self, pos: OpenPosition, state: BotState, mark: float) -> MonitorOutcome:
-        result = self.execution.close_spread_market(
-            symbol=pos.symbol,
-            expiry=pos.expiry,
-            short_strike=pos.short_strike,
-            long_strike=pos.long_strike,
-            quantity=pos.quantity,
-            entry_credit=pos.entry_credit,
+        """Trigger stop-loss close. Retries on failure. Per the SL close
+        failure handling invariant (memory/sl_close_failure_handling.md):
+
+          - Position is NEVER abandoned in state.json on close failure.
+          - Retry close until either (a) it fills, (b) position vanishes
+            from broker (user closed manually), or (c) EOD reached.
+          - Telegram-alert on EVERY failed attempt with the actual error.
+          - At EOD with still-open position, fire LOUD manual-action alert
+            and return without modifying state — bot exits monitor loop
+            but the position record stays.
+        """
+        spread_label = f"{int(pos.short_strike)}/{int(pos.long_strike)}P"
+        self.logger.warning(
+            f"[monitor] STOP LOSS triggered: mark {mark:.2f} >= stop {pos.stop_price:.2f} — beginning close-retry loop"
         )
 
-        self.logger.order_event("STOP_LOSS_CLOSE", {
-            "symbol": pos.symbol,
-            "expiry": pos.expiry,
-            "short_strike": pos.short_strike,
-            "long_strike": pos.long_strike,
-            "mark_at_trigger": mark,
-            "filled": result.filled,
-            "fill_price": result.fill_price,
-            "detail": result.detail,
-        })
+        retry_wait_sec = 30
+        attempt = 0
+        last_error = "no attempt yet"
 
-        if result.filled:
-            exit_price = result.fill_price
-        else:
-            # If we couldn't confirm fill, use mark as best estimate and log warning
-            self.logger.error(f"[monitor] stop-loss close not confirmed: {result.detail}")
-            exit_price = mark
+        while True:
+            attempt += 1
 
-        pnl_pts = pos.entry_credit - exit_price  # credit received - debit paid
-        pnl_usd = pnl_pts * 100 * pos.quantity
+            # ── Bail-out 1: EOD reached ─────────────────────────────────
+            now_et = datetime.now(ET)
+            if now_et.time() >= self.eod_time:
+                self.logger.error(
+                    f"[monitor] EOD ({self.eod_time}) reached with stop-loss close still failing "
+                    f"({attempt - 1} attempts). LEAVING POSITION OPEN — manual action required."
+                )
+                self.logger.order_event("STOP_LOSS_CLOSE_FAILED_EOD", {
+                    "symbol": pos.symbol, "expiry": pos.expiry,
+                    "short_strike": pos.short_strike, "long_strike": pos.long_strike,
+                    "attempts": attempt - 1, "last_error": last_error,
+                    "mark_at_trigger": mark,
+                })
+                from webull_bot.event_log import log_event as _le
+                _le("stop_close_failed_eod",
+                    short_strike=pos.short_strike, long_strike=pos.long_strike,
+                    attempts=attempt - 1, last_error=last_error, mark=mark)
+                alert_close_failed_eod(
+                    spread=spread_label, attempts=attempt - 1,
+                    last_error=last_error, mark=mark, stop=pos.stop_price,
+                )
+                # Critical: do NOT call _close_state. Position record stays
+                # in state.json. Bot returns from monitor loop but position
+                # is not booked as closed. User must close in app.
+                return MonitorOutcome(
+                    closed=False,
+                    reason="STOP_CLOSE_FAILED_EOD",
+                    exit_price=mark,  # informational only
+                    pnl_pts=pos.entry_credit - mark,
+                    pnl_usd=(pos.entry_credit - mark) * 100 * pos.quantity,
+                )
 
-        self._close_state(state, exit_price, pnl_pts, pnl_usd, "STOP_LOSS")
-        alert_stop_fired(
-            spread=f"{int(pos.short_strike)}/{int(pos.long_strike)}P",
-            mark=mark, stop=pos.stop_price, filled=result.filled,
-        )
+            # ── Bail-out 2: position vanished from broker (closed externally) ─
+            # If user closed in the app between attempts, OR a previous attempt's
+            # order eventually filled despite us thinking it failed, the position
+            # is gone. Stop retrying — we'd be opening a new position otherwise.
+            if attempt > 1:
+                try:
+                    still_open = self._position_still_at_broker(pos)
+                except Exception as exc:
+                    self.logger.warning(
+                        f"[monitor] could not verify broker position before retry {attempt} "
+                        f"({exc}); proceeding with retry"
+                    )
+                    still_open = True
+                if not still_open:
+                    self.logger.info(
+                        f"[monitor] broker shows position no longer open (closed externally "
+                        f"or filled belatedly). Stopping retry loop after {attempt - 1} attempts."
+                    )
+                    alert_close_resolved_externally(
+                        spread=spread_label, attempts=attempt - 1,
+                    )
+                    # Use mark as best-estimate exit price — we don't know the
+                    # real fill since it happened outside our control.
+                    exit_price = mark
+                    pnl_pts = pos.entry_credit - exit_price
+                    pnl_usd = pnl_pts * 100 * pos.quantity
+                    self._close_state(state, exit_price, pnl_pts, pnl_usd,
+                                      "STOP_LOSS_EXTERNAL")
+                    return MonitorOutcome(
+                        closed=True, reason="STOP_LOSS_EXTERNAL",
+                        exit_price=exit_price, pnl_pts=pnl_pts, pnl_usd=pnl_usd,
+                    )
 
-        return MonitorOutcome(
-            closed=True,
-            reason="STOP_LOSS",
-            exit_price=exit_price,
-            pnl_pts=pnl_pts,
-            pnl_usd=pnl_usd,
-        )
+            # ── Try the close ───────────────────────────────────────────
+            result = self.execution.close_spread_market(
+                symbol=pos.symbol, expiry=pos.expiry,
+                short_strike=pos.short_strike, long_strike=pos.long_strike,
+                quantity=pos.quantity, entry_credit=pos.entry_credit,
+            )
+            self.logger.order_event("STOP_LOSS_CLOSE_ATTEMPT", {
+                "attempt": attempt, "filled": result.filled,
+                "fill_price": result.fill_price, "detail": result.detail,
+                "mark_at_trigger": mark,
+            })
+
+            if result.filled:
+                # ── SUCCESS ─────────────────────────────────────────────
+                exit_price = result.fill_price
+                pnl_pts = pos.entry_credit - exit_price
+                pnl_usd = pnl_pts * 100 * pos.quantity
+                self._close_state(state, exit_price, pnl_pts, pnl_usd, "STOP_LOSS")
+                alert_stop_fired(
+                    spread=spread_label, mark=mark,
+                    stop=pos.stop_price, filled=True,
+                )
+                return MonitorOutcome(
+                    closed=True, reason="STOP_LOSS",
+                    exit_price=exit_price, pnl_pts=pnl_pts, pnl_usd=pnl_usd,
+                )
+
+            # ── FAILURE — alert + wait + retry ──────────────────────────
+            last_error = result.detail or result.status or "unknown"
+            self.logger.error(
+                f"[monitor] close attempt {attempt} FAILED: {last_error}; "
+                f"retrying in {retry_wait_sec}s. Position still open."
+            )
+            alert_close_failed_retry(
+                spread=spread_label, attempt=attempt, error=last_error,
+                mark=mark, stop=pos.stop_price, next_retry_sec=retry_wait_sec,
+            )
+            time.sleep(retry_wait_sec)
+
+    def _position_still_at_broker(self, pos: OpenPosition) -> bool:
+        """Best-effort check: is this specific spread still open at Webull?
+        Used between SL close-retry attempts to detect external closures
+        (user manually closed, or a prior attempt filled belatedly).
+        Returns True on any uncertainty — we'd rather over-retry than
+        skip a needed close."""
+        try:
+            # Use the leg iids if we have them — most precise check
+            if pos.short_iid and pos.long_iid:
+                resp = self.execution.trade.account.get_account_position(
+                    account_id=self.execution.account_id,
+                )
+                holdings = resp.json().get("holdings", []) or []
+                iids_present = {str(h.get("instrument_id")) for h in holdings
+                                if h.get("instrument_type") == "OPTION"}
+                # If EITHER leg is gone, treat the spread as closed/closing
+                return (pos.short_iid in iids_present) and (pos.long_iid in iids_present)
+        except Exception:
+            pass
+        # Without iids, can't check reliably — assume still open
+        return True
 
     def _book_expiry(self, pos: OpenPosition, state: BotState) -> MonitorOutcome:
         """Book the position as expired worthless (max profit)."""
