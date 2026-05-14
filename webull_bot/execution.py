@@ -108,6 +108,46 @@ class OrderStatus:
     raw: dict
 
 
+def round_down_to_tick(price: float, tick: float = 0.05) -> float:
+    """Round DOWN to the nearest valid options tick.
+
+    SPX/SPXW/NDX/NDXP options trade in $0.05 increments. Webull rejects
+    orders with invalid prices (error code [6082]: 'Premium invalid .05
+    increments only, FIX_UN_DFD_CANCEL'). This snaps any computed limit
+    to a valid tick.
+
+    Round DOWN is conservative for credit spreads (we're SELLING — lower
+    limit means we accept slightly less credit, which fills more easily).
+
+    Examples:
+      $2.02 → $2.00
+      $1.97 → $1.95
+      $1.32 → $1.30
+      $0.84 → $0.80
+    """
+    import math
+    if price <= 0:
+        return 0.0
+    return round(math.floor(price / tick) * tick, 2)
+
+
+def round_up_to_tick(price: float, tick: float = 0.05) -> float:
+    """Round UP to the nearest valid options tick.
+
+    Used for BUY (close) limit prices: a higher max-debit makes us more
+    willing to pay, increasing fill probability. Mirror of round_down_to_tick.
+
+    Examples:
+      $2.02 → $2.05
+      $1.97 → $2.00
+      $1.32 → $1.35
+    """
+    import math
+    if price <= 0:
+        return 0.0
+    return round(math.ceil(price / tick) * tick, 2)
+
+
 def _extract_webull_error(resp_or_body) -> str:
     """Pull a human-readable error from a Webull response or response body.
 
@@ -577,8 +617,8 @@ class ExecutionEngine:
 
         client_order_id = uuid.uuid4().hex
         # MARKET orders ignore limit_price but Webull schema still requires the
-        # field. Pass entry_credit*2.5 as a sensible no-op value.
-        placeholder_limit = round(entry_credit * 2.5, 2)
+        # field. Tick-align it anyway (defensive — Webull error 6082).
+        placeholder_limit = round_up_to_tick(round(entry_credit * 2.5, 2))
 
         def fmt_strike(s: float) -> str:
             return str(int(s)) if s == int(s) else str(s)
@@ -937,7 +977,7 @@ class ExecutionEngine:
                 "symbol": sp["symbol"],
                 "side": "BUY",
                 "order_type": "LIMIT",
-                "limit_price": str(max_debit),
+                "limit_price": str(round_up_to_tick(max_debit)),
                 "quantity": str(qty),
                 "entrust_type": "QTY",
                 "time_in_force": "DAY",
@@ -1093,6 +1133,13 @@ class ExecutionEngine:
         def fmt_strike(s: float) -> str:
             return str(int(s)) if s == int(s) else str(s)
 
+        # ── Tick-align the limit price ──────────────────────────────────
+        # SPX/NDX options require $0.05 ticks. Webull rejects with
+        # "Premium invalid .05 increments only, FIX_UN_DFD_CANCEL" otherwise.
+        # MARKET orders ignore limit_price but rounding it doesn't hurt.
+        # We round DOWN (conservative for credit spreads — accept less, fill faster).
+        safe_limit_str = f"{round_down_to_tick(float(limit_price)):.2f}"
+
         return {
             "client_order_id": client_order_id or uuid.uuid4().hex,
             "combo_type": "NORMAL",
@@ -1103,9 +1150,8 @@ class ExecutionEngine:
             "side": "SELL",
             "order_type": order_type,
             # Webull ignores limit_price for MARKET orders but the field is still
-            # required by the API schema. Send the value caller supplied (even
-            # if meaningless) — keeps the wire format consistent.
-            "limit_price": str(limit_price),
+            # required by the API schema. Tick-aligned for LIMIT safety.
+            "limit_price": safe_limit_str,
             "quantity": str(quantity),
             "entrust_type": "QTY",
             "time_in_force": "DAY",
