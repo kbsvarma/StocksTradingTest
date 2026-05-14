@@ -37,10 +37,16 @@ disable_profit_target: true     # let 0DTE winners expire worthless
 
 # ── Order execution ───────────────────────────────────────────────────────────
 limit_price_offset: 0.10        # bumped 0.05 → 0.10 on 2026-05-14 — wider offset for higher fill rate
-max_retries: 3                  # number of price improvement retries
-retry_price_step: 0.10          # bumped 0.05 → 0.10 on 2026-05-14 — wider walk per retry
-retry_wait_seconds: 60          # wait between retries
-fill_timeout_seconds: 300       # cancel if unfilled after 5 min
+max_retries: 3                  # (legacy — not used by new 2-attempt design)
+retry_price_step: 0.10          # (legacy — not used by new 2-attempt design)
+retry_wait_seconds: 60          # how long to wait for the LIMIT attempt to fill before giving up / falling back
+fill_timeout_seconds: 300       # (legacy — not used)
+# Entry-retry strategy (post-2026-05-14):
+#   1. Place LIMIT at mid - limit_price_offset
+#   2. Wait retry_wait_seconds. If filled → done.
+#   3. If not filled and entry_market_fallback=true → cancel + place MARKET (one shot).
+#      If false → give up cleanly (no walk-down, no further attempts).
+entry_market_fallback: false    # default OFF — flip to true if limit-only fails on a session
 
 # ── Account ───────────────────────────────────────────────────────────────────
 account_id: "QJJGQCBGAN8M2JL2C1OA1J37KB"

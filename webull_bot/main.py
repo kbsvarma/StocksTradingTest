@@ -333,6 +333,7 @@ def run() -> None:
             retry_price_step=cfg.get("retry_price_step", 0.05),
             retry_wait_seconds=cfg.get("retry_wait_seconds", 60),
             fill_timeout_seconds=cfg.get("fill_timeout_seconds", 300),
+            entry_market_fallback=cfg.get("entry_market_fallback", False),
         )
 
         logger.order_event("PLACE_ORDER", {

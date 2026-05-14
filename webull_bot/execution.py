@@ -254,20 +254,29 @@ class ExecutionEngine:
         long_strike: float,
         quantity: int,
         limit_price: float,
-        max_retries: int = 5,
-        retry_price_step: float = 0.05,
+        max_retries: int = 5,           # legacy — unused by new 2-attempt design
+        retry_price_step: float = 0.05, # legacy — unused
         retry_wait_seconds: int = 60,
-        fill_timeout_seconds: int = 300,
+        fill_timeout_seconds: int = 300, # legacy — unused
+        entry_market_fallback: bool = False,  # NEW — opt-in MARKET retry
     ) -> FillResult:
-        """Place a bull put spread and wait for fill.
+        """Place a bull put spread (2-attempt design, post-2026-05-14):
 
-        Retries by improving the limit price (lowering the credit we demand)
-        if not filled within retry_wait_seconds.
+          attempt 1: LIMIT at `limit_price` — wait `retry_wait_seconds`
+          on no fill: cancel, then check if it filled mid-cancel (race)
+            - if yes  → success, return
+            - if no   → if entry_market_fallback: place MARKET (attempt 2)
+                       else: give up cleanly
 
         The position guard (`has_live_position_or_order`) is UNCONDITIONAL —
         there is no parameter to skip it. If a stacked-position workflow is
         ever needed, route through `place_spread_market` (force-entry) which
         is gated by interactive confirmation.
+
+        `max_retries`, `retry_price_step`, `fill_timeout_seconds` are accepted
+        for backward-compat with callers but ignored. The old walk-down-the-
+        limit retry logic was removed because it triggered Webull cancel-
+        replace race patterns observed on 2026-05-14 morning.
         """
         # ── Symbol whitelist — reject anything outside SPX/NDXP family ──────
         _assert_allowed_symbol(symbol)
@@ -284,81 +293,117 @@ class ExecutionEngine:
         blocked, reason = self.has_live_position_or_order()
         if blocked:
             return FillResult(
-                filled=False,
-                client_order_id="",
-                fill_price=0.0,
-                status="BLOCKED",
-                detail=reason,
+                filled=False, client_order_id="", fill_price=0.0,
+                status="BLOCKED", detail=reason,
             )
 
-        client_order_id = uuid.uuid4().hex
-        current_limit = limit_price
-
-        for attempt in range(max_retries + 1):
-            order = self._build_order(
-                symbol, expiry, short_strike, long_strike, quantity, current_limit,
-                client_order_id=client_order_id,
+        # ── ATTEMPT 1: LIMIT ──────────────────────────────────────────────
+        cid_limit = uuid.uuid4().hex
+        order = self._build_order(
+            symbol, expiry, short_strike, long_strike, quantity, limit_price,
+            client_order_id=cid_limit, order_type="LIMIT",
+        )
+        resp = self.trade.order_v3.place_order(
+            account_id=self.account_id, new_orders=[order],
+        )
+        if resp.status_code not in (200, 201):
+            wb_err = _extract_webull_error(resp)
+            detail = (f"limit attempt: HTTP {resp.status_code} | {wb_err}" if wb_err
+                      else f"limit attempt: HTTP {resp.status_code}: {resp.text[:300]}")
+            return FillResult(
+                filled=False, client_order_id=cid_limit, fill_price=0.0,
+                status="REJECTED", detail=detail,
             )
 
-            resp = self.trade.order_v3.place_order(
-                account_id=self.account_id,
-                new_orders=[order],
-            )
-
-            if resp.status_code not in (200, 201):
-                wb_err = _extract_webull_error(resp)
-                detail = (f"HTTP {resp.status_code} | {wb_err}" if wb_err
-                          else f"HTTP {resp.status_code}: {resp.text[:300]}")
+        # Poll attempt 1 for retry_wait_seconds
+        deadline = time.monotonic() + retry_wait_seconds
+        while time.monotonic() < deadline:
+            time.sleep(5)
+            status = self.get_order_status(cid_limit)
+            if status.status == "FILLED":
+                price = status.fill_price or limit_price
                 return FillResult(
-                    filled=False,
-                    client_order_id=client_order_id,
-                    fill_price=0.0,
-                    status="REJECTED",
-                    detail=detail,
+                    filled=True, client_order_id=cid_limit, fill_price=price,
+                    status="FILLED", detail=f"limit filled @ {price}",
+                )
+            if status.status in ("CANCELLED", "REJECTED"):
+                wb_err = _extract_webull_error(status.raw)
+                detail = (f"limit attempt {status.status} | {wb_err}"
+                          if wb_err else f"limit attempt {status.status}")
+                return FillResult(
+                    filled=False, client_order_id=cid_limit, fill_price=0.0,
+                    status=status.status, detail=detail,
                 )
 
-            # Poll for fill
-            deadline = time.monotonic() + retry_wait_seconds
-            while time.monotonic() < deadline:
-                time.sleep(5)
-                status = self.get_order_status(client_order_id)
-                if status.status == "FILLED":
-                    price = status.fill_price or current_limit
-                    return FillResult(
-                        filled=True,
-                        client_order_id=client_order_id,
-                        fill_price=price,
-                        status="FILLED",
-                        detail=f"filled at {price} on attempt {attempt + 1}",
-                    )
-                if status.status in ("CANCELLED", "REJECTED"):
-                    wb_err = _extract_webull_error(status.raw)
-                    detail = (f"order {status.status} on attempt {attempt + 1} | {wb_err}"
-                              if wb_err
-                              else f"order {status.status} on attempt {attempt + 1}")
-                    return FillResult(
-                        filled=False,
-                        client_order_id=client_order_id,
-                        fill_price=0.0,
-                        status=status.status,
-                        detail=detail,
-                    )
+        # Attempt 1 timed out. Cancel + handle race carefully.
+        self.cancel_order(cid_limit)
+        time.sleep(2)
+        # CANCEL-RACE CHECK: order may have filled while we were cancelling.
+        # If so, accept the fill — never place attempt 2 on top of an existing position.
+        post_cancel = self.get_order_status(cid_limit)
+        if post_cancel.status == "FILLED":
+            price = post_cancel.fill_price or limit_price
+            return FillResult(
+                filled=True, client_order_id=cid_limit, fill_price=price,
+                status="FILLED",
+                detail=f"limit filled during cancel race @ {price}",
+            )
 
-            if attempt < max_retries:
-                # Cancel current order and retry with lower credit demand
-                self.cancel_order(client_order_id)
-                time.sleep(2)
-                client_order_id = uuid.uuid4().hex
-                current_limit = round(current_limit - retry_price_step, 2)
-                if current_limit <= 0:
-                    break
+        # Decide: market fallback or give up
+        if not entry_market_fallback:
+            return FillResult(
+                filled=False, client_order_id=cid_limit, fill_price=0.0,
+                status="TIMEOUT",
+                detail=f"limit not filled in {retry_wait_seconds}s; "
+                       f"entry_market_fallback=false → giving up cleanly",
+            )
+
+        # ── ATTEMPT 2: MARKET ─────────────────────────────────────────────
+        cid_market = uuid.uuid4().hex
+        # limit_price field is required by Webull schema even for MARKET orders;
+        # the value is ignored. Pass `limit_price` for traceability.
+        market_order = self._build_order(
+            symbol, expiry, short_strike, long_strike, quantity, limit_price,
+            client_order_id=cid_market, order_type="MARKET",
+        )
+        resp = self.trade.order_v3.place_order(
+            account_id=self.account_id, new_orders=[market_order],
+        )
+        if resp.status_code not in (200, 201):
+            wb_err = _extract_webull_error(resp)
+            detail = (f"market attempt: HTTP {resp.status_code} | {wb_err}" if wb_err
+                      else f"market attempt: HTTP {resp.status_code}: {resp.text[:300]}")
+            return FillResult(
+                filled=False, client_order_id=cid_market, fill_price=0.0,
+                status="REJECTED", detail=detail,
+            )
+
+        # Market fills should be near-instant on liquid SPX 0DTE — poll up to 60s
+        market_deadline = time.monotonic() + 60
+        while time.monotonic() < market_deadline:
+            time.sleep(2)
+            status = self.get_order_status(cid_market)
+            if status.status == "FILLED":
+                price = status.fill_price or 0.0
+                return FillResult(
+                    filled=True, client_order_id=cid_market, fill_price=price,
+                    status="FILLED", detail=f"market filled @ {price}",
+                )
+            if status.status in ("CANCELLED", "REJECTED"):
+                wb_err = _extract_webull_error(status.raw)
+                detail = (f"market attempt {status.status} | {wb_err}"
+                          if wb_err else f"market attempt {status.status}")
+                return FillResult(
+                    filled=False, client_order_id=cid_market, fill_price=0.0,
+                    status=status.status, detail=detail,
+                )
 
         return FillResult(
             filled=False,
-            client_order_id=client_order_id,
+            client_order_id=cid_market,
             fill_price=0.0,
             status="TIMEOUT",
-            detail=f"not filled after {max_retries + 1} attempts",
+            detail="market attempt did not fill within 60s — check broker manually",
         )
 
     def place_spread_market(
@@ -376,8 +421,10 @@ class ExecutionEngine:
         - Does NOT call has_live_position_or_order() — caller is responsible for
           showing a confirmation prompt before calling this.
         - Single attempt, no retries, no loops. Places exactly 1 order.
-        - Uses order_type=LMT at an aggressively low credit ($0.05) to guarantee
-          a fill — Webull does not support MKT for combo options orders.
+        - Uses order_type=MARKET (Webull DOES support MARKET for combo options
+          orders — verified 2026-05-14; the previous "use LIMIT at $0.05 because
+          MKT is rejected" workaround was based on a wrong code comment. Webull
+          rejects "MKT" the abbreviation but accepts "MARKET" the full word.)
         - Polls every 2s up to 60s for the fill confirmation.
         """
         _assert_allowed_symbol(symbol)
@@ -391,7 +438,8 @@ class ExecutionEngine:
                                f"DRY_RUN: would have force-market placed {symbol} {int(short_strike)}/{int(long_strike)} qty={quantity}")
 
         client_order_id = uuid.uuid4().hex
-        # Set limit at $0.05 — below any realistic bid, guarantees fill at market
+        # MARKET orders ignore limit_price but Webull's API schema still requires
+        # the field. Pass a placeholder.
         force_limit = "0.05"
 
         def _fmts(s: float) -> str:
@@ -405,8 +453,8 @@ class ExecutionEngine:
             "market": "US",
             "symbol": symbol,
             "side": "SELL",
-            "order_type": "LIMIT",         # Webull doesn't support MKT for combos
-            "limit_price": force_limit,   # $0.05 — guarantees fill at market
+            "order_type": "MARKET",        # Webull accepts MARKET (not "MKT")
+            "limit_price": force_limit,   # ignored for MARKET, schema-required
             "quantity": str(quantity),
             "entrust_type": "QTY",
             "time_in_force": "DAY",
@@ -501,12 +549,19 @@ class ExecutionEngine:
         quantity: int,
         entry_credit: float,
     ) -> FillResult:
-        """Buy back the spread at market to close (debit order).
+        """Buy back the spread at MARKET to close (debit order).
 
-        For a credit spread, closing means buying back:
+        Used by the SL trigger path: when mark hits stop, we want OUT now —
+        slippage is acceptable, missing the close is not. Webull accepts
+        order_type=MARKET for combo options orders (verified 2026-05-14).
+
+        For a credit spread, closing means:
         - BUY the short put (was sold to open)
         - SELL the long put (was bought to open)
-        We submit as a limit order at a debit of entry_credit * 3 to guarantee fill.
+        Net effect = pay a debit (the spread's current ask).
+
+        `entry_credit` is no longer used to derive a limit ceiling — kept in
+        the signature for backward-compat with callers that pass it.
         """
         _assert_allowed_symbol(symbol)
 
@@ -521,8 +576,9 @@ class ExecutionEngine:
                                f"DRY_RUN: would have closed {symbol} {int(short_strike)}/{int(long_strike)} qty={quantity} at est ${est_debit:.2f}")
 
         client_order_id = uuid.uuid4().hex
-        # Max debit we're willing to pay = 2x credit (already at stop) + buffer
-        max_debit = round(entry_credit * 2.5, 2)
+        # MARKET orders ignore limit_price but Webull schema still requires the
+        # field. Pass entry_credit*2.5 as a sensible no-op value.
+        placeholder_limit = round(entry_credit * 2.5, 2)
 
         def fmt_strike(s: float) -> str:
             return str(int(s)) if s == int(s) else str(s)
@@ -535,8 +591,8 @@ class ExecutionEngine:
             "market": "US",
             "symbol": symbol,
             "side": "BUY",
-            "order_type": "LIMIT",
-            "limit_price": str(max_debit),
+            "order_type": "MARKET",                 # was LIMIT — switched 2026-05-14
+            "limit_price": str(placeholder_limit), # ignored for MARKET
             "quantity": str(quantity),
             "entrust_type": "QTY",
             "time_in_force": "DAY",
@@ -1014,9 +1070,11 @@ class ExecutionEngine:
         quantity: int,
         limit_price: float,
         client_order_id: Optional[str] = None,
+        order_type: str = "LIMIT",
     ) -> dict:
         return ExecutionEngine._build_order_dict(
-            symbol, expiry, short_strike, long_strike, quantity, limit_price, client_order_id
+            symbol, expiry, short_strike, long_strike, quantity, limit_price,
+            client_order_id, order_type=order_type,
         )
 
     @staticmethod
@@ -1028,6 +1086,9 @@ class ExecutionEngine:
         quantity: int,
         limit_price: float,
         client_order_id: Optional[str] = None,
+        order_type: str = "LIMIT",          # "LIMIT" or "MARKET". Webull accepts
+                                            # "MARKET" (full word — "MKT" is rejected
+                                            # as invalid; verified 2026-05-14).
     ) -> dict:
         def fmt_strike(s: float) -> str:
             return str(int(s)) if s == int(s) else str(s)
@@ -1040,7 +1101,10 @@ class ExecutionEngine:
             "market": "US",
             "symbol": symbol,
             "side": "SELL",
-            "order_type": "LIMIT",
+            "order_type": order_type,
+            # Webull ignores limit_price for MARKET orders but the field is still
+            # required by the API schema. Send the value caller supplied (even
+            # if meaningless) — keeps the wire format consistent.
             "limit_price": str(limit_price),
             "quantity": str(quantity),
             "entrust_type": "QTY",
