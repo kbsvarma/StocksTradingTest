@@ -1071,35 +1071,63 @@ class ExecutionEngine:
             return False
 
     def get_order_status(self, client_order_id: str) -> OrderStatus:
-        try:
-            resp = self.trade.order_v3.get_order_detail(
-                account_id=self.account_id,
-                client_order_id=client_order_id,
-            )
-            if resp.status_code != 200:
-                return OrderStatus(client_order_id, "UNKNOWN", None, {})
+        """Fetch order status with HTTP-429 backoff.
 
-            import json
-            body = json.loads(resp.text)
-            # Webull order detail response structure
-            data = body.get("data", body)
-            if isinstance(data, list):
-                data = data[0] if data else {}
+        Webull rate-limits get_order_detail when called rapidly (observed
+        2026-05-15: a 2s polling loop hit HTTP 429 'TOO_MANY_REQUESTS' after
+        ~3-5 calls, returning UNKNOWN even though the order had filled in
+        seconds). This caused force-market polling to time out at 60s while
+        the order was actually FILLED at second 5.
 
-            raw_status = str(data.get("status", data.get("orderStatus", "UNKNOWN"))).upper()
-            status = _normalize_status(raw_status)
+        Behavior: if the SDK raises a ServerException with HTTP 429, sleep
+        and retry up to 3 times with exponential backoff (0.5s, 1s, 2s).
+        Other errors fall through as UNKNOWN.
+        """
+        import json, time
+        for attempt in range(3):
+            try:
+                resp = self.trade.order_v3.get_order_detail(
+                    account_id=self.account_id,
+                    client_order_id=client_order_id,
+                )
+                if resp.status_code != 200:
+                    return OrderStatus(client_order_id, "UNKNOWN", None, {"http_status": resp.status_code})
 
-            fill_price = None
-            avg_price = data.get("avgFilledPrice") or data.get("filledPrice")
-            if avg_price:
-                try:
-                    fill_price = float(avg_price)
-                except (ValueError, TypeError):
-                    pass
+                body = json.loads(resp.text)
+                # Note: body['items'][i]['instrument_id'] is NOT a reliable
+                # per-leg id in Webull responses — observed 2026-05-15 that
+                # both legs of a combo show the SAME iid (apparently the
+                # underlying symbol's id, not the option contract). To get
+                # real leg iids, query account positions via _capture_new_legs.
+                data = body.get("data", body)
+                if isinstance(data, list):
+                    data = data[0] if data else {}
 
-            return OrderStatus(client_order_id, status, fill_price, data)
-        except Exception as exc:
-            return OrderStatus(client_order_id, "UNKNOWN", None, {"error": str(exc)})
+                raw_status = str(data.get("status", data.get("orderStatus", "UNKNOWN"))).upper()
+                status = _normalize_status(raw_status)
+
+                fill_price = None
+                avg_price = data.get("avgFilledPrice") or data.get("filledPrice")
+                if avg_price:
+                    try:
+                        fill_price = float(avg_price)
+                    except (ValueError, TypeError):
+                        pass
+
+                return OrderStatus(client_order_id, status, fill_price, data)
+            except Exception as exc:
+                msg = str(exc)
+                # Detect Webull's 429 rate-limit response and back off
+                if "429" in msg or "TOO_MANY_REQUESTS" in msg or "to many requests" in msg:
+                    if attempt < 2:
+                        time.sleep(0.5 * (2 ** attempt))  # 0.5s, 1s, 2s
+                        continue
+                    # Exhausted retries — return RATE_LIMITED so caller can
+                    # distinguish this from a genuinely missing order.
+                    return OrderStatus(client_order_id, "RATE_LIMITED", None,
+                                       {"error": "HTTP 429 after retries"})
+                return OrderStatus(client_order_id, "UNKNOWN", None, {"error": msg})
+        return OrderStatus(client_order_id, "UNKNOWN", None, {"error": "fell through retry loop"})
 
     @staticmethod
     def _build_order(
