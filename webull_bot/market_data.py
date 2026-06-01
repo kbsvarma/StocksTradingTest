@@ -28,6 +28,62 @@ _CHAIN_TTL = 60.0  # seconds before re-fetching chain
 _last_spx_source: str = "unknown"
 _last_vix_source: str = "unknown"
 _last_chain_source: str = "unknown"
+# Cached last-fetched values so dashboard can read live IBKR prices via
+# heartbeat without calling yfinance (which is 60s-cached + Yahoo lag).
+# Populated by get_spx_price / get_vix_price; None until first call.
+_last_spx_value: float | None = None
+_last_vix_value: float | None = None
+_last_quote_ts: str = ""  # ISO timestamp of last spx/vix fetch
+# Best available 50pt-spread mid credit seen on the LAST scan, even when it is
+# below min_credit (observability only — does NOT affect trade decisions).
+# Lets the dashboard show a "Credit GO/NO-GO" light with the real number.
+_last_best_credit: float | None = None
+# Full top-N spread band from the last scan (observability only — for the
+# dashboard's live-chain terminal). List of dicts: short/long/otm/mid/bid/ask.
+_last_spread_table: list | None = None
+
+
+def last_best_credit() -> float | None:
+    """Best available spread mid credit from the most recent scan (may be < min_credit)."""
+    return _last_best_credit
+
+
+def last_spread_table() -> list | None:
+    """Top-N scanned spreads from the most recent poll (for live-chain display)."""
+    return _last_spread_table
+
+
+def _spread_table_from(results, spx_price) -> list:
+    """Build a compact top-5 table (sorted by mid desc) from raw scan results."""
+    rows = []
+    try:
+        for r in sorted(results, key=lambda x: -float(x["mid"]))[:5]:
+            sk = float(r["short_strike"]); lk = float(r["long_strike"])
+            otm = round((spx_price - sk) / spx_price * 100, 1) if spx_price else None
+            rows.append({
+                "short": int(sk), "long": int(lk), "otm": otm,
+                "mid": round(float(r["mid"]), 2),
+                "bid": round(float(r.get("bid", 0) or 0), 2),
+                "ask": round(float(r.get("ask", 0) or 0), 2),
+            })
+    except Exception:
+        return []
+    return rows
+
+
+def last_spx_value() -> float | None:
+    """Last SPX value cached by get_spx_price. None if no fetch yet."""
+    return _last_spx_value
+
+
+def last_vix_value() -> float | None:
+    """Last VIX value cached by get_vix_price. None if no fetch yet."""
+    return _last_vix_value
+
+
+def last_quote_ts() -> str:
+    """ISO timestamp of last SPX/VIX fetch. Empty if no fetch yet."""
+    return _last_quote_ts
 
 
 def last_spx_source() -> str:
@@ -66,12 +122,16 @@ def _try_ibkr_spot(symbol: str) -> Optional[float]:
 
 def get_spx_price(yf_symbol: str = "^GSPC") -> float:
     """SPX spot. IBKR-first, yfinance fallback. Updates last_spx_source()."""
-    global _last_spx_source
+    global _last_spx_source, _last_spx_value, _last_quote_ts
+    from datetime import datetime as _dt
+    from zoneinfo import ZoneInfo as _Z
     from webull_bot import data_source_health as _dsh
     # IBKR-first
     ibkr_price = _try_ibkr_spot("SPX")
     if ibkr_price and ibkr_price > 100:
         _last_spx_source = "IBKR"
+        _last_spx_value = float(ibkr_price)
+        _last_quote_ts = _dt.now(_Z("America/New_York")).isoformat()
         _dsh.report("ibkr", up=True)
         return float(ibkr_price)
     _dsh.report("ibkr", up=False)
@@ -81,21 +141,30 @@ def get_spx_price(yf_symbol: str = "^GSPC") -> float:
     info = ticker.fast_info
     price = getattr(info, "last_price", None) or getattr(info, "regularMarketPrice", None)
     if price and price > 100:
+        _last_spx_value = float(price)
+        _last_quote_ts = _dt.now(_Z("America/New_York")).isoformat()
         return float(price)
     hist = ticker.history(period="1d", interval="1m")
     if not hist.empty:
-        return float(hist["Close"].iloc[-1])
+        v = float(hist["Close"].iloc[-1])
+        _last_spx_value = v
+        _last_quote_ts = _dt.now(_Z("America/New_York")).isoformat()
+        return v
     raise RuntimeError(f"Cannot fetch SPX price from {yf_symbol}")
 
 
 def get_vix_price() -> float:
     """VIX spot. IBKR-first, yfinance fallback. Updates last_vix_source()."""
-    global _last_vix_source
+    global _last_vix_source, _last_vix_value, _last_quote_ts
+    from datetime import datetime as _dt
+    from zoneinfo import ZoneInfo as _Z
     from webull_bot import data_source_health as _dsh
     # IBKR-first
     ibkr_price = _try_ibkr_spot("VIX")
     if ibkr_price and ibkr_price > 0:
         _last_vix_source = "IBKR"
+        _last_vix_value = float(ibkr_price)
+        _last_quote_ts = _dt.now(_Z("America/New_York")).isoformat()
         _dsh.report("ibkr", up=True)
         return float(ibkr_price)
     _dsh.report("ibkr", up=False)
@@ -105,10 +174,15 @@ def get_vix_price() -> float:
     info = ticker.fast_info
     price = getattr(info, "last_price", None) or getattr(info, "regularMarketPrice", None)
     if price and price > 0:
+        _last_vix_value = float(price)
+        _last_quote_ts = _dt.now(_Z("America/New_York")).isoformat()
         return float(price)
     hist = ticker.history(period="1d", interval="1m")
     if not hist.empty:
-        return float(hist["Close"].iloc[-1])
+        v = float(hist["Close"].iloc[-1])
+        _last_vix_value = v
+        _last_quote_ts = _dt.now(_Z("America/New_York")).isoformat()
+        return v
     raise RuntimeError("Cannot fetch VIX price")
 
 
@@ -126,8 +200,22 @@ def get_vix_open(today: date) -> float:
         return 0.0
 
 
+_SPX_OPEN_CACHE: dict = {}  # {date: open_price} — open is fixed once market opens
+
+
 def get_spx_open(today: date, yf_symbol: str = "^GSPC") -> float:
-    """Return SPX open price for today. Returns 0.0 if unavailable (fails open)."""
+    """Return SPX open price for today. Returns 0.0 if unavailable (fails open).
+
+    Cached per-day: the open is constant once the market opens, so we only
+    hit yfinance until we get a positive value, then serve from cache for the
+    rest of the session. This removes a redundant network call from both the
+    direction-filter scan loop and the heartbeat (which run every ~30s).
+    Pre-market (no open yet) returns 0.0 and is NOT cached, so the first real
+    open after 9:30 populates the cache.
+    """
+    cached = _SPX_OPEN_CACHE.get(today)
+    if cached and cached > 0:
+        return cached
     try:
         hist = yf.Ticker(yf_symbol).history(period="2d", interval="1d")
         if hist.empty:
@@ -135,7 +223,10 @@ def get_spx_open(today: date, yf_symbol: str = "^GSPC") -> float:
         today_rows = hist[hist.index.date == today]
         if today_rows.empty:
             return 0.0
-        return float(today_rows["Open"].iloc[0])
+        val = float(today_rows["Open"].iloc[0])
+        if val > 0:
+            _SPX_OPEN_CACHE[today] = val  # cache only real positive opens
+        return val
     except Exception:
         return 0.0
 
@@ -172,19 +263,66 @@ def find_best_spread(
 ) -> Optional[SpreadQuote]:
     """Find the best bull put spread near the target OTM level.
 
-    Scans strikes around the 1% OTM target. Returns the spread with credit
-    closest to $2.00 that meets the min_credit threshold.
+    IBKR-first (real-time OPRA bid/ask), yfinance fallback (~15min delayed).
+    Returns the spread with credit closest to $2.00 that meets min_credit.
 
-    NOTE: yfinance-only. No IBKR fallback wired here yet — separate gap.
-    Sets last_chain_source() to 'yfinance' so trade records reflect reality.
+    Bug-fix 2026-05-20: was yfinance-only — caused fills to miss because limit
+    prices were computed off 15-min-stale mids. find_top_spreads (force reports)
+    already used IBKR-first; the live-trading path was missed. Now both consistent.
     """
-    global _last_chain_source
-    _last_chain_source = "yfinance"
+    global _last_chain_source, _last_best_credit, _last_spread_table
 
     if expiry is None:
         expiry = get_0dte_expiry(yf_options_symbol)
     if expiry is None:
         return None
+
+    # ── IBKR-first: real-time OPRA quotes ──────────────────────────────
+    # If IBKR is reachable (no exception), trust its result entirely — even
+    # when it returns empty/None. Reason: yfinance is ~15min delayed; if IBKR
+    # says "no qualifying spread" that's the real-time truth, not a fallback case.
+    ibkr_reachable = False
+    try:
+        from webull_bot.ibkr_market_data import get_top_spreads_ibkr
+        ibkr_results = get_top_spreads_ibkr(
+            spx_price=spx_price,
+            otm_pct=otm_pct,
+            spread_width=spread_width,
+            expiry=expiry,
+            symbol="SPXW",
+            top_n=5,
+        )
+        ibkr_reachable = True   # no exception = IBKR responded (even if empty)
+        from webull_bot import data_source_health as _dsh
+        _dsh.report("ibkr", up=True)
+        if ibkr_results:
+            qualified = [r for r in ibkr_results if r["mid"] >= min_credit]
+            _last_chain_source = "IBKR"
+            # Observability: record best available mid + full band even if below floor.
+            try:
+                _last_best_credit = max(float(r["mid"]) for r in ibkr_results)
+                _last_spread_table = _spread_table_from(ibkr_results, spx_price)
+            except Exception:
+                pass
+            if qualified:
+                best = min(qualified, key=lambda r: abs(r["mid"] - 2.0))
+                return SpreadQuote(**best)
+            return None  # IBKR has chain but no qualifying spread — TRUST IT
+        # IBKR responded with empty list — also trust it
+        _last_chain_source = "IBKR"
+        _last_best_credit = None  # no chain → no credit to show
+        _last_spread_table = []
+        return None
+    except Exception:
+        pass
+
+    # ── yfinance fallback ONLY if IBKR truly unreachable (exception) ───
+    if ibkr_reachable:
+        # Shouldn't get here, but defensive: don't lie about source
+        return None
+    from webull_bot import data_source_health as _dsh
+    _dsh.report("ibkr", up=False)
+    _last_chain_source = "yfinance"
 
     ticker = yf.Ticker(yf_options_symbol)
     try:
@@ -202,6 +340,9 @@ def find_best_spread(
     available = sorted(puts["strike"].tolist())
     if not available:
         return None
+
+    _yf_best_credit = [None]  # mutable holder for best mid seen (observability)
+    _yf_rows = []             # full band for live-chain display
 
     # Scan nearest 5 strikes around target
     candidates = sorted(available, key=lambda s: abs(s - target_short))[:5]
@@ -241,6 +382,19 @@ def find_best_spread(
         spread_bid = short_bid - long_ask
         spread_ask = short_ask - long_bid
 
+        # Observability: track best available mid + full band even if below floor.
+        # Fully wrapped — this must never break the spread scan / order path.
+        try:
+            if _yf_best_credit[0] is None or net_credit_mid > _yf_best_credit[0]:
+                _yf_best_credit[0] = net_credit_mid
+            _yf_rows.append({
+                "short": int(short_strike), "long": int(long_strike),
+                "otm": round((spx_price - short_strike) / spx_price * 100, 1) if spx_price else None,
+                "mid": round(net_credit_mid, 2), "bid": round(spread_bid, 2), "ask": round(spread_ask, 2),
+            })
+        except Exception:
+            pass
+
         if net_credit_mid < min_credit:
             continue
 
@@ -256,6 +410,11 @@ def find_best_spread(
                 ask=round(spread_ask, 2),
             )
 
+    try:
+        _last_best_credit = round(_yf_best_credit[0], 2) if _yf_best_credit[0] is not None else None
+        _last_spread_table = sorted(_yf_rows, key=lambda x: -x["mid"])[:5]
+    except Exception:
+        pass
     return best
 
 

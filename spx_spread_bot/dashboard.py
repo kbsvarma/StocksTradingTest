@@ -376,6 +376,45 @@ def _yf_vix_price() -> float:
         pass
     return 0.0
 
+@st.cache_data(ttl=60)
+def _yf_quote_full(symbol: str) -> tuple[float, float, float]:
+    """Return (last_price, abs_change_from_prev_close, pct_change). 60s cache."""
+    try:
+        tk = yf.Ticker(symbol)
+        fi = tk.fast_info
+        cur = float(getattr(fi, "last_price", 0) or getattr(fi, "regularMarketPrice", 0) or 0)
+        prev = float(getattr(fi, "previous_close", 0) or 0)
+        if not (cur and prev):
+            hist = tk.history(period="2d", interval="1d")
+            if not hist.empty and len(hist) >= 2:
+                cur = float(hist["Close"].iloc[-1])
+                prev = float(hist["Close"].iloc[-2])
+        if cur and prev:
+            abs_chg = cur - prev
+            pct = abs_chg / prev * 100
+            return cur, abs_chg, pct
+        if cur:
+            return cur, 0.0, 0.0
+    except Exception:
+        pass
+    return 0.0, 0.0, 0.0
+
+
+def _render_delta(abs_chg: float, pct: float, kind: str = "spx") -> str:
+    """Render '+12.75 (0.17%) ▲ today' style delta. Color by sign."""
+    if abs_chg == 0 and pct == 0:
+        return '<div class="ss" style="color:#8c959f">— flat</div>'
+    up = abs_chg > 0
+    color = "#1a7f37" if up else "#cf222e"
+    arrow = "▲" if up else "▼"
+    sign = "+" if up else "−"
+    fmt = f"{sign}{abs(abs_chg):.2f}" if kind == "spx" else f"{sign}{abs(abs_chg):.2f}"
+    return (
+        f'<div class="ss" style="color:{color};font-weight:600;font-size:12px">'
+        f'{fmt} ({abs(pct):.2f}%) {arrow} today</div>'
+    )
+
+
 @st.cache_data(ttl=120)
 def _webull_nvda_shares() -> str:
     """Fetch NVDA share count from Webull account positions API (account_v2)."""
@@ -641,6 +680,134 @@ if is_webull:
 </div>
 """)
 
+        # ── Chain source pill (added 2026-05-20) ─────────────────────────
+        # Chain quote provider drives the LIMIT price → most consequential
+        # for fill quality. SPX/VIX values displayed below in their own
+        # cells; their sources matter less for execution so we don't
+        # clutter the strip with them.
+        _chain_src = (wb_hb.get("chain_source") or "unknown").lower()
+        if _chain_src == "ibkr":
+            _cs_bg, _cs_fg, _cs_txt = "#dafbe1", "#1a7f37", "IBKR"
+        elif _chain_src == "yfinance":
+            _cs_bg, _cs_fg, _cs_txt = "#fff8c5", "#9a6700", "yfinance · ~15min stale"
+        else:
+            _cs_bg, _cs_fg, _cs_txt = "#eaeef2", "#656d76", "—"
+        st.markdown(
+            f'<div style="margin:4px 0 10px 0;font-family:Inter,sans-serif;">'
+            f'<span style="font-size:10px;color:#8c959f;font-weight:600;'
+            f'text-transform:uppercase;letter-spacing:.4px;margin-right:8px;">data feed</span>'
+            f'<span style="display:inline-flex;align-items:center;background:{_cs_bg};'
+            f'color:{_cs_fg};padding:3px 10px;border-radius:12px;font-size:11px;'
+            f'font-weight:600;font-family:Inter,sans-serif;">Chain: {_cs_txt}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+        # ── Entry-gate GO/NO-GO lights (added 2026-06-01) ────────────────
+        # Three lights show WHY an order is/!isn't placed, so a screenshot
+        # answers "why no trade" without asking: Direction / VIX / Credit.
+        def _light(label: str, ok, detail: str) -> str:
+            if ok is True:
+                bg, fg, tag = "#dafbe1", "#1a7f37", "GO"
+            elif ok is False:
+                bg, fg, tag = "#ffebe9", "#cf222e", "NO-GO"
+            else:
+                bg, fg, tag = "#eaeef2", "#656d76", "—"
+            return (
+                f'<span style="display:inline-flex;align-items:center;gap:6px;background:{bg};'
+                f'color:{fg};padding:4px 11px;border-radius:12px;font-size:11px;font-weight:600;'
+                f'font-family:Inter,sans-serif;flex-shrink:0;white-space:nowrap;">'
+                f'<span style="font-weight:700;">{label}: {tag}</span>'
+                f'<span style="color:{fg};opacity:.8;font-weight:500;">{detail}</span></span>'
+            )
+
+        _spx = wb_hb.get("live_spx"); _open = wb_hb.get("spx_open")
+        _dir_ok = wb_hb.get("direction_ok")
+        if _spx is not None and _open:
+            _dir_detail = f"{_spx:,.0f} {'≥' if _dir_ok else '<'} open {_open:,.0f}"
+        else:
+            _dir_detail = "awaiting open"
+        _vix = wb_hb.get("live_vix"); _vlo = wb_hb.get("vix_min", 12.0); _vhi = wb_hb.get("vix_max", 25.0)
+        _vix_ok = (_vix is not None) and (_vlo <= _vix <= _vhi)
+        _vix_detail = f"{_vix:.1f} in {_vlo:.0f}–{_vhi:.0f}" if _vix is not None else "no VIX"
+        _bc = wb_hb.get("best_credit"); _mc = wb_hb.get("min_credit")
+        if _bc is not None and _mc is not None:
+            _cred_ok = _bc >= _mc
+            _cred_detail = f"${_bc:.2f} {'≥' if _cred_ok else '<'} ${_mc:.2f}"
+        else:
+            _cred_ok = None
+            _cred_detail = "no chain yet"
+        st.markdown(
+            '<div style="margin:2px 0 12px 0;font-family:Inter,sans-serif;display:flex;'
+            'flex-wrap:nowrap;align-items:center;gap:8px;overflow-x:auto;">'
+            '<span style="font-size:10px;color:#8c959f;font-weight:600;text-transform:uppercase;'
+            'letter-spacing:.4px;flex-shrink:0;">entry gates</span>'
+            + _light("Direction", None if _dir_ok is None else bool(_dir_ok), _dir_detail)
+            + _light("VIX", bool(_vix_ok) if _vix is not None else None, _vix_detail)
+            + _light("Credit", _cred_ok, _cred_detail)
+            + '</div>',
+            unsafe_allow_html=True,
+        )
+
+        # ── Live chain terminal: top-5 scanned spreads (added 2026-06-01) ──
+        # Same data the bot polls every ~30s; shows the full band the GO/NO-GO
+        # Credit light summarizes. White card to match the dashboard theme.
+        _tbl = wb_hb.get("spread_table") or []
+        _tgt = wb_hb.get("spread_target")
+        _src = (wb_hb.get("chain_source") or "—").upper()
+        _hdr_spx = f"{_spx:,.2f}" if _spx is not None else "—"
+        _hdr_vix = f"{_vix:.2f}" if _vix is not None else "—"
+        _hdr_tgt = f"{_tgt:,.0f}" if _tgt else "—"
+        _hdr_min = f"${_mc:.2f}" if _mc is not None else "—"
+        _live_dot = ('<span style="display:inline-flex;align-items:center;gap:6px;">'
+                     '<span style="width:7px;height:7px;border-radius:50%;background:#2ea043;"></span>'
+                     f'<span style="color:#1a7f37;font-size:10px;font-weight:600;">LIVE · {hb_rel}</span></span>') \
+                    if _wb_age < 120 else \
+                    f'<span style="color:#9a6700;font-size:10px;font-weight:600;">⏸ {hb_rel}</span>'
+        _rows_html = ""
+        for i, r in enumerate(_tbl[:5], 1):
+            _mid = r.get("mid"); _is_best = (i == 1)
+            _mid_style = ("color:#bc4c00;font-weight:700;" if _is_best else "color:#1f2328;")
+            _otm = f'{r.get("otm")}%' if r.get("otm") is not None else "—"
+            _rows_html += (
+                f'<tr style="text-align:right;border-top:1px solid #eaeef2;color:#1f2328;">'
+                f'<td style="text-align:left;padding:4px 0;color:#8c959f;">{i}</td>'
+                f'<td style="text-align:left;">{r.get("short")} / {r.get("long")} P</td>'
+                f'<td>{_otm}</td>'
+                f'<td style="{_mid_style}">{_mid:.2f}</td>'
+                f'<td style="color:#8c959f;">{r.get("bid"):.2f}</td>'
+                f'<td style="color:#8c959f;">{r.get("ask"):.2f}</td></tr>'
+            )
+        if not _rows_html:
+            _rows_html = ('<tr><td colspan="6" style="padding:10px 0;color:#8c959f;font-size:11px;'
+                          'font-family:Inter,sans-serif;text-align:center;">no chain scan yet '
+                          '(market closed or pre-window)</td></tr>')
+        if _bc is not None and _mc is not None:
+            _foot = (f'<span style="color:#1a7f37;">✓ best {_bc:.2f} ≥ min {_mc:.2f} — would place</span>'
+                     if _bc >= _mc else
+                     f'<span style="color:#cf222e;">⚠ best {_bc:.2f} &lt; min {_mc:.2f} — no qualifying spread</span>')
+        else:
+            _foot = '<span style="color:#8c959f;">awaiting chain</span>'
+        st.markdown(
+            f'<div style="background:#fff;border:1px solid #d0d7de;border-radius:10px;padding:14px 16px;'
+            f'margin-bottom:12px;box-shadow:0 1px 2px rgba(31,35,40,.06);">'
+            f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;'
+            f'font-family:Inter,sans-serif;"><div style="color:#1f2328;font-size:12px;font-weight:700;">'
+            f'LIVE CHAIN · TOP SPREADS</div>{_live_dot}</div>'
+            f'<div style="color:#8c959f;font-size:11px;margin-bottom:6px;font-family:Inter,sans-serif;">'
+            f'SPX <b style="color:#1f2328;">{_hdr_spx}</b> · VIX <b style="color:#1f2328;">{_hdr_vix}</b> · '
+            f'target <b style="color:#1f2328;">{_hdr_tgt}</b> · min <b style="color:#1f2328;">{_hdr_min}</b></div>'
+            f'<table style="width:100%;border-collapse:collapse;font-size:12px;'
+            f'font-family:ui-monospace,Menlo,monospace;">'
+            f'<tr style="color:#8c959f;font-size:10px;text-transform:uppercase;letter-spacing:.5px;text-align:right;">'
+            f'<th style="text-align:left;">#</th><th style="text-align:left;">Strikes</th>'
+            f'<th>OTM%</th><th>Mid</th><th>Bid</th><th>Ask</th></tr>{_rows_html}</table>'
+            f'<div style="border-top:1px solid #eaeef2;margin-top:8px;padding-top:8px;font-size:11px;'
+            f'font-family:Inter,sans-serif;">{_foot} · <span style="color:#8c959f;">data: {_src}</span></div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
         # Bot-down alert
         if _wb_age > 900:
             _ac, _ab = "#cf222e", "rgba(207,34,46,0.07)"
@@ -658,10 +825,19 @@ if is_webull:
                 f'⚠️&nbsp; Webull bot heartbeat stale — last write {int(_wb_age)}s ago.</div>',
                 unsafe_allow_html=True)
 
-        # SPX price
-        spx_price = _yf_spx_price()
-        vix_price = _yf_vix_price()
-        vix_val = f"{vix_price:.1f}" if vix_price else "—"
+        # SPX/VIX prices — prefer LIVE IBKR values from heartbeat (written by
+        # bot's market_data layer). Fall back to yfinance only when heartbeat
+        # doesn't have them (e.g., paper bot in dry-run, or pre-first-scan).
+        _live_spx = wb_hb.get("live_spx")
+        _live_vix = wb_hb.get("live_vix")
+        # Always pull yfinance quote for prev-close delta (heartbeat doesn't carry it).
+        _spx_yf_price, _spx_abs, _spx_pct = _yf_quote_full("^GSPC")
+        _vix_yf_price, _vix_abs, _vix_pct = _yf_quote_full("^VIX")
+        spx_price = float(_live_spx) if _live_spx else _spx_yf_price
+        vix_price = float(_live_vix) if _live_vix else _vix_yf_price
+        spx_delta_html = _render_delta(_spx_abs, _spx_pct, "spx")
+        vix_delta_html = _render_delta(_vix_abs, _vix_pct, "vix")
+        vix_val = f"{vix_price:.2f}" if vix_price else "—"
         vix_color = "#cf222e" if vix_price > 25 else "#9a6700" if vix_price < 12 else "#1f2328"
         now_et_dt = datetime.now(ET)
         _is_mkt   = (now_et_dt.weekday() < 5 and dtime(9, 30) <= now_et_dt.time() <= dtime(16, 0))
@@ -695,13 +871,13 @@ if is_webull:
 <div class="strip" style="grid-template-columns:repeat(6,1fr)">
   <div class="sc">
     <div class="sl">SPX Price {price_badge}</div>
-    <div class="sv" style="font-size:16px;font-weight:700">{price_val}</div>
-    <div class="ss">{"Real-time · Yahoo" if _is_mkt else "Last close"}</div>
+    <div class="sv" style="font-size:18px;font-weight:700">{price_val}</div>
+    {spx_delta_html}
   </div>
   <div class="sc">
     <div class="sl">VIX</div>
-    <div class="sv" style="font-size:16px;font-weight:700;color:{vix_color}">{vix_val}</div>
-    <div class="ss">Volatility index</div>
+    <div class="sv" style="font-size:18px;font-weight:700;color:{vix_color}">{vix_val}</div>
+    {vix_delta_html}
   </div>
   <div class="sc">
     <div class="sl">Bot Heartbeat</div>

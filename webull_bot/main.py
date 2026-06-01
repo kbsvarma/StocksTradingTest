@@ -14,11 +14,16 @@ from __future__ import annotations
 # APP_KEY/APP_SECRET/Telegram-token substrings from any log record.
 from webull_bot import log_redact  # noqa: F401
 
+import os
 import signal
 import sys
 import time
 from datetime import datetime, date
+from dataclasses import asdict
 from pathlib import Path
+import json as _json_mod
+# alias for new startup reconcile code to avoid collisions
+json = _json_mod
 from typing import Optional
 from zoneinfo import ZoneInfo
 
@@ -26,6 +31,7 @@ import yaml
 
 from webull_bot.client import build_trade_client
 from webull_bot.execution import ExecutionEngine
+from webull_bot.execution_v2 import ExecutionEngineV2  # position-based fill detection (2026-05-21)
 from webull_bot.logger import BotLogger
 from webull_bot.market_data import (
     find_best_spread,
@@ -64,6 +70,17 @@ _SFTP_REMOTE_DIR = "/home/ubuntu/StocksTradingTest/spx_spread_bot/data/webull_li
 
 
 def _sync_to_remote(data_dir: Path) -> None:
+    # Skip on EC2 — Mac is the live instance and already syncs to Lightsail
+    # via its own launchd rsync job. EC2 attempting to push would (a) need a
+    # key it doesn't have and (b) duplicate work. WEBULL_INSTANCE_NAME=ec2
+    # is set in the systemd unit. Mac leaves it set to "mac".
+    if os.environ.get("WEBULL_INSTANCE_NAME", "").lower() == "ec2":
+        return
+    # Kill switch (2026-06-01): EC2/Lightsail being decommissioned. When set,
+    # skip the remote sync entirely — it was failing every cycle (host-key
+    # verification) and spamming the logs. Remove the env var to re-enable.
+    if os.environ.get("WEBULL_DISABLE_REMOTE_SYNC", "").strip() == "1":
+        return
     import threading, subprocess
     def _do_sync():
         try:
@@ -89,6 +106,42 @@ def _sync_to_remote(data_dir: Path) -> None:
 
 def _write_heartbeat(state: "BotState", cfg: dict) -> None:
     import json as _json
+    # Pull latest data-source attributions so the dashboard can show
+    # "SPX [IBKR]", "VIX [IBKR]", "Chain [yfinance]" pills in real time.
+    # These globals are updated on every market_data.* call.
+    try:
+        from webull_bot.market_data import (
+            last_spx_source, last_vix_source, last_chain_source,
+            last_spx_value, last_vix_value, last_quote_ts, last_best_credit,
+            last_spread_table,
+        )
+        spx_src = last_spx_source()
+        vix_src = last_vix_source()
+        chain_src = last_chain_source()
+        spx_val = last_spx_value()
+        vix_val = last_vix_value()
+        quote_ts = last_quote_ts()
+        best_cred = last_best_credit()
+        spread_table = last_spread_table()
+    except Exception:
+        spx_src = vix_src = chain_src = "unknown"
+        spx_val = vix_val = None
+        quote_ts = ""
+        best_cred = None
+        spread_table = None
+
+    # Day's open + direction-filter state (for the dashboard's GO/NO-GO lights).
+    # Fully defensive: any failure leaves these None and never breaks heartbeat.
+    spx_open_val = None
+    direction_ok = None
+    try:
+        from webull_bot.market_data import get_spx_open
+        _today = datetime.now(ET).date()
+        spx_open_val = get_spx_open(_today, cfg.get("yf_price_symbol", "^GSPC"))
+        if spx_open_val and spx_open_val > 0 and spx_val is not None:
+            direction_ok = bool(spx_val >= spx_open_val)
+    except Exception:
+        pass
     hb = {
         "ts": datetime.now(ET).isoformat(),
         "trading_date": state.trading_date,
@@ -98,13 +151,45 @@ def _write_heartbeat(state: "BotState", cfg: dict) -> None:
         "losses": state.losses,
         "total_pnl": round(state.total_pnl, 2),
         "has_open_position": state.open_position is not None,
+        # Data feed attribution (added 2026-05-20 night)
+        "spx_source": spx_src,
+        "vix_source": vix_src,
+        "chain_source": chain_src,
+        # Live values from IBKR-first market data layer (added 2026-05-21 EOD)
+        # Dashboard reads these instead of calling yfinance directly
+        "live_spx": spx_val,
+        "live_vix": vix_val,
+        "live_quote_ts": quote_ts,
+        # GO/NO-GO light inputs (added 2026-06-01) — observability only
+        "spx_open": round(spx_open_val, 2) if spx_open_val else None,
+        "direction_ok": direction_ok,
+        "best_credit": best_cred,
+        "min_credit": cfg.get("min_credit"),
+        "vix_min": cfg.get("vix_min", 12.0),
+        "vix_max": cfg.get("vix_max", 25.0),
+        "spread_table": spread_table,  # top-5 band for live-chain terminal
+        "spread_target": (round(spx_val * (1 - cfg.get("otm_pct", 0.01)) / 5) * 5
+                          if spx_val else None),
     }
     hb_path = Path(cfg["data_dir"]) / "heartbeat.json"
     hb_path.write_text(_json.dumps(hb), encoding="utf-8")
     _sync_to_remote(Path(cfg["data_dir"]))
 
 
-def load_config(path: str = "webull_bot/config.yaml") -> dict:
+def load_config(path: str = None) -> dict:
+    """Load bot config YAML.
+
+    Path resolution (added 2026-05-21 for Phase 2.3 paper validation on EC2):
+      1. Explicit `path` argument (highest priority)
+      2. WEBULL_CONFIG_PATH env var
+      3. Default: webull_bot/config.yaml
+
+    EC2 paper bot uses env var to point at config_phase23_paper.yaml.
+    Mac live bot has no env var set → uses default config.yaml. Unchanged.
+    """
+    if path is None:
+        path = os.environ.get("WEBULL_CONFIG_PATH", "webull_bot/config.yaml")
+    print(f"[main] loading config from: {path}", flush=True)
     with open(path, encoding="utf-8") as fh:
         return yaml.safe_load(fh)
 
@@ -158,6 +243,134 @@ def _check_direction_filter(cfg: dict, spx_price: float, today: date) -> tuple[b
     return True, ""
 
 
+_QUEUE_HANDLED_LOG = Path("/tmp/bot_queue_handled.log")
+
+# Module-level logger for helper functions (run() uses BotLogger instance instead)
+import logging as _logging
+logger = _logging.getLogger("webull_bot.main")
+
+
+def _process_queue_messages(state: "BotState", store: "StateStore", cfg: dict, execution) -> None:
+    """Read event queue, act on actionable hints, mark handled.
+
+    The bot does NOT trust message contents. For an orphan hint:
+      1. Re-query broker via account_v2
+      2. If a SPXW vertical exists AND state.open_position is null, arm SL
+         from broker data (single source of truth)
+      3. Mark message handled (either way — even if no action taken)
+
+    Bot's slow-poll is the primary fill-detection path. Queue is fail-safe.
+    """
+    from webull_bot.event_queue import read_events
+
+    # Load already-handled message IDs
+    handled = set()
+    if _QUEUE_HANDLED_LOG.exists():
+        try:
+            for line in _QUEUE_HANDLED_LOG.open():
+                msg_id = line.strip().split("|")[0]
+                if msg_id:
+                    handled.add(msg_id)
+        except Exception:
+            pass
+
+    events = read_events(limit=50)
+    new_events = [e for e in events if e.get("id") not in handled]
+    if not new_events:
+        return
+
+    for ev in new_events:
+        subject = ev.get("subject", "")
+        try:
+            if "ORPHAN" in subject.upper():
+                _handle_orphan_hint(ev, state, store, cfg, execution)
+            # other event types: just mark handled (no-op)
+        except Exception as exc:
+            logger.exception(f"[main] queue handler failed for {ev.get('id')}: {exc}")
+        finally:
+            # Always mark handled — don't process the same message repeatedly
+            try:
+                with _QUEUE_HANDLED_LOG.open("a") as f:
+                    f.write(f"{ev['id']}|{ev.get('subject','?')[:40]}|{datetime.now(ET).isoformat()}\n")
+            except Exception:
+                pass
+
+
+def _handle_orphan_hint(ev: dict, state: "BotState", store: "StateStore", cfg: dict, execution) -> None:
+    """Bot's response to an orphan hint from watchdog.
+
+    Re-verifies via broker (account_v2). If a SPXW vertical is actually present
+    AND state.open_position is currently null, arm SL using broker data.
+    Idempotent: if state already populated, no-op.
+    """
+    from webull_bot.event_queue import queue_event
+    from webull_bot.execution_v2 import arm_sl_from_broker_combo
+
+    # Idempotency: if state already has open_position, this is a stale message
+    if state.open_position is not None:
+        logger.info(f"[queue] orphan hint {ev['id'][:8]} — state already populated, skipping")
+        return
+
+    # Re-verify via broker (broker = source of truth)
+    try:
+        combos = execution.snapshotter.snapshot_combos()
+    except Exception as exc:
+        logger.warning(f"[queue] orphan re-verify: snapshot_combos failed: {exc}")
+        return
+
+    # Find an active SPXW vertical (filter out expired/worthless)
+    active_combo = None
+    for c in combos:
+        if c.get("symbol") != "SPXW":
+            continue
+        if c.get("option_strategy") != "VERTICAL":
+            continue
+        try:
+            last_price = abs(float(c.get("last_price", 0) or 0))
+        except (ValueError, TypeError):
+            last_price = 0.0
+        if last_price < 0.05:
+            continue  # expired/worthless remnant
+        active_combo = c
+        break
+
+    if active_combo is None:
+        logger.info(f"[queue] orphan hint {ev['id'][:8]} — broker shows no active SPXW vertical, false-positive")
+        return
+
+    # Construct OpenPosition from broker data (broker = source of truth)
+    try:
+        stop_mult = float(cfg.get("stop_multiplier", 2.0))
+        op_dict = arm_sl_from_broker_combo(
+            active_combo, stop_multiplier=stop_mult,
+            entry_spx=0.0, entry_vix=0.0,  # unknown after-the-fact
+            client_order_id="(queue-recovered)",
+            spx_source="queue_recover", vix_source="queue_recover", chain_source="queue_recover",
+        )
+    except Exception as exc:
+        logger.exception(f"[queue] orphan re-verify: arm_sl_from_broker_combo failed: {exc}")
+        return
+
+    # Write state
+    from webull_bot.state import OpenPosition
+    pos = OpenPosition(**{k: v for k, v in op_dict.items() if k in OpenPosition.__dataclass_fields__})
+    state.open_position = pos
+    state.trade_taken_today = True
+    store.save(state)
+    logger.info(
+        f"[queue] RECOVERED orphan from watchdog hint — "
+        f"{int(pos.short_strike)}/{int(pos.long_strike)}P "
+        f"credit=${pos.entry_credit} stop=${pos.stop_price}"
+    )
+    # Queue confirmation event (telegram service will alert)
+    queue_event(
+        "critical", "main.queue_handler",
+        "SL ARMED (recovered from watchdog hint)",
+        f"SPXW {int(pos.short_strike)}/{int(pos.long_strike)}P credit=${pos.entry_credit} "
+        f"stop=${pos.stop_price}. Bot's monitor will arm on next iteration.",
+    )
+
+
 def _sleep_with_heartbeat(total_seconds: int, state: "BotState", cfg: dict, chunk: int = 30) -> None:
     """Sleep in small chunks, writing heartbeat each cycle so dashboard stays ALIVE."""
     remaining = total_seconds
@@ -193,7 +406,11 @@ def run() -> None:
         dry_run=(_os.environ.get("WEBULL_DRY_RUN") == "1"))
 
     trade_client = build_trade_client()
-    execution = ExecutionEngine(trade_client, cfg["account_id"])
+    # V2 (2026-05-21): position-based fill detection — no more orphans from status-lag races.
+    # Backward-compatible: delegates close_spread_market, place_spread_market, get_order_status
+    # to legacy ExecutionEngine internally. Drop-in replacement.
+    execution = ExecutionEngineV2(trade_client, cfg["account_id"],
+                                  state_path=cfg["state_file"])
     monitor = PositionMonitor(
         execution=execution,
         store=store,
@@ -202,11 +419,85 @@ def run() -> None:
         eod_close_time=cfg.get("eod_close_time", "15:45"),
     )
 
+    # ── Startup reconciliation (v2 — 2026-05-21) ──────────────────────────
+    # Compare state vs broker; auto-recover orphans, alert on ambiguity.
+    # If process died mid-place yesterday, this catches it.
+    try:
+        from webull_bot.startup_reconcile_v2 import decide_action as _v2_decide
+        # 2026-05-22: use snapshot_combos (account_v2) — strikes embedded,
+        # no separate resolver needed. Filter expired by last_price < $0.05.
+        raw_combos = execution.snapshotter.snapshot_combos()
+        broker_holdings = []
+        for c in raw_combos:
+            try:
+                last = abs(float(c.get("last_price", 0) or 0))
+            except (ValueError, TypeError):
+                last = 0.0
+            if last >= 0.05:  # active (not expired remnant)
+                broker_holdings.append(c)
+        if len(raw_combos) != len(broker_holdings):
+            logger.info(f"[main] startup reconcile: filtered {len(raw_combos)-len(broker_holdings)} "
+                        f"expired/worthless combos (broker hasn't cleared)")
+        state_dict = {
+            "open_position": (asdict(state.open_position)
+                              if state.open_position else None),
+            # pending_order managed by V2.place_spread directly in state.json;
+            # load it from disk for the decision
+        }
+        # Read pending_order from state.json directly (V2 writes it there)
+        try:
+            _raw_state = json.loads(Path(cfg["state_file"]).read_text())
+            state_dict["pending_order"] = _raw_state.get("pending_order")
+        except Exception:
+            state_dict["pending_order"] = None
+        decision = _v2_decide(state_dict, broker_holdings)
+        logger.info(f"[main] startup reconcile: action={decision.action} reason={decision.reason}")
+        if decision.alert_message:
+            try:
+                from webull_bot.alerts import send_alert as _sa
+                _sa(decision.alert_message)
+            except Exception:
+                pass
+        if decision.action == "PROMOTE_PENDING" and decision.new_open_position:
+            # Auto-recovery: inject broker-derived position into state
+            from webull_bot.state import OpenPosition
+            new_pos = OpenPosition(**{k: v for k, v in decision.new_open_position.items()
+                                       if k in OpenPosition.__dataclass_fields__})
+            state.open_position = new_pos
+            state.trade_taken_today = True
+            store.save(state)
+            logger.warning(f"[main] startup AUTO-RECOVERED: {decision.new_open_position}")
+        elif decision.action == "CLEAR_STATE":
+            state.open_position = None
+            store.save(state)
+            logger.warning(f"[main] startup CLEARED state.open_position (broker showed none)")
+        elif decision.action == "HALT":
+            logger.error(f"[main] startup HALT: {decision.reason}")
+            raise RuntimeError(f"Bot startup halted by reconciliation: {decision.reason}")
+        # NORMAL_START / NORMAL_RESUME / DEFER_TO_BOT / CLEAR_PENDING → just proceed
+    except RuntimeError:
+        raise
+    except Exception as exc:
+        logger.warning(f"[main] startup reconcile failed (non-fatal): {exc}")
+
     # If bot restarted mid-day with open position, resume monitoring immediately
     if state.open_position is not None:
         logger.info("[main] resuming monitoring of existing open position")
-        outcome = monitor.run_until_closed(state)
-        logger.info(f"[main] position closed: {outcome.reason}  PnL=${outcome.pnl_usd:.0f}")
+        try:
+            outcome = monitor.run_until_closed(state)
+            logger.info(f"[main] position closed: {outcome.reason}  PnL=${outcome.pnl_usd:.0f}")
+        except Exception as exc:
+            # CRITICAL: monitor crashed with an open position → SL is now dead.
+            # Alert loudly. The reconcile-watchdog will catch the orphan within 60s.
+            op = state.open_position
+            from webull_bot.alerts import send_alert as _sa
+            msg = (f"🚨 RESUMED MONITOR CRASHED — {type(exc).__name__}: {exc}\n"
+                   f"Open position: {op.symbol} {int(op.short_strike)}/{int(op.long_strike)}P "
+                   f"qty={op.quantity}. MANUAL ACTION REQUIRED.")
+            logger.exception(f"[main] {msg}")
+            try: _sa(msg)
+            except Exception: pass
+            raise
 
     while _RUNNING:
         now_et = datetime.now(ET)
@@ -215,6 +506,15 @@ def run() -> None:
 
         _reset_daily_state(state, today_str, store)
         _write_heartbeat(state, cfg)
+
+        # ── Process event queue messages (hints, not commands) ─────────────
+        # 2026-05-22 redesign: watchdog writes orphan events to /tmp/event_queue.jsonl.
+        # Bot reads them as HINTS, re-verifies via broker, and auto-arms SL from
+        # broker data. Never trusts message contents. Never blocks main flow.
+        try:
+            _process_queue_messages(state, store, cfg, execution)
+        except Exception as exc:
+            logger.warning(f"[main] queue processing failed (non-fatal): {exc}")
 
         if not _is_run_day(now_et, cfg.get("run_days", [0, 1, 2, 3, 4])):
             logger.info(f"[main] {now_et.strftime('%A')} not in run_days — sleeping 10min")
@@ -233,6 +533,46 @@ def run() -> None:
             if now_time < dtime(sh, sm):
                 # Before window — check every 30s
                 logger.info(f"[main] waiting for entry window {cfg['entry_start']} ET — {now_et.strftime('%H:%M')}")
+
+                # ── PRE-WINDOW OBSERVABILITY (2026-05-21) ─────────────────
+                # Optional: during the pre-window wait, make read-only IBKR
+                # calls so the dashboard's data-source pills show real state
+                # ("Chain: IBKR") instead of grey "—". NO trading happens.
+                # Gated by cfg.pre_window_observe — default OFF so existing
+                # behavior is preserved.
+                if cfg.get("pre_window_observe", False):
+                    try:
+                        _obs_spx = get_spx_price(cfg.get("yf_price_symbol", "^GSPC"))
+                        _obs_vix = get_vix_price()
+                        _obs_spread = find_best_spread(
+                            spx_price=_obs_spx,
+                            otm_pct=cfg["otm_pct"],
+                            spread_width=cfg["spread_width"],
+                            min_credit=cfg["min_credit"],
+                            yf_options_symbol=cfg.get("yf_options_symbol", "^SPX"),
+                        )
+                        from webull_bot.market_data import (
+                            last_spx_source as _ls_spx,
+                            last_vix_source as _ls_vix,
+                            last_chain_source as _ls_ch,
+                        )
+                        if _obs_spread is not None:
+                            logger.info(
+                                f"[main] pre-window observe: SPX={_obs_spx:.2f}[{_ls_spx()}] "
+                                f"VIX={_obs_vix:.2f}[{_ls_vix()}] "
+                                f"spread={int(_obs_spread.short_strike)}/{int(_obs_spread.long_strike)}P "
+                                f"mid={_obs_spread.mid:.2f}[{_ls_ch()}] — observation only, no trade"
+                            )
+                        else:
+                            logger.info(
+                                f"[main] pre-window observe: SPX={_obs_spx:.2f}[{_ls_spx()}] "
+                                f"VIX={_obs_vix:.2f}[{_ls_vix()}] "
+                                f"no qualifying spread yet[{_ls_ch()}]"
+                            )
+                    except Exception as _obs_exc:
+                        # NEVER let observability break the wait loop
+                        logger.warning(f"[main] pre-window observe failed (non-fatal): {_obs_exc}")
+
                 time.sleep(cfg.get("scan_interval_seconds", 30))
             else:
                 # Past cutoff — sleep until next day (check every 10min)
@@ -315,6 +655,35 @@ def run() -> None:
         limit_price = round(spread.mid - cfg.get("limit_price_offset", 0.05), 2)
         limit_price = max(limit_price, cfg["min_credit"])
 
+        # ── T1.6: stale-spot guard (added 2026-05-20) ────────────────────
+        # Observability-only: WARN + Telegram alert when the chain quote
+        # driving our LIMIT came from yfinance (~15min stale). Does NOT
+        # block — bot continues to place — so trade frequency is unchanged.
+        # Set cfg.require_realtime_chain=true to opt into hard-block later.
+        # EC2 paper bot doesn't run IBKR Gateway → always falls back to
+        # yfinance → would spam this alert every entry. Suppress Telegram
+        # on EC2 (still logs locally so the dashboard shows the gap).
+        from webull_bot.market_data import last_chain_source as _lcs
+        _chain_src_for_order = _lcs()
+        _is_paper_instance = os.environ.get("WEBULL_INSTANCE_NAME", "").lower() == "ec2"
+        if _chain_src_for_order != "IBKR":
+            warn_msg = (
+                f"⚠️ STALE DATA WARNING — about to place LIMIT ${limit_price:.2f} "
+                f"using chain source '{_chain_src_for_order}' (likely ~15min stale). "
+                f"Fill quality will suffer. Check IBKR Gateway."
+            )
+            logger.warning(f"[main] {warn_msg}")
+            if not _is_paper_instance:
+                try:
+                    from webull_bot.alerts import send_alert as _sa
+                    _sa(warn_msg)
+                except Exception:
+                    pass
+            if cfg.get("require_realtime_chain", False):
+                logger.warning("[main] require_realtime_chain=true and chain not IBKR — skipping this scan tick (no day lock)")
+                time.sleep(cfg.get("scan_interval_seconds", 30))
+                continue
+
         logger.info(f"[main] placing order: limit={limit_price:.2f}")
 
         # Lock trade_taken_today BEFORE placing — prevents duplicate orders
@@ -356,6 +725,14 @@ def run() -> None:
 
         if not fill.filled:
             logger.warning(f"[main] order not filled: {fill.detail}")
+            # Release the daily slot — no position was actually opened.
+            # We locked it before placing as a crash-safety measure, but
+            # since we got a clean "not filled" response, no order is hanging
+            # at the broker, so it's safe to allow a retry on next scan tick.
+            # Without this unlock, a single missed limit eats the whole day.
+            state.trade_taken_today = False
+            store.save(state)
+            logger.info("[main] daily slot released (no fill); will retry on next scan")
             time.sleep(60)
             continue
 
@@ -404,12 +781,55 @@ def run() -> None:
             stop_price=stop_price,
         )
 
+        # ── Shadow log: record Phase 2.3 virtual entry (2026-05-21) ──────
+        # User's idea: at this exact moment, query IBKR for what the 5×10pt×0.75%
+        # candidate would have priced at — log to a parallel CSV for paper
+        # validation. Append-only, NEVER raises, ~1 extra IBKR call per trade.
+        try:
+            from webull_bot import shadow_log
+            shadow_log.log_entry(
+                spx_at_entry=spx_price,
+                vix_at_entry=vix_price,
+                expiry=spread.expiry,
+                yf_options_symbol=yf_opts_sym,
+                live_short=spread.short_strike,
+                live_long=spread.long_strike,
+                live_credit=fill.fill_price,
+            )
+        except Exception:
+            # Triple safety — shadow_log already swallows its own errors,
+            # but in case the import itself fails, don't propagate.
+            pass
+
         # ── Monitor until close ──────────────────────────────────────────
-        outcome = monitor.run_until_closed(state)
-        logger.info(
-            f"[main] position closed: {outcome.reason}  "
-            f"pnl_pts={outcome.pnl_pts:.2f}  pnl_usd=${outcome.pnl_usd:.0f}"
-        )
+        # CRITICAL: any crash here means SL coverage just died on an open
+        # position. Alert loudly + re-raise so launchd/systemd restarts us
+        # (and the resume path picks it back up).
+        try:
+            outcome = monitor.run_until_closed(state)
+            logger.info(
+                f"[main] position closed: {outcome.reason}  "
+                f"pnl_pts={outcome.pnl_pts:.2f}  pnl_usd=${outcome.pnl_usd:.0f}"
+            )
+            # ── Shadow log: record Phase 2.3 virtual exit ────────────────
+            try:
+                from webull_bot import shadow_log
+                shadow_log.log_exit(
+                    live_exit_reason=outcome.reason,
+                    live_pnl_usd=outcome.pnl_usd,
+                )
+            except Exception:
+                pass
+        except Exception as exc:
+            from webull_bot.alerts import send_alert as _sa
+            msg = (f"🚨 LIVE MONITOR CRASHED — {type(exc).__name__}: {exc}\n"
+                   f"Position: {int(spread.short_strike)}/{int(spread.long_strike)}P "
+                   f"credit=${fill.fill_price:.2f} stop=${stop_price:.2f}. "
+                   f"MANUAL ACTION REQUIRED — reconcile-watchdog will also alert.")
+            logger.exception(f"[main] {msg}")
+            try: _sa(msg)
+            except Exception: pass
+            raise
 
         # Loop continues (trade_once_per_day will gate the next entry)
 
@@ -564,29 +984,21 @@ def force_entry_now() -> None:
     print("\n[FORCE-ENTRY] ⚠  BYPASS MODE — VIX / direction / window gates are IGNORED")
 
     # ── Step 0: existing-position safety gate ────────────────────────────
-    # Per user-mandated protocol (memory/feedback_force_order_protocol.md):
-    # before placing any new force order, scan ALL option positions, show them,
-    # and require explicit 'yes' to proceed. Symbol-agnostic check.
-    from webull_bot.execution import ALLOWED_OPTION_SYMBOLS
+    # 2026-05-22: switched to account_v2 combo endpoint (consistent with rest
+    # of bot, no separate-strike-resolver risk). Shows positions to user before
+    # proceeding. Per user-mandated protocol (feedback_force_order_protocol.md).
     print("[FORCE-ENTRY] checking existing option positions ...")
     try:
-        all_h = []
-        last = None
-        for _ in range(5):
-            r = (trade_client.account.get_account_position(
-                    account_id=cfg["account_id"], last_instrument_id=last)
-                 if last else
-                 trade_client.account.get_account_position(account_id=cfg["account_id"]))
-            d = r.json()
-            hs = d.get("holdings", [])
-            all_h.extend(hs)
-            if not d.get("has_next") or not hs: break
-            last = hs[-1]["instrument_id"]
-        existing_opts = [
-            h for h in all_h
-            if h.get("symbol") in ALLOWED_OPTION_SYMBOLS
-            and h.get("instrument_type") == "OPTION"
-        ]
+        combos = execution.snapshotter.snapshot_combos()
+        existing_opts = []
+        for c in combos:
+            try:
+                last_price = abs(float(c.get("last_price", 0) or 0))
+            except (ValueError, TypeError):
+                last_price = 0.0
+            if last_price < 0.05:
+                continue  # filter expired remnants
+            existing_opts.append(c)
     except Exception as exc:
         print(f"[FORCE-ENTRY] could not verify existing positions ({exc}) — aborting for safety.")
         return
@@ -596,14 +1008,17 @@ def force_entry_now() -> None:
         print("="*62)
         print("  ⚠  EXISTING OPTION POSITIONS")
         print("="*62)
-        for h in existing_opts:
-            sym = h.get("symbol")
-            iid = h.get("instrument_id")
-            q   = h.get("qty")
-            cost = h.get("unit_cost")
-            lp   = h.get("last_price")
-            upl  = h.get("unrealized_profit_loss")
-            print(f"  {sym}  iid={iid}  qty={q}  unit_cost={cost}  last={lp}  upl={upl}")
+        for c in existing_opts:
+            sym = c.get("symbol")
+            strategy = c.get("option_strategy", "?")
+            qty = c.get("quantity", "?")
+            cost = c.get("cost_price", "?")
+            last = c.get("last_price", "?")
+            upl = c.get("unrealized_profit_loss", "?")
+            legs = c.get("legs", [])
+            strikes = sorted([float(l.get("option_exercise_price", 0) or 0) for l in legs], reverse=True)
+            strike_desc = "/".join(str(int(s)) for s in strikes) + "P" if strikes else "?"
+            print(f"  {sym} {strategy} {strike_desc}  qty={qty}  cost=${cost}  last=${last}  upl=${upl}")
         print("="*62)
         print(f"  You have {len(existing_opts)} open option leg(s).")
         print("  Placing a new SPX BPS adds correlated equity-index exposure.")
@@ -832,7 +1247,32 @@ def force_entry_now() -> None:
     store.save(state)
 
     print(f"\n[FORCE-ENTRY] ✓ FILLED  credit={fill.fill_price:.2f}  stop={stop_price:.2f}")
-    print(f"[FORCE-ENTRY] Position saved. Run bot normally to monitor.")
+
+    # ── T2.1: start SL monitor INLINE (added 2026-05-20) ─────────────────
+    # Previously printed "Run bot normally to monitor" — if the user didn't
+    # restart, the position had ZERO SL coverage. Verified 2026-05-20 that
+    # this left 3 positions unmonitored. Never again: monitor must start
+    # within ~2s of the fill being recorded, in-process, no manual step.
+    print(f"[FORCE-ENTRY] starting SL monitor inline (T2.1 — 2026-05-20)…")
+    try:
+        from webull_bot.monitor import PositionMonitor
+        monitor = PositionMonitor(
+            execution=execution,
+            store=store,
+            logger=logger,
+            monitor_interval_seconds=cfg.get("monitor_interval_seconds", 2),
+            eod_close_time=cfg.get("eod_close_time", "15:45"),
+        )
+        outcome = monitor.run_until_closed(state)
+        print(f"[FORCE-ENTRY] monitor exited: {outcome.reason}  pnl_pts={outcome.pnl_pts:.2f}  pnl_usd=${outcome.pnl_usd:.0f}")
+    except Exception as exc:
+        # CRITICAL: if monitor crashes, alert loudly and DO NOT silently exit
+        from webull_bot.alerts import send_alert as _sa
+        msg = f"🚨 FORCE-ENTRY MONITOR CRASHED — {type(exc).__name__}: {exc}\nMANUAL ACTION REQUIRED for {pos.symbol} {int(pos.short_strike)}/{int(pos.long_strike)}P qty={pos.quantity}"
+        print(msg)
+        try: _sa(msg)
+        except Exception: pass
+        raise
 
 
 if __name__ == "__main__":
