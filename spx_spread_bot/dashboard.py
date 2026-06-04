@@ -714,17 +714,35 @@ if is_webull:
             else:
                 bg, fg, tag = "#eaeef2", "#656d76", "—"
             return (
-                f'<span style="display:inline-flex;align-items:center;gap:6px;background:{bg};'
-                f'color:{fg};padding:4px 11px;border-radius:12px;font-size:11px;font-weight:600;'
-                f'font-family:Inter,sans-serif;flex-shrink:0;white-space:nowrap;">'
+                f'<span style="display:flex;justify-content:center;align-items:center;gap:6px;'
+                f'background:{bg};color:{fg};padding:4px 11px;border-radius:12px;font-size:11px;'
+                f'font-weight:600;font-family:Inter,sans-serif;min-width:0;white-space:nowrap;'
+                f'overflow:hidden;">'
                 f'<span style="font-weight:700;">{label}: {tag}</span>'
                 f'<span style="color:{fg};opacity:.8;font-weight:500;">{detail}</span></span>'
             )
 
+        # Time gate — the bot only enters inside [entry_start, entry_end] ET.
+        # This is THE reason nothing fires 9:30–10:30 even on a perfect setup.
+        def _parse_hhmm(s, default):
+            try:
+                hh, mm = str(s).split(":"); return dtime(int(hh), int(mm))
+            except Exception:
+                return default
+        _e_start = _parse_hhmm(wb_hb.get("entry_start", "10:30"), dtime(10, 30))
+        _e_end   = _parse_hhmm(wb_hb.get("entry_end", "14:30"), dtime(14, 30))
+        _now_t   = datetime.now(ET).time()
+        if _now_t < _e_start:
+            _time_ok = False; _time_detail = f"{_now_t.strftime('%H:%M')} < {_e_start.strftime('%H:%M')}"
+        elif _now_t > _e_end:
+            _time_ok = False; _time_detail = f"{_now_t.strftime('%H:%M')} > {_e_end.strftime('%H:%M')}"
+        else:
+            _time_ok = True;  _time_detail = f"{_e_start.strftime('%H:%M')}–{_e_end.strftime('%H:%M')}"
+
         _spx = wb_hb.get("live_spx"); _open = wb_hb.get("spx_open")
         _dir_ok = wb_hb.get("direction_ok")
         if _spx is not None and _open:
-            _dir_detail = f"{_spx:,.0f} {'≥' if _dir_ok else '<'} open {_open:,.0f}"
+            _dir_detail = f"{_spx:,.0f} {'≥' if _dir_ok else '<'} {_open:,.0f}"
         else:
             _dir_detail = "awaiting open"
         _vix = wb_hb.get("live_vix"); _vlo = wb_hb.get("vix_min", 12.0); _vhi = wb_hb.get("vix_max", 25.0)
@@ -739,13 +757,15 @@ if is_webull:
             _cred_detail = "no chain yet"
         st.markdown(
             '<div style="margin:2px 0 12px 0;font-family:Inter,sans-serif;display:flex;'
-            'flex-wrap:nowrap;align-items:center;gap:8px;overflow-x:auto;">'
+            'align-items:center;gap:8px;max-width:880px;">'
             '<span style="font-size:10px;color:#8c959f;font-weight:600;text-transform:uppercase;'
             'letter-spacing:.4px;flex-shrink:0;">entry gates</span>'
+            '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;flex:1;min-width:0;">'
+            + _light("Time", _time_ok, _time_detail)
             + _light("Direction", None if _dir_ok is None else bool(_dir_ok), _dir_detail)
             + _light("VIX", bool(_vix_ok) if _vix is not None else None, _vix_detail)
             + _light("Credit", _cred_ok, _cred_detail)
-            + '</div>',
+            + '</div></div>',
             unsafe_allow_html=True,
         )
 
@@ -759,11 +779,16 @@ if is_webull:
         _hdr_vix = f"{_vix:.2f}" if _vix is not None else "—"
         _hdr_tgt = f"{_tgt:,.0f}" if _tgt else "—"
         _hdr_min = f"${_mc:.2f}" if _mc is not None else "—"
+        # Absolute ET timestamp of the heartbeat so "Xs ago" is unambiguous.
+        try:
+            _hb_et = datetime.fromisoformat(str(_wb_ts).replace("Z", "+00:00")).astimezone(ET).strftime("%H:%M:%S")
+        except Exception:
+            _hb_et = "—"
         _live_dot = ('<span style="display:inline-flex;align-items:center;gap:6px;">'
                      '<span style="width:7px;height:7px;border-radius:50%;background:#2ea043;"></span>'
-                     f'<span style="color:#1a7f37;font-size:10px;font-weight:600;">LIVE · {hb_rel}</span></span>') \
+                     f'<span style="color:#1a7f37;font-size:10px;font-weight:600;">LIVE · {_hb_et} ET · {hb_rel}</span></span>') \
                     if _wb_age < 120 else \
-                    f'<span style="color:#9a6700;font-size:10px;font-weight:600;">⏸ {hb_rel}</span>'
+                    f'<span style="color:#9a6700;font-size:10px;font-weight:600;">⏸ {_hb_et} ET · {hb_rel}</span>'
         _rows_html = ""
         for i, r in enumerate(_tbl[:5], 1):
             _mid = r.get("mid"); _is_best = (i == 1)
@@ -782,26 +807,91 @@ if is_webull:
             _rows_html = ('<tr><td colspan="6" style="padding:10px 0;color:#8c959f;font-size:11px;'
                           'font-family:Inter,sans-serif;text-align:center;">no chain scan yet '
                           '(market closed or pre-window)</td></tr>')
-        if _bc is not None and _mc is not None:
-            _foot = (f'<span style="color:#1a7f37;">✓ best {_bc:.2f} ≥ min {_mc:.2f} — would place</span>'
-                     if _bc >= _mc else
-                     f'<span style="color:#cf222e;">⚠ best {_bc:.2f} &lt; min {_mc:.2f} — no qualifying spread</span>')
+        # ── Two modes: scanning (awaiting entry) vs watch (order filled) ──
+        if has_pos:
+            # WATCH MODE — order filled, bot is monitoring the stop-loss; scan paused.
+            _mode_badge = ('<span style="background:#dafbe1;color:#1a7f37;padding:3px 9px;'
+                           'border-radius:10px;font-size:10px;font-weight:700;letter-spacing:.3px;">'
+                           '✓ ORDER PLACED · WATCH MODE</span>')
+            _sp = open_pos.get("short_strike", open_pos.get("short", "—"))
+            _lp = open_pos.get("long_strike", open_pos.get("long", "—"))
+            try: _crs = f"${float(open_pos.get('entry_credit', 0)):.2f}"
+            except Exception: _crs = "—"
+            try: _sts = f"${float(open_pos.get('stop_price', 0)):.2f}"
+            except Exception: _sts = "—"
+            # ── Live SL-monitor data from the monitor's tick file ────────────
+            # The monitor writes /tmp/monitor_tick.json every loop with the
+            # current mark + source + ts. Surface it so watch mode shows the SL
+            # is actually receiving data (and from which feed), not a blank "—".
+            _mon_src, _mon_mark, _mon_age = None, None, None
+            try:
+                _tk = json.loads(open("/tmp/monitor_tick.json").read())
+                _mon_src = _tk.get("source")
+                _mon_mark = _tk.get("mark")
+                _mts = datetime.fromisoformat(_tk["ts"])
+                _mon_age = (datetime.now(_mts.tzinfo) - _mts).total_seconds()
+            except Exception:
+                pass
+            if _mon_age is not None and 0 <= _mon_age <= 30 and _mon_mark is not None:
+                _col = "#1a7f37" if _mon_age <= 15 else "#9a6700"
+                _live = (f'<div style="color:{_col};font-size:12px;margin-top:9px;'
+                         f'font-family:ui-monospace,Menlo,monospace;">● live mark '
+                         f'<b>${_mon_mark:.2f}</b> vs stop {_sts}&nbsp;·&nbsp;{_mon_src}'
+                         f'&nbsp;·&nbsp;{_mon_age:.0f}s ago</div>')
+                _src = f"{_mon_src} · {_mon_age:.0f}s ago"
+            else:
+                _live = ('<div style="color:#cf222e;font-size:12px;margin-top:9px;'
+                         'font-family:ui-monospace,Menlo,monospace;">● SL monitor data '
+                         'STALE/unavailable — check bot</div>')
+                _src = "stale / unavailable"
+            _sub = ''
+            _body = (
+                '<div style="padding:18px 0 8px;text-align:center;font-family:Inter,sans-serif;">'
+                '<div style="color:#1a7f37;font-size:13px;font-weight:700;">Order filled — watching position for stop-loss</div>'
+                f'<div style="color:#1f2328;font-size:12px;margin-top:9px;font-family:ui-monospace,Menlo,monospace;">'
+                f'{_sp} / {_lp} P&nbsp;·&nbsp; credit {_crs}&nbsp;·&nbsp; SL {_sts}</div>'
+                f'{_live}'
+                '<div style="color:#8c959f;font-size:11px;margin-top:9px;">Live scan paused · resumes after the position closes</div>'
+                '</div>'
+            )
+            _foot = '<span style="color:#1a7f37;">monitoring stop-loss</span>'
+            _right = _mode_badge
         else:
-            _foot = '<span style="color:#8c959f;">awaiting chain</span>'
+            # SCANNING MODE — awaiting an entry; live chain keeps refreshing.
+            _mode_badge = ('<span style="background:#fff8c5;color:#9a6700;padding:3px 9px;'
+                           'border-radius:10px;font-size:10px;font-weight:700;letter-spacing:.3px;">'
+                           '⏳ AWAITING ENTRY</span>')
+            _sub = (f'<div style="color:#8c959f;font-size:11px;margin-bottom:6px;font-family:Inter,sans-serif;">'
+                    f'SPX <b style="color:#1f2328;">{_hdr_spx}</b> · VIX <b style="color:#1f2328;">{_hdr_vix}</b> · '
+                    f'target <b style="color:#1f2328;">{_hdr_tgt}</b> · min <b style="color:#1f2328;">{_hdr_min}</b></div>')
+            _body = (
+                '<table style="font-size:12px;font-family:ui-monospace,Menlo,monospace;">'
+                '<tr style="color:#8c959f;font-size:10px;text-transform:uppercase;letter-spacing:.5px;text-align:right;">'
+                '<th style="text-align:left;">#</th><th style="text-align:left;">Strikes</th>'
+                f'<th>OTM%</th><th>Mid</th><th>Bid</th><th>Ask</th></tr>{_rows_html}</table>'
+            )
+            if _bc is not None and _mc is not None:
+                _foot = (f'<span style="color:#1a7f37;">✓ best {_bc:.2f} ≥ min {_mc:.2f} — would place</span>'
+                         if _bc >= _mc else
+                         f'<span style="color:#cf222e;">⚠ best {_bc:.2f} &lt; min {_mc:.2f} — no qualifying spread</span>')
+            else:
+                _foot = '<span style="color:#8c959f;">awaiting chain</span>'
+            _right = f'{_mode_badge}&nbsp;&nbsp;{_live_dot}'
         st.markdown(
-            f'<div style="background:#fff;border:1px solid #d0d7de;border-radius:10px;padding:14px 16px;'
-            f'margin-bottom:12px;box-shadow:0 1px 2px rgba(31,35,40,.06);">'
+            # Scoped style KILLS Streamlit's default table borders / zebra striping.
+            '<style>'
+            '.lc-card table{border-collapse:collapse !important;width:100%;border:none !important;}'
+            '.lc-card th,.lc-card td{border:none !important;background:transparent !important;'
+            'padding:3px 0 !important;}'
+            '.lc-card tr{background:transparent !important;border:none !important;}'
+            '.lc-card td{border-top:1px solid #f0f2f4 !important;}'
+            '</style>'
+            f'<div class="lc-card" style="background:#fff;border:1px solid #d0d7de;border-radius:10px;'
+            f'padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 2px rgba(31,35,40,.06);max-width:880px;">'
             f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;'
             f'font-family:Inter,sans-serif;"><div style="color:#1f2328;font-size:12px;font-weight:700;">'
-            f'LIVE CHAIN · TOP SPREADS</div>{_live_dot}</div>'
-            f'<div style="color:#8c959f;font-size:11px;margin-bottom:6px;font-family:Inter,sans-serif;">'
-            f'SPX <b style="color:#1f2328;">{_hdr_spx}</b> · VIX <b style="color:#1f2328;">{_hdr_vix}</b> · '
-            f'target <b style="color:#1f2328;">{_hdr_tgt}</b> · min <b style="color:#1f2328;">{_hdr_min}</b></div>'
-            f'<table style="width:100%;border-collapse:collapse;font-size:12px;'
-            f'font-family:ui-monospace,Menlo,monospace;">'
-            f'<tr style="color:#8c959f;font-size:10px;text-transform:uppercase;letter-spacing:.5px;text-align:right;">'
-            f'<th style="text-align:left;">#</th><th style="text-align:left;">Strikes</th>'
-            f'<th>OTM%</th><th>Mid</th><th>Bid</th><th>Ask</th></tr>{_rows_html}</table>'
+            f'LIVE CHAIN · TOP SPREADS</div><span style="display:inline-flex;align-items:center;">{_right}</span></div>'
+            f'{_sub}{_body}'
             f'<div style="border-top:1px solid #eaeef2;margin-top:8px;padding-top:8px;font-size:11px;'
             f'font-family:Inter,sans-serif;">{_foot} · <span style="color:#8c959f;">data: {_src}</span></div>'
             f'</div>',
@@ -868,7 +958,7 @@ if is_webull:
         net_pnl_disp = _cash(net_pnl, sign=True) if (has_pos or wb_stats["today"] != 0) else "$0.00"
 
         st.markdown(f"""
-<div class="strip" style="grid-template-columns:repeat(6,1fr)">
+<div class="strip" style="grid-template-columns:repeat(5,1fr)">
   <div class="sc">
     <div class="sl">SPX Price {price_badge}</div>
     <div class="sv" style="font-size:18px;font-weight:700">{price_val}</div>
@@ -878,11 +968,6 @@ if is_webull:
     <div class="sl">VIX</div>
     <div class="sv" style="font-size:18px;font-weight:700;color:{vix_color}">{vix_val}</div>
     {vix_delta_html}
-  </div>
-  <div class="sc">
-    <div class="sl">Bot Heartbeat</div>
-    <div class="sv" style="font-size:14px;font-weight:600;color:{hb_color}">{hb_rel}</div>
-    <div class="ss">{hb_disp}</div>
   </div>
   <div class="sc">
     <div class="sl">Net PnL Today</div>
