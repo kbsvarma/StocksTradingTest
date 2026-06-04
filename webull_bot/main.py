@@ -170,6 +170,8 @@ def _write_heartbeat(state: "BotState", cfg: dict) -> None:
         "spread_table": spread_table,  # top-5 band for live-chain terminal
         "spread_target": (round(spx_val * (1 - cfg.get("otm_pct", 0.01)) / 5) * 5
                           if spx_val else None),
+        "entry_start": cfg.get("entry_start", "10:30"),  # for the Time gate light
+        "entry_end": cfg.get("entry_end", "14:30"),
     }
     hb_path = Path(cfg["data_dir"]) / "heartbeat.json"
     hb_path.write_text(_json.dumps(hb), encoding="utf-8")
@@ -459,8 +461,13 @@ def run() -> None:
             except Exception:
                 pass
         if decision.action == "PROMOTE_PENDING" and decision.new_open_position:
-            # Auto-recovery: inject broker-derived position into state
-            from webull_bot.state import OpenPosition
+            # Auto-recovery: inject broker-derived position into state.
+            # OpenPosition is imported at module scope (top of file). Do NOT
+            # re-import it here: a function-local import makes the name local to
+            # all of run(), shadowing the module binding and causing
+            # UnboundLocalError on the fresh-entry path (~line 745) whenever that
+            # path runs without first hitting this branch. Root cause of the
+            # 2026-06-04 orphan — every fill crashed before the SL monitor armed.
             new_pos = OpenPosition(**{k: v for k, v in decision.new_open_position.items()
                                        if k in OpenPosition.__dataclass_fields__})
             state.open_position = new_pos
