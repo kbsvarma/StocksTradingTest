@@ -686,10 +686,29 @@ if is_webull:
         # cells; their sources matter less for execution so we don't
         # clutter the strip with them.
         _chain_src = (wb_hb.get("chain_source") or "unknown").lower()
+        # In WATCH mode the bot isn't scanning a chain (chain_source absent), so
+        # show the live SL-monitor feed here instead of a confusing "—" that
+        # contradicts the watch-mode card.
+        _mon_feed = None
+        if _chain_src in ("unknown", ""):
+            try:
+                _mt = json.loads(open("/tmp/monitor_tick.json").read())
+                _mts2 = datetime.fromisoformat(_mt["ts"])
+                if 0 <= (datetime.now(_mts2.tzinfo) - _mts2).total_seconds() <= 30:
+                    _mon_feed = _mt.get("source")
+            except Exception:
+                pass
+        _feed_label = "Chain"
         if _chain_src == "ibkr":
             _cs_bg, _cs_fg, _cs_txt = "#dafbe1", "#1a7f37", "IBKR"
         elif _chain_src == "yfinance":
             _cs_bg, _cs_fg, _cs_txt = "#fff8c5", "#9a6700", "yfinance · ~15min stale"
+        elif _mon_feed == "IBKR_stream":
+            _feed_label = "SL feed"
+            _cs_bg, _cs_fg, _cs_txt = "#dafbe1", "#1a7f37", "IBKR stream"
+        elif _mon_feed == "yfinance":
+            _feed_label = "SL feed"
+            _cs_bg, _cs_fg, _cs_txt = "#fff8c5", "#9a6700", "yfinance"
         else:
             _cs_bg, _cs_fg, _cs_txt = "#eaeef2", "#656d76", "—"
         st.markdown(
@@ -698,7 +717,7 @@ if is_webull:
             f'text-transform:uppercase;letter-spacing:.4px;margin-right:8px;">data feed</span>'
             f'<span style="display:inline-flex;align-items:center;background:{_cs_bg};'
             f'color:{_cs_fg};padding:3px 10px;border-radius:12px;font-size:11px;'
-            f'font-weight:600;font-family:Inter,sans-serif;">Chain: {_cs_txt}</span>'
+            f'font-weight:600;font-family:Inter,sans-serif;">{_feed_label}: {_cs_txt}</span>'
             f'</div>',
             unsafe_allow_html=True,
         )
