@@ -22,8 +22,14 @@ from __future__ import annotations
 
 import math
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
+
+# Max age of a cached streaming tick before we treat the feed as frozen and
+# return None from latest_mark() (forcing the monitor to fall back to a fresh
+# poll). Generous vs real SPX 0DTE tick cadence (sub-second during RTH), so it
+# only trips on a genuinely stalled feed. 2026-06-04 SL hardening.
+STREAM_STALE_SECONDS = 10.0
 
 _ib = None  # module-level IB instance — reused across calls
 
@@ -46,6 +52,16 @@ _FALLBACK_CLIENT_IDS = (
 )
 
 
+# IBKR Gateway only runs on the Mac live bot. On EC2 (paper-mirror), trying
+# 127.0.0.1:4001 just spams ConnectionRefused twice per scan. Gate on the
+# same WEBULL_INSTANCE_NAME=ec2 flag that systemd already sets.
+# Override with WEBULL_IBKR_DISABLED=1 if needed (e.g. testing on Mac).
+_IBKR_DISABLED = (
+    os.environ.get("WEBULL_INSTANCE_NAME", "").lower() == "ec2"
+    or os.environ.get("WEBULL_IBKR_DISABLED", "").lower() in ("1", "true", "yes")
+)
+
+
 def _connect(client_id: Optional[int] = None) -> Optional[object]:
     """Return a connected IB instance, or None if Gateway is unreachable.
 
@@ -53,7 +69,12 @@ def _connect(client_id: Optional[int] = None) -> Optional[object]:
     If that ID is already in use by another process (Error 326), auto-bumps
     through _FALLBACK_CLIENT_IDS before giving up. This lets ad-hoc scripts
     coexist with the running daemon without manual ID juggling.
+
+    Returns None immediately if WEBULL_IBKR_DISABLED is set — caller falls
+    back to yfinance silently. No connection attempt, no log noise.
     """
+    if _IBKR_DISABLED:
+        return None
     global _ib
     try:
         from ib_insync import IB
@@ -91,11 +112,25 @@ def _connect(client_id: Optional[int] = None) -> Optional[object]:
 
 
 def _valid(v) -> Optional[float]:
+    """Validator for prices/sizes — must be finite AND positive (rejects 0 / NaN)."""
     if v is None:
         return None
     try:
         f = float(v)
         return f if math.isfinite(f) and f > 0 else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _valid_signed(v) -> Optional[float]:
+    """Validator for Greeks — must be finite, but allows negative + zero.
+    Put delta is in [-1, 0]; theta is negative; gamma/vega/IV can be small
+    near-zero values that _valid would wrongly reject."""
+    if v is None:
+        return None
+    try:
+        f = float(v)
+        return f if math.isfinite(f) else None
     except (TypeError, ValueError):
         return None
 
@@ -314,3 +349,172 @@ def disconnect() -> None:
         except Exception:
             pass
         _ib = None
+
+
+# ─── Streaming spread monitor ─────────────────────────────────────────────────
+# Persistent reqMktData subscription on both legs of a vertical spread. Replaces
+# the subscribe → sleep → read → unsubscribe polling pattern with a single
+# subscription whose ticker objects auto-update as IBKR pushes ticks. Caller
+# polls latest_mark() / latest_greeks() at whatever cadence they want.
+
+class SpreadStream:
+    """Streaming subscription for a vertical option spread.
+
+    Usage:
+        stream = open_spread_stream(short_strike, long_strike, expiry)
+        if stream:
+            while not done:
+                mark = stream.latest_mark()       # cached, no I/O
+                greeks = stream.latest_greeks()   # cached, no I/O
+                if mark is not None and mark >= stop:
+                    fire_close()
+                time.sleep(0.1)
+            stream.stop()
+    """
+
+    def __init__(self, ib, short_contract, long_contract, symbol: str, expiry: str):
+        self._ib = ib
+        self._short_contract = short_contract
+        self._long_contract = long_contract
+        self.symbol = symbol
+        self.expiry = expiry
+        self._short_ticker = None
+        self._long_ticker = None
+        self._started = False
+
+    def start(self) -> bool:
+        """Subscribe to both legs. Returns True on success."""
+        if self._started:
+            return True
+        try:
+            # Persistent subscription: snapshot=False so ticks keep pushing.
+            # genericTickList=106 requests modelGreeks. Empty string also works
+            # (ib_insync requests a sensible default set) but explicit is clearer.
+            self._short_ticker = self._ib.reqMktData(
+                self._short_contract, "106", False, False
+            )
+            self._long_ticker = self._ib.reqMktData(
+                self._long_contract, "106", False, False
+            )
+            self._ib.sleep(1.0)  # let initial snapshot land before first read
+            self._started = True
+            return True
+        except Exception:
+            return False
+
+    @staticmethod
+    def _tick_fresh(t, now_utc: datetime) -> bool:
+        """True if ticker t has a quote update within STREAM_STALE_SECONDS.
+
+        A silently-stalled IBKR feed keeps the last bid/ask cached forever; if we
+        evaluated the SL against that frozen mark we could miss a real stop
+        breach. Returning False here makes latest_mark() return None, which the
+        monitor treats as 'no stream quote this tick' and falls back to a fresh
+        IBKR/yfinance poll. Conservative: any uncertainty about the timestamp
+        counts as stale. (2026-06-04 SL hardening.)"""
+        ts = getattr(t, "time", None)
+        if ts is None:
+            return False
+        try:
+            if ts.tzinfo is None:            # older ib_insync: naive UTC
+                ts = ts.replace(tzinfo=timezone.utc)
+            age = (now_utc - ts).total_seconds()
+        except Exception:
+            return False
+        return age <= STREAM_STALE_SECONDS    # future-dated (clock skew) = fresh
+
+    def latest_mark(self) -> Optional[float]:
+        """Net spread mid from cached bid/ask. None if either leg has no quote
+        OR if its cached tick is stale (feed frozen) — see _tick_fresh."""
+        if not self._started:
+            return None
+
+        now_utc = datetime.now(timezone.utc)
+
+        def mid(t) -> Optional[float]:
+            if t is None or not self._tick_fresh(t, now_utc):
+                return None
+            bid = _valid(t.bid)
+            ask = _valid(t.ask)
+            if bid and ask:
+                return (bid + ask) / 2.0
+            return _valid(t.last) or _valid(t.close)
+
+        s = mid(self._short_ticker)
+        l = mid(self._long_ticker)
+        if s is None or l is None:
+            return None
+        return round(s - l, 2)
+
+    def latest_greeks(self) -> dict:
+        """Per-leg modelGreeks. Returns dict with 'short' and 'long' subdicts.
+        Each subdict has delta/gamma/vega/theta/iv (None if unavailable).
+
+        Note: uses _valid_signed (not _valid) because put delta and theta are
+        naturally negative — _valid filters out non-positive values, which is
+        right for prices but wrong for Greeks."""
+        def extract(t) -> dict:
+            if t is None or t.modelGreeks is None:
+                return {"delta": None, "gamma": None, "vega": None, "theta": None, "iv": None}
+            mg = t.modelGreeks
+            return {
+                "delta": _valid_signed(mg.delta),
+                "gamma": _valid_signed(mg.gamma),
+                "vega":  _valid_signed(mg.vega),
+                "theta": _valid_signed(mg.theta),
+                "iv":    _valid_signed(mg.impliedVol),
+            }
+        return {
+            "short": extract(self._short_ticker),
+            "long":  extract(self._long_ticker),
+        }
+
+    def stop(self) -> None:
+        """Cancel both subscriptions. Idempotent."""
+        if not self._started:
+            return
+        for c in (self._short_contract, self._long_contract):
+            try:
+                self._ib.cancelMktData(c)
+            except Exception:
+                pass
+        self._started = False
+
+
+def open_spread_stream(
+    short_strike: float,
+    long_strike: float,
+    expiry: str,            # YYYY-MM-DD
+    symbol: str = "SPXW",
+    right: str = "P",
+) -> Optional[SpreadStream]:
+    """Open a streaming subscription for a vertical spread.
+
+    Returns a started SpreadStream, or None if IBKR is unreachable / disabled
+    (e.g. WEBULL_INSTANCE_NAME=ec2). Caller is responsible for calling stop().
+    """
+    if _IBKR_DISABLED:
+        return None
+    try:
+        ib = _connect()
+        if ib is None:
+            return None
+        from ib_insync import Option
+        exp_ibkr = expiry.replace("-", "")
+        short_contract = Option(
+            symbol, exp_ibkr, short_strike, right,
+            exchange="SMART", tradingClass=symbol, currency="USD", multiplier="100",
+        )
+        long_contract = Option(
+            symbol, exp_ibkr, long_strike, right,
+            exchange="SMART", tradingClass=symbol, currency="USD", multiplier="100",
+        )
+        q = ib.qualifyContracts(short_contract, long_contract)
+        if len(q) != 2:
+            return None
+        stream = SpreadStream(ib, q[0], q[1], symbol, expiry)
+        if not stream.start():
+            return None
+        return stream
+    except Exception:
+        return None

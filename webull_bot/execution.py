@@ -294,34 +294,38 @@ class ExecutionEngine:
         long_strike: float,
         quantity: int,
         limit_price: float,
-        max_retries: int = 5,           # legacy — unused by new 2-attempt design
+        max_retries: int = 5,           # legacy — unused
         retry_price_step: float = 0.05, # legacy — unused
-        retry_wait_seconds: int = 60,
+        retry_wait_seconds: int = 60,   # total budget for LIMIT walk-down loop
         fill_timeout_seconds: int = 300, # legacy — unused
-        entry_market_fallback: bool = False,  # NEW — opt-in MARKET retry
+        entry_market_fallback: bool = False,  # HARD-DISABLED in code (T1.4)
+        # walk-down params (T1.2):
+        walk_down_step: float = 0.05,   # how much to drop per walk
+        walk_down_interval_s: int = 15, # how often to walk down
+        walk_down_max_steps: int = 3,   # cap walks (3 walks + initial = 4 prices over 60s)
+        poll_interval_s: float = 2.0,   # poll cadence (T1.3 — was 5s)
     ) -> FillResult:
-        """Place a bull put spread (2-attempt design, post-2026-05-14):
+        """Place a bull put spread with walk-down LIMIT execution (rewritten 2026-05-20).
 
-          attempt 1: LIMIT at `limit_price` — wait `retry_wait_seconds`
-          on no fill: cancel, then check if it filled mid-cancel (race)
-            - if yes  → success, return
-            - if no   → if entry_market_fallback: place MARKET (attempt 2)
-                       else: give up cleanly
+        DESIGN:
+          1. Snapshot pre-existing SPXW holdings (for post-order reconciliation)
+          2. Place LIMIT at `limit_price` (already round_down_to_tick'd)
+          3. Poll every 2s. Every 15s without fill, atomically `replace_order` to drop $0.05
+          4. Up to 3 walks = 4 price points tried over 60s
+          5. If fill: return immediately
+          6. If timeout: cancel safely (HTTP 417 handling), then reconcile against
+             broker positions. If a new SPXW spread appeared matching our strikes,
+             treat as filled regardless of polling status — use broker's cost basis.
+          7. MARKET fallback is HARD-DISABLED in code: Webull combo MARKET gives
+             50-77% slippage (verified 2026-05-15, 2026-05-20). Never use.
 
-        The position guard (`has_live_position_or_order`) is UNCONDITIONAL —
-        there is no parameter to skip it. If a stacked-position workflow is
-        ever needed, route through `place_spread_market` (force-entry) which
-        is gated by interactive confirmation.
-
-        `max_retries`, `retry_price_step`, `fill_timeout_seconds` are accepted
-        for backward-compat with callers but ignored. The old walk-down-the-
-        limit retry logic was removed because it triggered Webull cancel-
-        replace race patterns observed on 2026-05-14 morning.
+        Returns FillResult with filled=True only when we have high confidence
+        the order is at the broker (either polling confirmed OR broker reconciled).
         """
-        # ── Symbol whitelist — reject anything outside SPX/NDXP family ──────
+        # ── Symbol whitelist ─────────────────────────────────────────────
         _assert_allowed_symbol(symbol)
 
-        # ── DRY RUN gate ──────────────────────────────────────────────────
+        # ── DRY RUN gate ─────────────────────────────────────────────────
         if _dry_run_active():
             cid = uuid.uuid4().hex
             print(f"[DRY_RUN] place_spread {symbol} {short_strike}/{long_strike} qty={quantity} "
@@ -329,7 +333,15 @@ class ExecutionEngine:
             return _synth_fill(cid, float(limit_price),
                                f"DRY_RUN: would have placed {symbol} {int(short_strike)}/{int(long_strike)} qty={quantity}")
 
-        # ── Hard guard: never place if already live (UNCONDITIONAL) ───────
+        # ── T1.4: HARD-DISABLE MARKET FALLBACK ───────────────────────────
+        # entry_market_fallback parameter is accepted for backward-compat but
+        # IGNORED. Webull combo MARKET orders execute leg-by-leg at NBBO,
+        # producing 50-77% slippage. There is no documented midpoint-peg or
+        # complex-MARKET order type in the SDK. We refuse to use MARKET on combos.
+        if entry_market_fallback:
+            print(f"[WARN] entry_market_fallback=true IGNORED (hard-disabled in code 2026-05-20 — Webull combo MARKET=77% slippage)", flush=True)
+
+        # ── Hard guard: never place if already live (UNCONDITIONAL) ──────
         blocked, reason = self.has_live_position_or_order()
         if blocked:
             return FillResult(
@@ -337,10 +349,14 @@ class ExecutionEngine:
                 status="BLOCKED", detail=reason,
             )
 
-        # ── ATTEMPT 1: LIMIT ──────────────────────────────────────────────
+        # ── T1.7: Snapshot SPXW holdings BEFORE placing (for reconciliation) ─
+        pre_holdings = self._snapshot_spxw_holdings()
+
+        # ── PLACE INITIAL LIMIT ──────────────────────────────────────────
         cid_limit = uuid.uuid4().hex
+        current_limit = round(float(limit_price), 2)
         order = self._build_order(
-            symbol, expiry, short_strike, long_strike, quantity, limit_price,
+            symbol, expiry, short_strike, long_strike, quantity, current_limit,
             client_order_id=cid_limit, order_type="LIMIT",
         )
         resp = self.trade.order_v3.place_order(
@@ -355,16 +371,22 @@ class ExecutionEngine:
                 status="REJECTED", detail=detail,
             )
 
-        # Poll attempt 1 for retry_wait_seconds
+        # ── T1.2 + T1.3: WALK-DOWN POLL LOOP ─────────────────────────────
         deadline = time.monotonic() + retry_wait_seconds
+        last_walk = time.monotonic()
+        walks_done = 0
+        prices_tried = [current_limit]
+
         while time.monotonic() < deadline:
-            time.sleep(5)
+            time.sleep(poll_interval_s)
             status = self.get_order_status(cid_limit)
+
             if status.status == "FILLED":
-                price = status.fill_price or limit_price
+                price = status.fill_price or current_limit
                 return FillResult(
                     filled=True, client_order_id=cid_limit, fill_price=price,
-                    status="FILLED", detail=f"limit filled @ {price}",
+                    status="FILLED",
+                    detail=f"limit filled @ {price} after {walks_done} walk-downs (tried {prices_tried})",
                 )
             if status.status in ("CANCELLED", "REJECTED"):
                 wb_err = _extract_webull_error(status.raw)
@@ -375,75 +397,71 @@ class ExecutionEngine:
                     status=status.status, detail=detail,
                 )
 
-        # Attempt 1 timed out. Cancel + handle race carefully.
-        self.cancel_order(cid_limit)
-        time.sleep(2)
-        # CANCEL-RACE CHECK: order may have filled while we were cancelling.
-        # If so, accept the fill — never place attempt 2 on top of an existing position.
-        post_cancel = self.get_order_status(cid_limit)
-        if post_cancel.status == "FILLED":
-            price = post_cancel.fill_price or limit_price
+            # Walk down if time elapsed and walks remain
+            elapsed_since_walk = time.monotonic() - last_walk
+            if elapsed_since_walk >= walk_down_interval_s and walks_done < walk_down_max_steps:
+                new_limit = round(current_limit - walk_down_step, 2)
+                # Defensive: don't go negative or absurdly low
+                if new_limit < 0.05:
+                    break
+                modify = self._build_order(
+                    symbol, expiry, short_strike, long_strike, quantity, new_limit,
+                    client_order_id=cid_limit, order_type="LIMIT",
+                )
+                try:
+                    replace_resp = self.trade.order_v3.replace_order(
+                        account_id=self.account_id, modify_orders=[modify],
+                    )
+                    if replace_resp.status_code in (200, 201):
+                        current_limit = new_limit
+                        walks_done += 1
+                        last_walk = time.monotonic()
+                        prices_tried.append(current_limit)
+                        print(f"[walk-down] step {walks_done}/{walk_down_max_steps}: limit → ${current_limit}", flush=True)
+                    else:
+                        # Replace failed (e.g. order already filling) — just keep polling
+                        wb_err = _extract_webull_error(replace_resp)
+                        print(f"[walk-down] replace failed: HTTP {replace_resp.status_code} {wb_err}; continuing poll on ${current_limit}", flush=True)
+                        last_walk = time.monotonic()  # avoid spamming replace attempts
+                except Exception as exc:
+                    print(f"[walk-down] replace exception: {exc}; continuing poll", flush=True)
+                    last_walk = time.monotonic()
+
+        # ── TIMEOUT: cancel safely, then reconcile against broker ────────
+        # T1.5: HTTP 417 cancel safety
+        cancel_safe_result = self._cancel_with_safety(cid_limit)
+        if cancel_safe_result["filled"]:
+            # Cancel saw it was actually filled — accept the fill
+            price = cancel_safe_result["fill_price"] or current_limit
             return FillResult(
                 filled=True, client_order_id=cid_limit, fill_price=price,
                 status="FILLED",
-                detail=f"limit filled during cancel race @ {price}",
+                detail=f"cancel-time-check found filled @ {price} (tried prices: {prices_tried})",
             )
 
-        # Decide: market fallback or give up
-        if not entry_market_fallback:
-            return FillResult(
-                filled=False, client_order_id=cid_limit, fill_price=0.0,
-                status="TIMEOUT",
-                detail=f"limit not filled in {retry_wait_seconds}s; "
-                       f"entry_market_fallback=false → giving up cleanly",
-            )
-
-        # ── ATTEMPT 2: MARKET ─────────────────────────────────────────────
-        cid_market = uuid.uuid4().hex
-        # limit_price field is required by Webull schema even for MARKET orders;
-        # the value is ignored. Pass `limit_price` for traceability.
-        market_order = self._build_order(
-            symbol, expiry, short_strike, long_strike, quantity, limit_price,
-            client_order_id=cid_market, order_type="MARKET",
+        # ── T1.7: Post-order broker reconciliation ───────────────────────
+        # Even if cancel succeeded and polling never saw fill, broker may have
+        # filled and confirmation is lagging. Snapshot positions and look for
+        # new SPXW matching our strikes.
+        time.sleep(2)  # give broker a moment to update positions endpoint
+        post_holdings = self._snapshot_spxw_holdings()
+        reconciled = self._find_new_spread_in_holdings(
+            pre_holdings, post_holdings, short_strike, long_strike,
         )
-        resp = self.trade.order_v3.place_order(
-            account_id=self.account_id, new_orders=[market_order],
-        )
-        if resp.status_code not in (200, 201):
-            wb_err = _extract_webull_error(resp)
-            detail = (f"market attempt: HTTP {resp.status_code} | {wb_err}" if wb_err
-                      else f"market attempt: HTTP {resp.status_code}: {resp.text[:300]}")
+        if reconciled is not None:
+            broker_credit = reconciled["credit"]
+            print(f"[reconcile] orphan detected via broker holdings — short_cost=${reconciled['short_cost']:.2f} long_cost=${reconciled['long_cost']:.2f} net_credit=${broker_credit:.2f}", flush=True)
             return FillResult(
-                filled=False, client_order_id=cid_market, fill_price=0.0,
-                status="REJECTED", detail=detail,
+                filled=True, client_order_id=cid_limit, fill_price=broker_credit,
+                status="FILLED",
+                detail=f"RECONCILED from broker holdings after timeout (tried {prices_tried}); net_credit=${broker_credit:.2f}",
             )
 
-        # Market fills should be near-instant on liquid SPX 0DTE — poll up to 60s
-        market_deadline = time.monotonic() + 60
-        while time.monotonic() < market_deadline:
-            time.sleep(2)
-            status = self.get_order_status(cid_market)
-            if status.status == "FILLED":
-                price = status.fill_price or 0.0
-                return FillResult(
-                    filled=True, client_order_id=cid_market, fill_price=price,
-                    status="FILLED", detail=f"market filled @ {price}",
-                )
-            if status.status in ("CANCELLED", "REJECTED"):
-                wb_err = _extract_webull_error(status.raw)
-                detail = (f"market attempt {status.status} | {wb_err}"
-                          if wb_err else f"market attempt {status.status}")
-                return FillResult(
-                    filled=False, client_order_id=cid_market, fill_price=0.0,
-                    status=status.status, detail=detail,
-                )
-
+        # Truly didn't fill — broker has no matching position
         return FillResult(
-            filled=False,
-            client_order_id=cid_market,
-            fill_price=0.0,
+            filled=False, client_order_id=cid_limit, fill_price=0.0,
             status="TIMEOUT",
-            detail="market attempt did not fill within 60s — check broker manually",
+            detail=f"LIMIT not filled in {retry_wait_seconds}s ({walks_done} walks, tried {prices_tried}); broker has no matching position; entry_market_fallback DISABLED (combo MARKET unsafe)",
         )
 
     def place_spread_market(
@@ -787,6 +805,154 @@ class ExecutionEngine:
             and h.get("instrument_type") == "OPTION"
         ]
 
+    # ── T1.5 + T1.7 helpers (added 2026-05-20) ───────────────────────────────
+
+    def _snapshot_spxw_holdings(self) -> dict[str, dict]:
+        """Return current SPXW/SPX/NDXP option holdings keyed by instrument_id.
+
+        Used by place_spread() for pre/post reconciliation: any iid present
+        AFTER but not BEFORE is a newly-opened leg. Each value carries
+        whatever fields Webull returns (qty, cost_price, last_price, etc.)
+        so the caller can compute net credit from the new legs.
+
+        Defensively returns {} on any error rather than raising — the caller
+        treats an empty snapshot as "no prior positions" which is safe
+        because the hard guard (`has_live_position_or_order`) already
+        ran and confirmed clear state.
+        """
+        try:
+            positions = self._fetch_spxw_positions()
+        except Exception as exc:
+            print(f"[snapshot] error fetching SPXW positions: {exc}", flush=True)
+            return {}
+        return {h["instrument_id"]: h for h in positions if h.get("instrument_id")}
+
+    def _find_new_spread_in_holdings(
+        self,
+        pre: dict[str, dict],
+        post: dict[str, dict],
+        short_strike: float,
+        long_strike: float,
+    ) -> Optional[dict]:
+        """Identify a newly-opened spread matching (short_strike, long_strike).
+
+        Returns dict {short_iid, long_iid, short_cost, long_cost, credit} or None.
+
+        Approach:
+          1. new_iids = post-keys minus pre-keys
+          2. Resolve each new iid's strike via _fetch_strike_map() (today's orders)
+          3. Match short_strike (qty<0) and long_strike (qty>0)
+          4. Compute net credit = short_cost - long_cost
+
+        Net credit is reported as a POSITIVE number (per-share, not ×100).
+        Returns None if we can't unambiguously identify both legs.
+        """
+        new_iids = set(post.keys()) - set(pre.keys())
+        if not new_iids:
+            return None
+
+        # Build iid → strike map from today's order history
+        strike_map = self._fetch_strike_map()
+
+        short_match = None
+        long_match = None
+        for iid in new_iids:
+            holding = post[iid]
+            try:
+                qty = int(holding.get("qty", 0))
+            except (ValueError, TypeError):
+                continue
+            strike = strike_map.get(iid)
+            if strike is None:
+                continue
+            if abs(strike - short_strike) < 0.01 and qty < 0:
+                short_match = (iid, holding)
+            elif abs(strike - long_strike) < 0.01 and qty > 0:
+                long_match = (iid, holding)
+
+        if not (short_match and long_match):
+            print(f"[reconcile] could not identify both legs: short={short_match}, long={long_match}, new_iids={new_iids}, strike_map_size={len(strike_map)}", flush=True)
+            return None
+
+        def _cost(h: dict) -> float:
+            for k in ("cost_price", "costPrice", "average_cost", "averageCost", "avg_cost"):
+                v = h.get(k)
+                if v is not None:
+                    try:
+                        return abs(float(v))
+                    except (ValueError, TypeError):
+                        continue
+            return 0.0
+
+        short_cost = _cost(short_match[1])
+        long_cost = _cost(long_match[1])
+        credit = round(short_cost - long_cost, 2)
+        return {
+            "short_iid": short_match[0],
+            "long_iid": long_match[0],
+            "short_cost": short_cost,
+            "long_cost": long_cost,
+            "credit": credit,
+        }
+
+    def _cancel_with_safety(self, client_order_id: str) -> dict:
+        """Cancel an order; if cancel fails with HTTP 417 INVALID_PARAMETER,
+        re-check the order's actual status — the cancel may have failed because
+        it already FILLED.
+
+        Returns dict:
+          {"filled": bool, "fill_price": Optional[float], "cancelled": bool, "detail": str}
+
+        T1.5 fix: previously, cancel failure was treated as "didn't cancel" and
+        the bot escalated to MARKET fallback on top of an already-filled order
+        (verified 2026-05-20 — caused doubled position when force_place ran twice
+        and one of them silently filled via belated cancel).
+        """
+        try:
+            resp = self.trade.order_v3.cancel_order(
+                account_id=self.account_id,
+                client_order_id=client_order_id,
+            )
+            http = resp.status_code
+            if http in (200, 201):
+                return {"filled": False, "fill_price": None, "cancelled": True,
+                        "detail": f"cancel ok HTTP {http}"}
+            # Non-2xx: check actual status before deciding it didn't cancel
+            wb_err = _extract_webull_error(resp)
+            print(f"[cancel] HTTP {http} ({wb_err}) — rechecking order status before escalating", flush=True)
+        except Exception as exc:
+            print(f"[cancel] exception {exc} — rechecking order status before escalating", flush=True)
+            wb_err = str(exc)
+            http = 0
+
+        # Recheck — may have filled between our last poll and our cancel attempt
+        try:
+            time.sleep(1)  # let broker settle
+            status = self.get_order_status(client_order_id)
+            if status.status == "FILLED":
+                price = status.fill_price
+                print(f"[cancel] order was FILLED at {price} — cancel HTTP {http} was due to filled state, NOT a real error", flush=True)
+                return {"filled": True, "fill_price": price, "cancelled": False,
+                        "detail": f"cancel-time recheck found FILLED @ {price}"}
+            if status.status in ("CANCELLED", "REJECTED"):
+                return {"filled": False, "fill_price": None, "cancelled": True,
+                        "detail": f"cancel-time recheck: order already {status.status}"}
+            # Still working — cancel genuinely failed. Try one more time.
+            try:
+                resp2 = self.trade.order_v3.cancel_order(
+                    account_id=self.account_id,
+                    client_order_id=client_order_id,
+                )
+                return {"filled": False, "fill_price": None,
+                        "cancelled": resp2.status_code in (200, 201),
+                        "detail": f"retry cancel HTTP {resp2.status_code}"}
+            except Exception as exc2:
+                return {"filled": False, "fill_price": None, "cancelled": False,
+                        "detail": f"retry cancel exception: {exc2}"}
+        except Exception as exc:
+            return {"filled": False, "fill_price": None, "cancelled": False,
+                    "detail": f"cancel-time recheck failed: {exc}"}
+
     def _build_close_plan(
         self, expiry: str, symbol: str,
         known_iid_strikes: Optional[dict[str, float]] = None,
@@ -1083,7 +1249,7 @@ class ExecutionEngine:
         and retry up to 3 times with exponential backoff (0.5s, 1s, 2s).
         Other errors fall through as UNKNOWN.
         """
-        import json, time
+        import json  # 'time' is module-level; do not shadow it locally
         for attempt in range(3):
             try:
                 resp = self.trade.order_v3.get_order_detail(

@@ -10,9 +10,14 @@ from zoneinfo import ZoneInfo
 from webull_bot.execution import ExecutionEngine
 from webull_bot.logger import BotLogger
 from webull_bot.market_data import get_spread_mark
-from webull_bot.ibkr_market_data import get_spread_mark_ibkr, disconnect as ibkr_disconnect
+from webull_bot.ibkr_market_data import (
+    get_spread_mark_ibkr,
+    open_spread_stream,
+    disconnect as ibkr_disconnect,
+)
 from webull_bot.state import BotState, OpenPosition, StateStore
 from webull_bot.alerts import (
+    send_alert,
     alert_stop_fired, alert_position_closed,
     alert_close_failed_retry, alert_close_failed_eod,
     alert_close_resolved_externally,
@@ -70,7 +75,16 @@ class PositionMonitor:
         self._heartbeat_path.write_text(_json.dumps(hb), encoding="utf-8")
 
     def run_until_closed(self, state: BotState) -> MonitorOutcome:
-        """Block until the position is closed (stop, EOD, or expiry)."""
+        """Block until the position is closed (stop, EOD, or expiry).
+
+        Uses IBKR streaming when available (sub-200ms reaction): subscribes
+        ONCE to both legs at start, then polls cached state every ~100ms
+        for SL eval. Greeks captured in event_log alongside marks for future
+        research (delta-conditional SL etc) — does NOT influence SL today.
+
+        Falls back to per-tick polling (IBKR snapshot or yfinance) if
+        streaming fails. SL logic is identical in both paths.
+        """
         pos = state.open_position
         if pos is None:
             return MonitorOutcome(closed=False, reason="no position")
@@ -81,89 +95,196 @@ class PositionMonitor:
             f"credit={pos.entry_credit:.2f} stop={pos.stop_price:.2f}"
         )
 
-        while True:
-            now_et = datetime.now(ET)
-            now_time = now_et.time()
+        # ── T2.2: SL MONITOR ACTIVE Telegram alert (added 2026-05-20) ─────
+        # Fired immediately on monitor entry so the user has positive
+        # confirmation the SL polling loop is running. Absence of this
+        # alert = orphan position (no SL coverage). Non-blocking — wrapped
+        # by _safe in alerts.py.
+        try:
+            send_alert(
+                f"🟢 SL MONITOR ACTIVE\n"
+                f"{pos.symbol} {int(pos.short_strike)}/{int(pos.long_strike)}P  "
+                f"qty={pos.quantity}\n"
+                f"credit=${pos.entry_credit:.2f}  stop=${pos.stop_price:.2f}\n"
+                f"poll≤{self.interval}s (streaming if IBKR up)"
+            )
+        except Exception as _e:
+            self.logger.warning(f"[monitor] SL-active alert failed (non-fatal): {_e}")
 
-            in_market_hours = _MARKET_OPEN <= now_time < _MARKET_CLOSE
+        # Try to open a streaming subscription. On failure (IBKR down, gate
+        # disabled, contract qualify fails), stream is None and we drop into
+        # the legacy per-tick polling path further down.
+        stream = open_spread_stream(
+            short_strike=pos.short_strike,
+            long_strike=pos.long_strike,
+            expiry=pos.expiry,
+            symbol=pos.symbol,
+        )
+        if stream is not None:
+            self.logger.info("[monitor] IBKR streaming subscription opened")
+        else:
+            self.logger.info("[monitor] IBKR streaming unavailable — falling back to polling")
 
-            # EOD forced close
-            if now_time >= self.eod_time:
-                self.logger.info(f"[monitor] EOD reached ({self.eod_time}) — letting position expire worthless")
-                return self._book_expiry(pos, state)
+        # Cadence:
+        #   stream mode → poll cached values every 100ms (sub-200ms SL reaction)
+        #   poll mode   → use configured self.interval (typically 30s)
+        # Heartbeat / verbose log every 5s in stream mode (not every tick).
+        tick_sleep = 0.1 if stream is not None else self.interval
+        verbose_log_every = 5.0  # seconds between INFO mark logs in stream mode
+        last_verbose_log = 0.0
 
-            if in_market_hours:
-                # Try IBKR real-time first, fall back to yfinance
-                mark = get_spread_mark_ibkr(
-                    short_strike=pos.short_strike,
-                    long_strike=pos.long_strike,
-                    expiry=pos.expiry,
-                )
-                source = "IBKR"
-                from webull_bot import data_source_health as _dsh
-                if mark is None:
-                    _dsh.report("ibkr", up=False)
-                    mark = get_spread_mark(
-                        short_strike=pos.short_strike,
-                        long_strike=pos.long_strike,
-                        expiry=pos.expiry,
-                        yf_options_symbol=pos.yf_options_symbol,
-                    )
-                    source = "yfinance"
-                else:
-                    _dsh.report("ibkr", up=True)
-                # Remember the source used for THIS tick so that whenever
-                # _close_state runs, it can record which source informed the
-                # exit decision (set even if mark is None — caller will see).
-                self._last_exit_source = source
+        try:
+            while True:
+                now_et = datetime.now(ET)
+                now_time = now_et.time()
 
-                # Heartbeat — write on every monitor tick so dashboard knows
-                # bot is alive even when in monitor mode (not just entry-scan).
-                # Best-effort: never raise into the trading loop.
+                in_market_hours = _MARKET_OPEN <= now_time < _MARKET_CLOSE
+
+                # EOD forced close
+                if now_time >= self.eod_time:
+                    self.logger.info(f"[monitor] EOD reached ({self.eod_time}) — letting position expire worthless")
+                    return self._book_expiry(pos, state)
+
+                if in_market_hours:
+                    # ── Read mark + greeks ─────────────────────────────────
+                    greeks = None
+                    if stream is not None:
+                        mark = stream.latest_mark()
+                        greeks = stream.latest_greeks()
+                        source = "IBKR_stream"
+                    else:
+                        mark = get_spread_mark_ibkr(
+                            short_strike=pos.short_strike,
+                            long_strike=pos.long_strike,
+                            expiry=pos.expiry,
+                        )
+                        source = "IBKR"
+
+                    from webull_bot import data_source_health as _dsh
+                    if mark is None:
+                        _dsh.report("ibkr", up=False)
+                        # Fall back to yfinance for THIS tick. We do not tear
+                        # down the stream — IBKR may recover on next tick.
+                        mark = get_spread_mark(
+                            short_strike=pos.short_strike,
+                            long_strike=pos.long_strike,
+                            expiry=pos.expiry,
+                            yf_options_symbol=pos.yf_options_symbol,
+                        )
+                        source = "yfinance"
+                    else:
+                        _dsh.report("ibkr", up=True)
+                    self._last_exit_source = source
+
+                    # ── Heartbeat (best-effort, never raises) ──────────────
+                    try:
+                        self._write_heartbeat(state)
+                    except Exception:
+                        pass
+
+                    if mark is not None:
+                        # ── SL trigger check (highest priority) ────────────
+                        if mark >= pos.stop_price:
+                            trigger_ts = datetime.now(ET)
+                            self.logger.warning(
+                                f"[monitor] STOP LOSS triggered: mark {mark:.2f} >= stop {pos.stop_price:.2f}"
+                            )
+                            from webull_bot.event_log import log_event as _le
+                            _le("stop_triggered", mark=mark, stop=pos.stop_price,
+                                short_strike=pos.short_strike, long_strike=pos.long_strike, source=source)
+                            if stream is not None:
+                                stream.stop()
+                            return self._execute_stop(pos, state, mark, trigger_ts=trigger_ts)
+
+                        # ── Verbose log + event_log write ──────────────────
+                        # In stream mode, throttle INFO logs to once per 5s
+                        # (otherwise we'd flood with 10 lines/sec). Always
+                        # write event_log entries — those are structured.
+                        now_mono = time.monotonic()
+                        should_verbose = (
+                            stream is None
+                            or (now_mono - last_verbose_log) >= verbose_log_every
+                        )
+                        if should_verbose:
+                            self.logger.info(
+                                f"[monitor] mark={mark:.2f}  stop={pos.stop_price:.2f}  "
+                                f"({pos.short_strike}/{pos.long_strike}P)  [{source}]"
+                            )
+                            last_verbose_log = now_mono
+
+                        self.logger.order_event("SPREAD_MARK", {
+                            "symbol": pos.symbol,
+                            "expiry": pos.expiry,
+                            "short_strike": pos.short_strike,
+                            "long_strike": pos.long_strike,
+                            "mark": mark,
+                            "stop": pos.stop_price,
+                            "entry_credit": pos.entry_credit,
+                        })
+                        from webull_bot.event_log import log_event as _le
+                        # Greeks (when available from stream) captured for
+                        # future research — NOT used for SL decisions today.
+                        tick_payload = dict(
+                            symbol=pos.symbol, expiry=pos.expiry,
+                            short_strike=pos.short_strike, long_strike=pos.long_strike,
+                            mark=mark, stop=pos.stop_price,
+                            entry_credit=pos.entry_credit,
+                            unrealized_pts=round(pos.entry_credit - mark, 2),
+                            source=source,
+                        )
+                        if greeks is not None:
+                            # Flatten short/long greeks under namespaced keys
+                            for leg, vals in greeks.items():
+                                for k, v in vals.items():
+                                    tick_payload[f"{leg}_{k}"] = v
+                        _le("monitor_tick", **tick_payload)
+
+                        # 2026-05-22: write tick file for telegram service health check
+                        # Telegram service reads this; if stale >30s, alerts "monitor stale"
+                        try:
+                            import json as _json
+                            from pathlib import Path as _Path
+                            from datetime import datetime as _dt
+                            from zoneinfo import ZoneInfo as _ZI
+                            _Path("/tmp/monitor_tick.json").write_text(_json.dumps({
+                                "ts": _dt.now(_ZI("America/New_York")).isoformat(),
+                                "mark": mark,
+                                "stop": pos.stop_price,
+                                "source": source,
+                                "short_strike": pos.short_strike,
+                                "long_strike": pos.long_strike,
+                            }))
+                        except Exception:
+                            pass  # never fail monitor on observability write
+                    else:
+                        # Throttle "unavailable" warnings the same way as verbose log
+                        now_mono = time.monotonic()
+                        if stream is None or (now_mono - last_verbose_log) >= verbose_log_every:
+                            self.logger.warning("[monitor] mark price unavailable — will retry")
+                            last_verbose_log = now_mono
+                        from webull_bot.event_log import log_event as _le
+                        _le("mark_unavailable",
+                            symbol=pos.symbol, short_strike=pos.short_strike, long_strike=pos.long_strike)
+
+                time.sleep(tick_sleep)
+        finally:
+            if stream is not None:
                 try:
-                    self._write_heartbeat(state)
+                    stream.stop()
                 except Exception:
                     pass
+            # 2026-05-22: clear monitor tick file so telegram service doesn't
+            # see stale "fresh" data after monitor exits
+            try:
+                from pathlib import Path as _Path
+                _tick = _Path("/tmp/monitor_tick.json")
+                if _tick.exists():
+                    _tick.unlink()
+            except Exception:
+                pass
 
-                if mark is not None:
-                    self.logger.info(
-                        f"[monitor] mark={mark:.2f}  stop={pos.stop_price:.2f}  "
-                        f"({pos.short_strike}/{pos.long_strike}P)  [{source}]"
-                    )
-                    self.logger.order_event("SPREAD_MARK", {
-                        "symbol": pos.symbol,
-                        "expiry": pos.expiry,
-                        "short_strike": pos.short_strike,
-                        "long_strike": pos.long_strike,
-                        "mark": mark,
-                        "stop": pos.stop_price,
-                        "entry_credit": pos.entry_credit,
-                    })
-                    from webull_bot.event_log import log_event as _le
-                    _le("monitor_tick",
-                        symbol=pos.symbol, expiry=pos.expiry,
-                        short_strike=pos.short_strike, long_strike=pos.long_strike,
-                        mark=mark, stop=pos.stop_price,
-                        entry_credit=pos.entry_credit,
-                        unrealized_pts=round(pos.entry_credit - mark, 2),
-                        source=source)
-
-                    if mark >= pos.stop_price:
-                        self.logger.warning(
-                            f"[monitor] STOP LOSS triggered: mark {mark:.2f} >= stop {pos.stop_price:.2f}"
-                        )
-                        _le("stop_triggered", mark=mark, stop=pos.stop_price,
-                            short_strike=pos.short_strike, long_strike=pos.long_strike, source=source)
-                        return self._execute_stop(pos, state, mark)
-                else:
-                    self.logger.warning("[monitor] mark price unavailable — will retry")
-                    from webull_bot.event_log import log_event as _le
-                    _le("mark_unavailable",
-                        symbol=pos.symbol, short_strike=pos.short_strike, long_strike=pos.long_strike)
-
-            time.sleep(self.interval)
-
-    def _execute_stop(self, pos: OpenPosition, state: BotState, mark: float) -> MonitorOutcome:
+    def _execute_stop(self, pos: OpenPosition, state: BotState, mark: float,
+                       trigger_ts: Optional[datetime] = None) -> MonitorOutcome:
         """Trigger stop-loss close. Retries on failure. Per the SL close
         failure handling invariant (memory/sl_close_failure_handling.md):
 
@@ -239,6 +360,7 @@ class PositionMonitor:
                     )
                     alert_close_resolved_externally(
                         spread=spread_label, attempts=attempt - 1,
+                        event_ts=trigger_ts,
                     )
                     # Use mark as best-estimate exit price — we don't know the
                     # real fill since it happened outside our control.
@@ -246,18 +368,35 @@ class PositionMonitor:
                     pnl_pts = pos.entry_credit - exit_price
                     pnl_usd = pnl_pts * 100 * pos.quantity
                     self._close_state(state, exit_price, pnl_pts, pnl_usd,
-                                      "STOP_LOSS_EXTERNAL")
+                                      "STOP_LOSS_EXTERNAL", event_ts=trigger_ts)
                     return MonitorOutcome(
                         closed=True, reason="STOP_LOSS_EXTERNAL",
                         exit_price=exit_price, pnl_pts=pnl_pts, pnl_usd=pnl_usd,
                     )
 
             # ── Try the close ───────────────────────────────────────────
-            result = self.execution.close_spread_market(
-                symbol=pos.symbol, expiry=pos.expiry,
-                short_strike=pos.short_strike, long_strike=pos.long_strike,
-                quantity=pos.quantity, entry_credit=pos.entry_credit,
-            )
+            # A RAISE here (network/API blow-up) must be treated as a failed
+            # attempt, not a monitor crash: bubbling out would tear down the
+            # whole SL monitor mid-stop. Keep the retry loop alive. (2026-06-04)
+            try:
+                result = self.execution.close_spread_market(
+                    symbol=pos.symbol, expiry=pos.expiry,
+                    short_strike=pos.short_strike, long_strike=pos.long_strike,
+                    quantity=pos.quantity, entry_credit=pos.entry_credit,
+                )
+            except Exception as _close_exc:
+                last_error = f"{type(_close_exc).__name__}: {_close_exc}"
+                self.logger.error(
+                    f"[monitor] close attempt {attempt} RAISED: {last_error}; "
+                    f"retrying in {retry_wait_sec}s. Position still open."
+                )
+                alert_close_failed_retry(
+                    spread=spread_label, attempt=attempt, error=last_error,
+                    mark=mark, stop=pos.stop_price, next_retry_sec=retry_wait_sec,
+                    event_ts=trigger_ts,
+                )
+                time.sleep(retry_wait_sec)
+                continue
             self.logger.order_event("STOP_LOSS_CLOSE_ATTEMPT", {
                 "attempt": attempt, "filled": result.filled,
                 "fill_price": result.fill_price, "detail": result.detail,
@@ -269,10 +408,12 @@ class PositionMonitor:
                 exit_price = result.fill_price
                 pnl_pts = pos.entry_credit - exit_price
                 pnl_usd = pnl_pts * 100 * pos.quantity
-                self._close_state(state, exit_price, pnl_pts, pnl_usd, "STOP_LOSS")
+                self._close_state(state, exit_price, pnl_pts, pnl_usd, "STOP_LOSS",
+                                  event_ts=trigger_ts)
                 alert_stop_fired(
                     spread=spread_label, mark=mark,
                     stop=pos.stop_price, filled=True,
+                    event_ts=trigger_ts,
                 )
                 return MonitorOutcome(
                     closed=True, reason="STOP_LOSS",
@@ -288,29 +429,52 @@ class PositionMonitor:
             alert_close_failed_retry(
                 spread=spread_label, attempt=attempt, error=last_error,
                 mark=mark, stop=pos.stop_price, next_retry_sec=retry_wait_sec,
+                event_ts=trigger_ts,
             )
             time.sleep(retry_wait_sec)
 
     def _position_still_at_broker(self, pos: OpenPosition) -> bool:
         """Best-effort check: is this specific spread still open at Webull?
-        Used between SL close-retry attempts to detect external closures
-        (user manually closed, or a prior attempt filled belatedly).
-        Returns True on any uncertainty — we'd rather over-retry than
-        skip a needed close."""
+        Used between SL close-retry attempts to detect external closures.
+        Returns True on any uncertainty — over-retry > miss a needed close.
+
+        Updated 2026-05-22: uses account_v2 combo endpoint. short_iid/long_iid
+        in state now both hold the combo's position_id (account_v2 doesn't
+        expose per-leg iids). We check if the combo position_id is still in
+        the broker's combo list AND if strikes match (defensive — same
+        position_id should never have different strikes, but safety first).
+        """
         try:
-            # Use the leg iids if we have them — most precise check
-            if pos.short_iid and pos.long_iid:
-                resp = self.execution.trade.account.get_account_position(
-                    account_id=self.execution.account_id,
-                )
-                holdings = resp.json().get("holdings", []) or []
-                iids_present = {str(h.get("instrument_id")) for h in holdings
-                                if h.get("instrument_type") == "OPTION"}
-                # If EITHER leg is gone, treat the spread as closed/closing
-                return (pos.short_iid in iids_present) and (pos.long_iid in iids_present)
+            from webull_bot.safe_api import safe_call
+            resp = safe_call(
+                self.execution.trade.account_v2.get_account_position,
+                account_id=self.execution.account_id,
+            )
+            if resp is None:
+                return True  # API failed entirely → assume still open (safer)
+            body = resp.json()
+            positions = body if isinstance(body, list) else body.get("data", [])
+            for p in positions:
+                if (p.get("symbol") == pos.symbol
+                        and p.get("option_strategy") == "VERTICAL"
+                        and p.get("position_id") == pos.short_iid):
+                    # Found the combo — verify strikes match
+                    strikes = sorted([float(l.get("option_exercise_price", 0) or 0)
+                                      for l in p.get("legs", [])], reverse=True)
+                    if len(strikes) == 2 and abs(strikes[0] - pos.short_strike) < 0.01:
+                        return True
+            # Combo not found by position_id — fallback to strike match
+            for p in positions:
+                if (p.get("symbol") == pos.symbol
+                        and p.get("option_strategy") == "VERTICAL"):
+                    strikes = sorted([float(l.get("option_exercise_price", 0) or 0)
+                                      for l in p.get("legs", [])], reverse=True)
+                    if len(strikes) == 2 and abs(strikes[0] - pos.short_strike) < 0.01:
+                        return True  # matched by strikes
+            return False  # spread is gone
         except Exception:
             pass
-        # Without iids, can't check reliably — assume still open
+        # On any error, assume still open (safer than skipping a needed close)
         return True
 
     def _book_expiry(self, pos: OpenPosition, state: BotState) -> MonitorOutcome:
@@ -346,6 +510,7 @@ class PositionMonitor:
         pnl_pts: float,
         pnl_usd: float,
         reason: str,
+        event_ts: Optional[datetime] = None,
     ) -> None:
         pos = state.open_position
         if pos is None:
@@ -405,4 +570,5 @@ class PositionMonitor:
             wins=state.wins,
             losses=state.losses,
             total_pnl=state.total_pnl,
+            event_ts=event_ts,
         )

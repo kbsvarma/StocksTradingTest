@@ -135,7 +135,6 @@ def _write_heartbeat(state: "BotState", cfg: dict) -> None:
     spx_open_val = None
     direction_ok = None
     try:
-        from webull_bot.market_data import get_spx_open
         _today = datetime.now(ET).date()
         spx_open_val = get_spx_open(_today, cfg.get("yf_price_symbol", "^GSPC"))
         if spx_open_val and spx_open_val > 0 and spx_val is not None:
@@ -353,8 +352,7 @@ def _handle_orphan_hint(ev: dict, state: "BotState", store: "StateStore", cfg: d
         logger.exception(f"[queue] orphan re-verify: arm_sl_from_broker_combo failed: {exc}")
         return
 
-    # Write state
-    from webull_bot.state import OpenPosition
+    # Write state (OpenPosition is module-level imported; never re-import locally)
     pos = OpenPosition(**{k: v for k, v in op_dict.items() if k in OpenPosition.__dataclass_fields__})
     state.open_position = pos
     state.trade_taken_today = True
@@ -747,31 +745,56 @@ def run() -> None:
         from webull_bot.market_data import last_spx_source, last_vix_source, last_chain_source
         _spx_src, _vix_src, _chain_src = last_spx_source(), last_vix_source(), last_chain_source()
         stop_price = round(fill.fill_price * cfg["stop_multiplier"], 2)
-        pos = OpenPosition(
-            symbol=cfg["symbol"],
-            expiry=spread.expiry,
-            short_strike=spread.short_strike,
-            long_strike=spread.long_strike,
-            quantity=cfg.get("quantity", 1),
-            entry_credit=fill.fill_price,
-            stop_price=stop_price,
-            entry_spx=spx_price,
-            entry_vix=vix_price,
-            entry_ts=datetime.now(ET).isoformat(),
-            client_order_id=fill.client_order_id,
-            yf_options_symbol=yf_opts_sym,
-            spx_source=_spx_src,
-            vix_source=_vix_src,
-            chain_source=_chain_src,
-        )
-        _le("entry_recorded",
-            short=spread.short_strike, long=spread.long_strike,
-            credit=fill.fill_price, stop=stop_price,
-            spx_source=_spx_src, vix_source=_vix_src, chain_source=_chain_src)
+        # ── CRITICAL WINDOW ──────────────────────────────────────────────
+        # The fill is confirmed: the position is OPEN at the broker but
+        # open_position is NOT yet persisted. ANY exception between here and
+        # store.save() = orphan-with-no-SL. Guard it: scream so a human knows
+        # immediately, and re-raise so launchd restarts us into reconcile
+        # auto-recovery (execution_v2 no longer clears pending_order on fill, so
+        # PROMOTE_PENDING re-arms the monitor from the broker). 2026-06-04: this
+        # is exactly where the UnboundLocalError crashed every fill, silently,
+        # before the SL monitor armed.
+        try:
+            pos = OpenPosition(
+                symbol=cfg["symbol"],
+                expiry=spread.expiry,
+                short_strike=spread.short_strike,
+                long_strike=spread.long_strike,
+                quantity=cfg.get("quantity", 1),
+                entry_credit=fill.fill_price,
+                stop_price=stop_price,
+                entry_spx=spx_price,
+                entry_vix=vix_price,
+                entry_ts=datetime.now(ET).isoformat(),
+                client_order_id=fill.client_order_id,
+                yf_options_symbol=yf_opts_sym,
+                spx_source=_spx_src,
+                vix_source=_vix_src,
+                chain_source=_chain_src,
+            )
+            _le("entry_recorded",
+                short=spread.short_strike, long=spread.long_strike,
+                credit=fill.fill_price, stop=stop_price,
+                spx_source=_spx_src, vix_source=_vix_src, chain_source=_chain_src)
 
-        state.open_position = pos
-        state.trade_taken_today = True
-        store.save(state)
+            state.open_position = pos
+            state.trade_taken_today = True
+            store.save(state)
+        except Exception as _arm_exc:
+            from webull_bot.alerts import send_alert as _sa
+            _msg = (
+                f"🚨 ORPHAN RISK — FILL CONFIRMED but failed to record/arm SL: "
+                f"{type(_arm_exc).__name__}: {_arm_exc}\n"
+                f"{int(spread.short_strike)}/{int(spread.long_strike)}P "
+                f"credit≈${fill.fill_price:.2f}. pending_order survives → reconcile "
+                f"auto-recovers on restart; VERIFY the SL monitor comes up."
+            )
+            logger.exception(f"[main] {_msg}")
+            try:
+                _sa(_msg)
+            except Exception:
+                pass
+            raise
 
         logger.info(
             f"[main] FILLED: credit={fill.fill_price:.2f}  stop={stop_price:.2f}  "
@@ -1262,7 +1285,6 @@ def force_entry_now() -> None:
     # within ~2s of the fill being recorded, in-process, no manual step.
     print(f"[FORCE-ENTRY] starting SL monitor inline (T2.1 — 2026-05-20)…")
     try:
-        from webull_bot.monitor import PositionMonitor
         monitor = PositionMonitor(
             execution=execution,
             store=store,

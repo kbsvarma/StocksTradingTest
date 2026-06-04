@@ -106,8 +106,7 @@ def _ndx_spot_with_source() -> tuple[float, str]:
 def _get_ndx_prev_close() -> float | None:
     """Yesterday's NDX closing price via yfinance daily bars. None on failure."""
     try:
-        import yfinance as yf
-        from datetime import date
+        import yfinance as yf  # 'date' is module-level; do not shadow it locally
         hist = yf.Ticker("^NDX").history(period="3d", interval="1d")
         today = date.today()
         prev = hist[hist.index.date < today]

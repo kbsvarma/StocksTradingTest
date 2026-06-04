@@ -151,7 +151,6 @@ class PositionSnapshotter:
         This is the new (2026-05-22) post-orphan-#2 fix. Replaces the flat
         snapshot() + build_strike_resolver() path that hit 429 rate limits.
         """
-        import time
         for attempt in range(rate_limit_retries):
             try:
                 r = self.trade.account_v2.get_account_position(account_id=self.account_id)
@@ -191,7 +190,6 @@ class PositionSnapshotter:
         Handles HTTP 429 with exponential backoff.
         Returns {} on error (defensive — caller decides what to do).
         """
-        import time
         all_holdings: list[dict] = []
         last_iid = None
         max_pages = 10  # 10×100 = 1000 holdings safety ceiling
@@ -517,7 +515,6 @@ def build_strike_resolver(trade_client: TradeClient, account_id: str, retries: i
     failure_count = {"n": 0}
 
     def _refresh():
-        import time
         for attempt in range(retries):
             try:
                 r = trade_client.order.list_today_orders(
