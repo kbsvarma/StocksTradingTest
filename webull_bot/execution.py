@@ -706,10 +706,15 @@ class ExecutionEngine:
             time.sleep(5)
             status = self.get_order_status(client_order_id)
             if status.status == "FILLED":
+                # 2026-06-04: was `status.fill_price or max_debit` — but max_debit
+                # is undefined in this scope (NameError when the broker reports
+                # FILLED without a fill_price). Fall back to placeholder_limit
+                # (≈2.5× entry credit, the market-order debit estimate) so a
+                # genuinely-filled SL close is reported as filled, not crashed.
                 return FillResult(
                     filled=True,
                     client_order_id=client_order_id,
-                    fill_price=status.fill_price or max_debit,
+                    fill_price=status.fill_price or placeholder_limit,
                     status="FILLED",
                     detail="stop-loss close filled",
                 )

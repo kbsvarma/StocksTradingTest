@@ -250,3 +250,51 @@ def test_watchdog_no_suppress_without_combo_data():
 def test_watchdog_no_suppress_when_state_strikes_missing():
     from webull_bot.reconcile_watchdog_v2 import _strikes_match_state
     assert _strikes_match_state({}, [(7505.0, 7455.0)], active_leg_count=2) is False
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6. NO UNDEFINED NAMES (catches the `max_debit` class — a NameError at runtime
+#    on the SL close path that the import-shadow scanner does NOT catch)
+# ─────────────────────────────────────────────────────────────────────────────
+def test_no_undefined_names_in_package():
+    pytest.importorskip("pyflakes")
+    import ast as _ast
+    from pyflakes.checker import Checker
+    from pyflakes import messages as pfm
+
+    offenders = []
+    for p in sorted(WBDIR.glob("*.py")):
+        tree = _ast.parse(p.read_text(), str(p))
+        chk = Checker(tree, filename=str(p))
+        for msg in chk.messages:
+            if isinstance(msg, (pfm.UndefinedName, pfm.UndefinedLocal)):
+                offenders.append(f"{p.name}:{msg.lineno} {msg.message % msg.message_args}")
+    assert not offenders, (
+        "Undefined name / used-before-assignment (runtime NameError class — e.g. "
+        "the 2026-06-04 `max_debit` bug on the SL close path):\n  "
+        + "\n  ".join(offenders)
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 7. MARK SANITY BOUND — a garbage tick must not false-fire (or be booked by) SL
+# ─────────────────────────────────────────────────────────────────────────────
+def test_mark_in_range_accepts_valid():
+    from webull_bot.monitor import PositionMonitor
+    # width = 50; valid marks
+    assert PositionMonitor._mark_in_range(1.30, 7505, 7455) is True
+    assert PositionMonitor._mark_in_range(0.0, 7505, 7455) is True
+    assert PositionMonitor._mark_in_range(50.0, 7505, 7455) is True   # deep ITM = width
+
+
+def test_mark_in_range_rejects_garbage_high():
+    from webull_bot.monitor import PositionMonitor
+    # a spuriously high tick (e.g. 99) must be rejected so it can't false-fire SL
+    assert PositionMonitor._mark_in_range(99.0, 7505, 7455) is False
+    assert PositionMonitor._mark_in_range(50.5, 7505, 7455) is False  # just over width
+
+
+def test_mark_in_range_rejects_negative_and_none():
+    from webull_bot.monitor import PositionMonitor
+    assert PositionMonitor._mark_in_range(-1.0, 7505, 7455) is False
+    assert PositionMonitor._mark_in_range(None, 7505, 7455) is False

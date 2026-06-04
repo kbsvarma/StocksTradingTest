@@ -74,6 +74,17 @@ class PositionMonitor:
         }
         self._heartbeat_path.write_text(_json.dumps(hb), encoding="utf-8")
 
+    @staticmethod
+    def _mark_in_range(mark, short_strike, long_strike) -> bool:
+        """A vertical put-spread mark must lie within [0, width]. Outside that is
+        bad data (garbage tick / parse error). Returns False for None or
+        out-of-range so the caller discards it before the SL comparison —
+        preventing a spurious high tick from FALSE-FIRING the stop. (2026-06-04)"""
+        if mark is None:
+            return False
+        width = abs(short_strike - long_strike)
+        return -0.01 <= mark <= width + 0.01
+
     def run_until_closed(self, state: BotState) -> MonitorOutcome:
         """Block until the position is closed (stop, EOD, or expiry).
 
@@ -175,6 +186,27 @@ class PositionMonitor:
                     else:
                         _dsh.report("ibkr", up=True)
                     self._last_exit_source = source
+
+                    # ── Sanity bound (2026-06-04) ─────────────────────────
+                    # A vertical put-spread mark is mathematically in [0, width].
+                    # A value outside that is bad data (garbage tick / parse
+                    # error). Discard it: a spuriously HIGH mark would FALSE-FIRE
+                    # the stop (close a healthy position at a loss); a negative
+                    # one is nonsense. Treat as unavailable -> next good tick
+                    # evaluates the stop. Never widens the no-SL window because
+                    # the very next tick re-reads.
+                    if mark is not None and not self._mark_in_range(
+                        mark, pos.short_strike, pos.long_strike
+                    ):
+                        _width = abs(pos.short_strike - pos.long_strike)
+                        self.logger.warning(
+                            f"[monitor] discarding out-of-range mark {mark:.2f} "
+                            f"(valid 0..{_width:.0f}) — bad tick"
+                        )
+                        from webull_bot.event_log import log_event as _le
+                        _le("mark_out_of_range", mark=mark, width=_width,
+                            short_strike=pos.short_strike, long_strike=pos.long_strike)
+                        mark = None
 
                     # ── Heartbeat (best-effort, never raises) ──────────────
                     try:
