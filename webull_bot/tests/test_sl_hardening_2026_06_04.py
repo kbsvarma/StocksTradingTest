@@ -298,3 +298,35 @@ def test_mark_in_range_rejects_negative_and_none():
     from webull_bot.monitor import PositionMonitor
     assert PositionMonitor._mark_in_range(-1.0, 7505, 7455) is False
     assert PositionMonitor._mark_in_range(None, 7505, 7455) is False
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 8. SL-BLIND ALERT — when no market data is available, the stop can't be
+#    evaluated; the monitor must scream (it can't restore the feed).
+# ─────────────────────────────────────────────────────────────────────────────
+def test_blind_alert_not_before_threshold():
+    from webull_bot.monitor import PositionMonitor
+    # only blind for 20s (< 45s threshold) -> no alert yet
+    assert PositionMonitor._should_alert_blind(
+        blind_seconds=20.0, last_alert_mono=0.0, now_mono=1000.0) is False
+
+
+def test_blind_alert_fires_after_threshold():
+    from webull_bot.monitor import PositionMonitor
+    # blind 60s, never alerted this episode -> fire
+    assert PositionMonitor._should_alert_blind(
+        blind_seconds=60.0, last_alert_mono=0.0, now_mono=1000.0) is True
+
+
+def test_blind_alert_suppressed_until_realert_interval():
+    from webull_bot.monitor import PositionMonitor
+    # blind, already alerted 100s ago (< 300s re-alert) -> suppress
+    assert PositionMonitor._should_alert_blind(
+        blind_seconds=120.0, last_alert_mono=900.0, now_mono=1000.0) is False
+
+
+def test_blind_alert_reescalates_after_interval():
+    from webull_bot.monitor import PositionMonitor
+    # blind, last alerted 400s ago (>= 300s) -> re-alert
+    assert PositionMonitor._should_alert_blind(
+        blind_seconds=400.0, last_alert_mono=600.0, now_mono=1000.0) is True

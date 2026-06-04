@@ -85,6 +85,19 @@ class PositionMonitor:
         width = abs(short_strike - long_strike)
         return -0.01 <= mark <= width + 0.01
 
+    @staticmethod
+    def _should_alert_blind(blind_seconds, last_alert_mono, now_mono,
+                            alert_after=45.0, realert_every=300.0) -> bool:
+        """Decide whether to fire the SL-BLIND alert. Fires once after
+        `alert_after` seconds of continuous data-blindness, then re-fires every
+        `realert_every` seconds. last_alert_mono==0.0 means not-yet-alerted this
+        episode. (2026-06-04)"""
+        if blind_seconds < alert_after:
+            return False
+        if last_alert_mono == 0.0:
+            return True
+        return (now_mono - last_alert_mono) >= realert_every
+
     def run_until_closed(self, state: BotState) -> MonitorOutcome:
         """Block until the position is closed (stop, EOD, or expiry).
 
@@ -143,6 +156,19 @@ class PositionMonitor:
         tick_sleep = 0.1 if stream is not None else self.interval
         verbose_log_every = 5.0  # seconds between INFO mark logs in stream mode
         last_verbose_log = 0.0
+
+        # ── SL-BLIND detection (2026-06-04) ───────────────────────────────
+        # The stop-loss can only fire if we can read a mark. If EVERY source
+        # (IBKR stream, IBKR poll, yfinance) returns None for a sustained
+        # stretch during market hours, the SL is BLIND and the position is
+        # unprotected — the price could blow through the stop unseen. We can't
+        # restore data, but we MUST scream so the position can be closed
+        # manually. Alert after BLIND_ALERT_S of continuous blindness, re-alert
+        # every BLIND_REALERT_S, and send a recovery ping when data returns.
+        BLIND_ALERT_S = 45.0
+        BLIND_REALERT_S = 300.0
+        mark_blind_since = None      # monotonic ts of first unavailable tick
+        blind_last_alert = 0.0       # monotonic ts of last blind alert
 
         try:
             while True:
@@ -215,6 +241,21 @@ class PositionMonitor:
                         pass
 
                     if mark is not None:
+                        # Data recovered — clear SL-blind state; ping if we'd
+                        # alerted that the SL had gone blind.
+                        if mark_blind_since is not None:
+                            if blind_last_alert > 0.0:
+                                try:
+                                    send_alert(
+                                        f"✅ SL DATA RECOVERED — "
+                                        f"{pos.symbol} {int(pos.short_strike)}/{int(pos.long_strike)}P "
+                                        f"mark={mark:.2f}; stop monitoring resumed."
+                                    )
+                                except Exception:
+                                    pass
+                            mark_blind_since = None
+                            blind_last_alert = 0.0
+
                         # ── SL trigger check (highest priority) ────────────
                         if mark >= pos.stop_price:
                             trigger_ts = datetime.now(ET)
@@ -297,6 +338,33 @@ class PositionMonitor:
                         from webull_bot.event_log import log_event as _le
                         _le("mark_unavailable",
                             symbol=pos.symbol, short_strike=pos.short_strike, long_strike=pos.long_strike)
+
+                        # ── SL-BLIND escalation ────────────────────────────
+                        # No mark from ANY source. The stop cannot be evaluated;
+                        # the position is unprotected. Scream so it can be closed
+                        # manually (we can't restore the data feed here).
+                        if mark_blind_since is None:
+                            mark_blind_since = now_mono
+                        blind_dur = now_mono - mark_blind_since
+                        if self._should_alert_blind(blind_dur, blind_last_alert,
+                                                    now_mono, BLIND_ALERT_S, BLIND_REALERT_S):
+                            blind_last_alert = now_mono
+                            self.logger.error(
+                                f"[monitor] 🚨 SL BLIND for {blind_dur:.0f}s — "
+                                f"{int(pos.short_strike)}/{int(pos.long_strike)}P UNPROTECTED"
+                            )
+                            _le("sl_blind", seconds=round(blind_dur),
+                                short_strike=pos.short_strike, long_strike=pos.long_strike,
+                                stop=pos.stop_price)
+                            try:
+                                send_alert(
+                                    f"🚨 SL BLIND — no market data for {int(blind_dur)}s.\n"
+                                    f"{pos.symbol} {int(pos.short_strike)}/{int(pos.long_strike)}P "
+                                    f"is UNPROTECTED (stop ${pos.stop_price:.2f} cannot be evaluated).\n"
+                                    f"Check IBKR Gateway / consider closing manually."
+                                )
+                            except Exception:
+                                pass
 
                 time.sleep(tick_sleep)
         finally:
