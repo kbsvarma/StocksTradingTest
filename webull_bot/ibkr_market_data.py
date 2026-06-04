@@ -27,9 +27,13 @@ from typing import Optional
 
 # Max age of a cached streaming tick before we treat the feed as frozen and
 # return None from latest_mark() (forcing the monitor to fall back to a fresh
-# poll). Generous vs real SPX 0DTE tick cadence (sub-second during RTH), so it
-# only trips on a genuinely stalled feed. 2026-06-04 SL hardening.
-STREAM_STALE_SECONDS = 10.0
+# poll). Sized to cleanly separate a REAL frozen feed (lasts minutes-to-hours —
+# the 2026-06-04 freeze was pinned for 90 min) from the normal quote cadence of
+# an ILLIQUID deep-OTM 0DTE leg (updates every 10-40s). A liquid near-the-money
+# position — where sub-200ms SL reaction matters — ticks sub-second and is never
+# affected by this window. Was 10s (too tight: tripped on normal illiquid quiet
+# and forced constant yfinance fallback). 2026-06-04 SL hardening.
+STREAM_STALE_SECONDS = 60.0
 
 _ib = None  # module-level IB instance — reused across calls
 

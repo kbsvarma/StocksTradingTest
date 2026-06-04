@@ -120,9 +120,18 @@ def test_stream_fresh_returns_mark():
 
 def test_stream_stale_returns_none():
     """Frozen feed (tick older than STREAM_STALE_SECONDS) -> None."""
-    s = _make_stream(_tick(2.0, 2.2, age_seconds=60),     # stale
-                     _tick(0.9, 1.1, age_seconds=1))       # fresh
+    from webull_bot.ibkr_market_data import STREAM_STALE_SECONDS
+    s = _make_stream(_tick(2.0, 2.2, age_seconds=STREAM_STALE_SECONDS + 30),  # stale
+                     _tick(0.9, 1.1, age_seconds=1))                          # fresh
     assert s.latest_mark() is None, "stale leg must force a fresh-poll fallback"
+
+
+def test_stream_fresh_within_window_not_stale():
+    """A leg updated within the window (e.g. illiquid 0DTE quiet) is NOT stale."""
+    from webull_bot.ibkr_market_data import STREAM_STALE_SECONDS
+    s = _make_stream(_tick(2.0, 2.2, age_seconds=STREAM_STALE_SECONDS - 10),
+                     _tick(0.9, 1.1, age_seconds=STREAM_STALE_SECONDS - 10))
+    assert s.latest_mark() == pytest.approx(1.1, abs=0.01)
 
 
 def test_stream_one_leg_stale_returns_none():
