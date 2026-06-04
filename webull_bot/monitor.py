@@ -153,7 +153,8 @@ class PositionMonitor:
         #   stream mode → poll cached values every 100ms (sub-200ms SL reaction)
         #   poll mode   → use configured self.interval (typically 30s)
         # Heartbeat / verbose log every 5s in stream mode (not every tick).
-        tick_sleep = 0.1 if stream is not None else self.interval
+        # Tick cadence is decided per-iteration at the end of the loop
+        # (adaptive: 0.1s on a fresh stream read, ~3s on any fallback).
         verbose_log_every = 5.0  # seconds between INFO mark logs in stream mode
         last_verbose_log = 0.0
 
@@ -170,10 +171,19 @@ class PositionMonitor:
         mark_blind_since = None      # monotonic ts of first unavailable tick
         blind_last_alert = 0.0       # monotonic ts of last blind alert
 
+        # ── Stream re-subscribe (2026-06-04) ──────────────────────────────
+        # A stale stream does NOT self-heal (the subscription is alive but not
+        # delivering). The data IS available on a fresh subscription, so when the
+        # stream goes stale we re-open it rather than leaning on yfinance — which,
+        # polled at the 0.1s stream cadence, gets IP-rate-limited and dies too.
+        STREAM_RESUB_S = 30.0
+        stream_stale_since = None    # monotonic ts the stream first went stale
+
         try:
             while True:
                 now_et = datetime.now(ET)
                 now_time = now_et.time()
+                used_fresh_stream = False   # set True only on a fresh cached stream read
 
                 in_market_hours = _MARKET_OPEN <= now_time < _MARKET_CLOSE
 
@@ -185,10 +195,46 @@ class PositionMonitor:
                 if in_market_hours:
                     # ── Read mark + greeks ─────────────────────────────────
                     greeks = None
+                    mark = None
+                    source = None
                     if stream is not None:
                         mark = stream.latest_mark()
-                        greeks = stream.latest_greeks()
-                        source = "IBKR_stream"
+                        if mark is not None:
+                            greeks = stream.latest_greeks()
+                            source = "IBKR_stream"
+                            used_fresh_stream = True
+                            stream_stale_since = None
+                        else:
+                            # Stream stale (no fresh tick within the staleness
+                            # window). It will NOT self-heal, so re-subscribe
+                            # periodically to recover live IBKR data rather than
+                            # leaning on yfinance.
+                            _nm = time.monotonic()
+                            if stream_stale_since is None:
+                                stream_stale_since = _nm
+                            elif (_nm - stream_stale_since) >= STREAM_RESUB_S:
+                                self.logger.warning(
+                                    f"[monitor] IBKR stream stale >{STREAM_RESUB_S:.0f}s "
+                                    f"— re-subscribing"
+                                )
+                                try:
+                                    stream.stop()
+                                except Exception:
+                                    pass
+                                stream = open_spread_stream(
+                                    short_strike=pos.short_strike,
+                                    long_strike=pos.long_strike,
+                                    expiry=pos.expiry,
+                                    symbol=pos.symbol,
+                                )
+                                stream_stale_since = _nm
+                                if stream is not None:
+                                    mark = stream.latest_mark()
+                                    if mark is not None:
+                                        greeks = stream.latest_greeks()
+                                        source = "IBKR_stream"
+                                        used_fresh_stream = True
+                                        stream_stale_since = None
                     else:
                         mark = get_spread_mark_ibkr(
                             short_strike=pos.short_strike,
@@ -200,8 +246,9 @@ class PositionMonitor:
                     from webull_bot import data_source_health as _dsh
                     if mark is None:
                         _dsh.report("ibkr", up=False)
-                        # Fall back to yfinance for THIS tick. We do not tear
-                        # down the stream — IBKR may recover on next tick.
+                        # Fall back to yfinance for THIS tick. Polled at the
+                        # slowed cadence (see end-of-loop sleep), never at 0.1s —
+                        # which IP-rate-limits yfinance and blinds the backup.
                         mark = get_spread_mark(
                             short_strike=pos.short_strike,
                             long_strike=pos.long_strike,
@@ -366,7 +413,15 @@ class PositionMonitor:
                             except Exception:
                                 pass
 
-                time.sleep(tick_sleep)
+                # ── Adaptive cadence (2026-06-04) ─────────────────────────
+                # Fast (0.1s) ONLY when we read a fresh value from the cached
+                # stream (no network I/O). On any fallback/poll/blind tick, slow
+                # to ~3s so we never hammer yfinance (which IP-rate-limits and
+                # blinds the backup) or spin a tight no-data loop.
+                if used_fresh_stream:
+                    time.sleep(0.1)
+                else:
+                    time.sleep(3.0)
         finally:
             if stream is not None:
                 try:
