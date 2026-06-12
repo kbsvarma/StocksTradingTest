@@ -48,6 +48,7 @@ cp advisor/data/research/signals_latest.txt "$CTX/factor_sheet.txt" 2>/dev/null 
     "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.quant:*)" \
     "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.research.fair_value:*)" \
     "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.research.factors:*)" \
+    "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.brief_check:*)" \
     "Bash(date:*)" \
   --max-turns 60 \
   >> "advisor/logs/brief_$DATE.log" 2>&1

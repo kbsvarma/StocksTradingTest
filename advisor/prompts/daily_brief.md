@@ -152,6 +152,11 @@ structured views with verifiable evidence:
 Every evidence item carries its source URL and retrieval timestamp — the
 terminal renders these as verifiable links.
 
+After writing brief.json, VALIDATE it (must exit 0 before you send anything):
+```
+python -m advisor.brief_check advisor/data/context/<today>/brief.json
+```
+
 ## Hard prohibitions
 
 - You have NO order-placement tools and must not attempt any. Your only

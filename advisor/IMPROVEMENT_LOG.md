@@ -108,3 +108,14 @@ covers journal calls; Tier-1 executor runs its own inline SL monitor. The
 legacy reconcile-watchdog's orphan sweep is paused with the rest — fine while
 nothing trades, NOTE for when Tier-1 executes: executor monitor is the sole
 SL layer until user revisits the pause.
+### PASS 8 (16:28–16:31) — brief.json write-time validator
+CHANGES: advisor/brief_check.py — validates structured briefs before the
+session may send (required keys, conviction enum, direction-coherent levels
+[long: stop<target / short: stop>target], http(s) evidence URLs, watchability
+warnings). Wired into daily prompt (must exit 0) + run_brief allowedTools.
+MEASURED: valid fixture rc=0; bad fixture caught 4 errors + 1 warning incl.
+the inverted-levels class that would have armed the watcher backwards.
+REMAINING (deferred, documented): fair_value sector-relative layer (needs
+slow peer fundamental fetches or paid feed); guardian for service health
+(superseded — legacy stack pause is intentional, advisor services have
+KeepAlive). Final pass next: full verification sweep + report.
