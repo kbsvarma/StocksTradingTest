@@ -46,3 +46,11 @@ RE-RANKED BACKLOG: 1) executor tests 2) watcher robustness (batch+stale guard)
 3) listener hardening 4) vol_check ATM robustness 5) signal decay/turnover
 6) regime thresholds 7) fair_value sector layer 8) brief.json validation
 9) IC harness in weekly review (auto re-validate as panel grows)  ← new item
+### PASS 2 (16:14–16:17) — Executor gate tests
+FINDINGS: All 6 refusal gates fire before broker imports → fully testable
+offline. Confirmed correct semantics: clock/cap refusals leave proposal
+APPROVED (re-runnable); only EXECUTING failures go FAILED; EXECUTED is a
+terminal idempotency wall. One test-harness gotcha: Proposal.expired() uses
+real clock — fixture now sets real-future TTLs.
+CHANGES: advisor/tests/test_executor_gates.py — 8 tests, 8/8 pass.
+NEXT: watcher robustness (top of backlog).
