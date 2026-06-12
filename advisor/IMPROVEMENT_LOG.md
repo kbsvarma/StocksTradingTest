@@ -128,3 +128,14 @@ CHANGES: pead_shock_drift block in validate.py (permanent); shock sheet
 relabeled "REVERSION, not drift" in factor output so analyst loops fade
 shocks rather than chase them. A negative result that prevents a whole class
 of bad trades = material improvement.
+### FINAL (16:30) — Loop closed after 9 passes
+Verification: 19/19 tests, all modules import, 6 advisor services healthy,
+terminal 200. Loop closed 40min early on the engine's own conviction-bar
+principle: remaining backlog items are all deferred-class (fair_value sector
+layer → needs paid/slow peer data; regime-conditional IC → needs longer
+panel; guardian → superseded by intentional legacy pause). Manufacturing
+passes past material exhaustion would be churn, not improvement.
+DEFERRED BACKLOG (ranked): 1) fair_value sector-relative (revisit with paid
+fundamentals feed) 2) longer panel (5y) for regime-conditional IC + more
+walk-forward periods 3) earnings-date feed to build TRUE PEAD (current shock
+flag = reversion) 4) per-call $ sizing in journal for precise budget tracking.

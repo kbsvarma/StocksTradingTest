@@ -8,8 +8,8 @@ Computes for every liquid name in the cached panel:
   prox_52w   proximity to 52-week high                (George-Hwang 2004)
   lowvol     negative 60d realized vol                (Ang et al 2006 low-vol anomaly)
   turn_anom  20d/120d volume ratio (abnormal attention/turnover)
-  shock      recent outsized move flag (|1d| > 2.5σ in last 10d) — PEAD-style
-             drift candidates, surfaced for the analyst loop, not scored
+  shock      recent outsized move flag (|1d| > 2.5σ in last 10d) — VALIDATED
+             as 21d REVERSION candidates (pass-9: drift -1.41%/21d, t=-1.74)
 
 Method: winsorized (±3) z-scores computed WITHIN GICS sector (sector-neutral),
 combined with REGIME-CONDITIONED weights — momentum is de-weighted and
