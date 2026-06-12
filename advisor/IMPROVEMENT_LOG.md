@@ -119,3 +119,12 @@ REMAINING (deferred, documented): fair_value sector-relative layer (needs
 slow peer fundamental fetches or paid feed); guardian for service health
 (superseded — legacy stack pause is intentional, advisor services have
 KeepAlive). Final pass next: full verification sweep + report.
+### PASS 9 (16:29–16:34) — Shock-sheet validation: REVERSAL, not drift
+FINDINGS: Signed shock-direction forward returns are NEGATIVE: -1.41%/21d
+vs universe (t=-1.74, n=11). Generic >2.5σ moves MEAN-REVERT at 21d in this
+sample — the PEAD framing only holds for earnings-specific shocks at shorter
+horizons (which our flag doesn't isolate; free data has no earnings-date feed).
+CHANGES: pead_shock_drift block in validate.py (permanent); shock sheet
+relabeled "REVERSION, not drift" in factor output so analyst loops fade
+shocks rather than chase them. A negative result that prevents a whole class
+of bad trades = material improvement.

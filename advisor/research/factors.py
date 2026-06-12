@@ -205,7 +205,7 @@ def render(s: dict) -> str:
          f"panel age {s['panel_age_hours']}h",
          f"method: {s['method']}", ""]
     for label, rowsk in (("LONG CANDIDATES", "longs"), ("SHORT CANDIDATES", "shorts"),
-                         ("EARNINGS/SHOCK DRIFT CANDIDATES", "shock_candidates")):
+                         ("SHOCK CANDIDATES — 21d evidence says REVERSION, not drift", "shock_candidates")):
         L.append(f"== {label} ==")
         L.append(f"{'tkr':<7}{'px':>9}{'score':>7}  {'sector':<24}"
                  f"{'mom12':>7}{'r1m':>7}{'%52wH':>7}{'rv60':>6}{'$vol(M)':>9}  attribution(z)")

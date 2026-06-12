@@ -50,15 +50,24 @@ def run(step: int = 21) -> dict:
     decile_spread: list = []
     comp_series: list = []   # (k, risk_on composite) for decay/turnover study
 
+    pead: list = []   # signed drift of shock-flagged names (dir * fwd ret)
+
     for k in asofs:
         cl, vo, re = close.iloc[:k], volume.iloc[:k], rets.iloc[:k]
         try:
-            f, z, liquid, *_ = raw_factors(cl, vo, re, u)
+            f, z, liquid, dv_, px_, shock_mask, shock_dir = raw_factors(cl, vo, re, u)
         except Exception:
             continue
         fwd = close.iloc[k + FWD - 1] / close.iloc[k - 1] - 1
         fwd = fwd.reindex(liquid).dropna()
         zz = z.loc[fwd.index]
+        # PEAD test: shock names' forward return SIGNED by shock direction,
+        # minus universe mean (does the move keep drifting its own way?)
+        shocked = [t for t in fwd.index
+                   if shock_mask.get(t, False) and shock_dir.get(t, 0)]
+        if len(shocked) >= 5:
+            signed = float(np.mean([shock_dir[t] * fwd[t] for t in shocked]))
+            pead.append(signed - abs(float(fwd.mean())))
         for col in z.columns:
             pair = pd.concat([zz[col], fwd], axis=1).dropna()
             if len(pair) > 100:
@@ -126,8 +135,19 @@ def run(step: int = 21) -> dict:
             if top1:
                 decile_retention.append(len(top1 & top2) / len(top1))
 
+    pead_stats = None
+    if pead:
+        a = np.array(pead)
+        pead_stats = {"mean_signed_drift_excess_21d_pct": round(float(a.mean()) * 100, 2),
+                      "t_stat": round(float(a.mean() / (a.std(ddof=1) / len(a) ** .5)), 2)
+                      if len(a) > 2 and a.std(ddof=1) > 0 else None,
+                      "n_periods": len(a),
+                      "note": "shock-direction-signed fwd 21d ret minus universe — "
+                              "tests whether >2.5σ moves keep drifting"}
+
     return {
         "as_of": datetime.now(ET).isoformat(),
+        "pead_shock_drift": pead_stats,
         "walk_forward_top20": wf,
         "decay": {"rank_autocorr_21d": round(float(np.mean(rank_autocorr)), 3)
                   if rank_autocorr else None,
@@ -167,6 +187,12 @@ def render(v: dict) -> str:
     if d.get("rank_autocorr_21d") is not None:
         L.append(f"decay: rank autocorr(21d)={d['rank_autocorr_21d']}  "
                  f"top-decile retention={d['top_decile_retention_21d']}")
+    ps = v.get("pead_shock_drift")
+    if ps:
+        L.append(f"PEAD shock drift: {ps['mean_signed_drift_excess_21d_pct']:+.2f}%/21d "
+                 f"(t={ps['t_stat']}, n={ps['n_periods']}) — "
+                 + ("shock sheet has signal" if (ps['t_stat'] or 0) > 1.5
+                    else "shock sheet is candidates-only, NOT a standalone signal"))
     wf = v.get("walk_forward_top20")
     if wf:
         L.append(f"WALK-FORWARD top-20: {wf['total_return_pct']:+.1f}% vs SPY "
