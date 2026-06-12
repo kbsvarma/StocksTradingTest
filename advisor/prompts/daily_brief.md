@@ -123,7 +123,9 @@ delivered as a report for manual execution.
 Structure (total under ~3500 chars; dense, plain language, no filler):
 ```
 DAILY BRIEF — <date>
-① PORTFOLIO  positions w/ P&L, yesterday's result, open advisor calls status
+① PORTFOLIO  ADVISOR BOOK ONLY: open calls vs their plans, budget deployed
+   of $25k, Tier-1 position if any. NEVER report the legacy bot's historical
+   W/L record — that is a different strategy (user rule 2026-06-12)
 ② MARKET     2-4 lines: regime, what moved, VIX/term structure, today's calendar
 ③ VIEWS      research reports (Step 4 format) — or the explicit no-idea call
 ④ STANDING WATCHES  conditions from open journal calls or IPS triggers worth

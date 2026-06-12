@@ -36,10 +36,13 @@ st.set_page_config(page_title="ADVISOR TERMINAL", layout="wide",
 st.markdown("""
 <style>
   .stApp { background-color: #0b0e11; }
+  /* kill Streamlit's floating chrome — it was hiding the ADVISOR TERMINAL title */
+  header[data-testid="stHeader"] { display: none !important; }
+  #MainMenu, footer { visibility: hidden; }
   html, body, [class*="css"] { font-family: "SF Mono", Menlo, monospace; }
   h1,h2,h3 { color: #ff9f0a !important; font-family: "SF Mono", Menlo, monospace !important;
              letter-spacing: 1px; }
-  .block-container { padding-top: 1.2rem; padding-bottom: 1rem; max-width: 100% !important; }
+  .block-container { padding-top: 0.6rem; padding-bottom: 1rem; max-width: 100% !important; }
   div[data-testid="stMetricValue"] { font-size: 1.05rem; color: #e8e6e3; }
   div[data-testid="stMetricLabel"] { color: #8a8f98; }
   .stTabs [data-baseweb="tab"] { color: #8a8f98; font-family: Menlo, monospace; }
@@ -152,10 +155,12 @@ def research_feed():
         mtime = datetime.fromtimestamp(brief.stat().st_mtime, ET)
         st.markdown(chip(f"brief.md · written {mtime.strftime('%H:%M ET')}", DIM),
                     unsafe_allow_html=True)
+        import html as _html
+        body = _html.escape(brief.read_text()).replace("$", "&#36;")
         st.markdown(f'<div style="color:#c9c7c2; font-size:13px; white-space:pre-wrap; '
                     f'font-family:Menlo,monospace; background:#11151a; padding:14px; '
                     f'border:1px solid #2a2f36; border-radius:4px;">'
-                    f'{brief.read_text()}</div>', unsafe_allow_html=True)
+                    f'{body}</div>', unsafe_allow_html=True)
 
 
 def _view_card(v: dict):
@@ -259,31 +264,40 @@ def factor_sheets():
 
 
 def portfolio_risk():
-    panel_header("PORTFOLIO / RISK", "bot state + realized book + advisor budget")
+    # ADVISOR BOOK ONLY — the legacy bot's pre-advisor record is a different
+    # strategy and is deliberately not shown here (user rule 2026-06-12).
+    panel_header("PORTFOLIO / RISK", "advisor book only — strategy started 2026-06-12")
+    calls = journal_effective()
+    open_calls = {k: v for k, v in calls.items() if v.get("status") == "open"}
+    resolved = {k: v for k, v in calls.items()
+                if v.get("status") in ("hit_target", "stopped", "time_stop", "closed")}
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("BUDGET", "$25,000", "advisor mandate")
+    c2.metric("OPEN CALLS", len(open_calls))
+    c3.metric("RESOLVED CALLS", len(resolved),
+              f"{sum(1 for v in resolved.values() if v.get('status')=='hit_target')} hit target")
+    # live executions via Tier 1 land in bot state — show only if one is open
     days = sorted([d.name for d in CTX.iterdir() if d.is_dir()], reverse=True) \
         if CTX.exists() else []
     snap = load_json(CTX / days[0] / "portfolio.json") if days else None
-    c1, c2, c3, c4 = st.columns(4)
-    if snap:
-        pf = snap.get("performance", {})
-        stt = snap.get("state", {})
-        op = stt.get("open_position")
-        c1.metric("BOT POSITION", f"{op.get('short_strike')}/{op.get('long_strike')}P"
-                  if op else "FLAT")
-        c2.metric("REALIZED (book)", f"${pf.get('total_pnl_usd', 0):,.0f}",
-                  f"{pf.get('wins')}W {pf.get('losses')}L")
-        c3.metric("P&L 7D / 30D", f"${pf.get('pnl_7d_usd', 0):,.0f}",
-                  f"30d ${pf.get('pnl_30d_usd', 0):,.0f}")
-        st.markdown(chip(f"snapshot {snap.get('as_of','')[:16]}", DIM)
-                    + chip(snap.get("broker", {}).get("source", ""), DIM),
-                    unsafe_allow_html=True)
-    n_open = sum(1 for e in journal_effective().values() if e.get("status") == "open")
-    c4.metric("OPEN ADVISOR CALLS", n_open, "budget $25,000")
-    alerts = load_json(DATA / "watcher_alerts.json") or {}
+    op = (snap or {}).get("state", {}).get("open_position")
+    c4.metric("TIER-1 POSITION", f"{op.get('short_strike')}/{op.get('long_strike')}P"
+              if op else "NONE")
+    if open_calls:
+        rows = [{"id": k, "instrument": v.get("instrument"), "dir": v.get("direction"),
+                 "conviction": v.get("conviction"), "entry": v.get("entry"),
+                 "target": v.get("target"), "stop": v.get("stop"),
+                 "time_stop": v.get("time_stop"), "since": (v.get("ts") or "")[:16]}
+                for k, v in open_calls.items()]
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    alerts = {k: v for k, v in (load_json(DATA / "watcher_alerts.json") or {}).items() if v}
     if alerts:
         st.markdown(f'<div style="color:{DIM}; font-size:12px;">exit-watcher alerts fired: '
-                    + ", ".join(f"{k}({','.join(v.keys())})" for k, v in alerts.items())
+                    + ", ".join(f"{k} ({','.join(v.keys())})" for k, v in alerts.items())
                     + "</div>", unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div style="color:{DIM}; font-size:12px;">exit-watcher: armed on all '
+                    f'open calls — no levels hit yet</div>', unsafe_allow_html=True)
 
 
 def scorecard_doctrine():
