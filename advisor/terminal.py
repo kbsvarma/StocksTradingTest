@@ -322,23 +322,60 @@ def factor_sheets():
     tabs = st.tabs(["LONGS", "SHORTS", "SHOCK (REVERSION CANDIDATES)"])
     for tab, key in zip(tabs, ("longs", "shorts", "shock_candidates")):
         with tab:
-            rows = []
-            for x in s.get(key, []):
-                rows.append({
-                    "tkr": x["ticker"], "px": x["px"], "score": x["score"],
-                    "sector": x["sector"],
-                    "mom12%": x["raw"]["mom_12_1_pct"], "r1m%": x["raw"]["ret_1m_pct"],
-                    "%52wH": x["raw"]["pct_of_52w_high"],
-                    "rv60": x["raw"]["rv60_ann_pct"],
-                    "$vol(M)": x["raw"]["dollar_vol_21d_m"],
-                    "z: " + " ".join(f"{k.split('_')[0]}" for k in x["attribution"]):
-                        " ".join(f"{v:+.1f}" if v is not None else "  — "
-                                 for v in x["attribution"].values()),
-                    "⚡": "⚡" if x.get("shock") else "",
-                })
-            if rows:
-                st.dataframe(pd.DataFrame(rows), use_container_width=True,
-                             hide_index=True, height=420)
+            items = s.get(key, [])
+            if items:
+                st.markdown(_heat_table(items), unsafe_allow_html=True)
+
+
+def _heat_cell(v) -> str:
+    """z-score cell with green/red intensity background — the heatmap look."""
+    if v is None:
+        return f'<td style="text-align:center; color:{DIM};">—</td>'
+    a = max(-3.0, min(3.0, float(v)))
+    if a >= 0:
+        bg = f"rgba(51,209,122,{0.08 + 0.22 * a / 3:.2f})"
+    else:
+        bg = f"rgba(255,92,87,{0.08 + 0.22 * -a / 3:.2f})"
+    return (f'<td style="text-align:center; background:{bg}; color:#e8e6e3; '
+            f'padding:2px 8px;">{a:+.1f}</td>')
+
+
+def _heat_table(items: list[dict]) -> str:
+    zkeys = list(items[0]["attribution"].keys())
+    head = "".join(f'<th style="padding:3px 8px; color:{AMBER}; text-align:center; '
+                   f'border-bottom:1px solid {PANEL_BORDER};">{h}</th>'
+                   for h in (["TKR", "PX", "SCORE", "SECTOR", "MOM12%", "R1M%",
+                              "%52WH", "RV60", "$VOL(M)"]
+                             + [k.split("_")[0].upper() for k in zkeys] + ["", "NEW"]))
+    rows = []
+    max_score = max(abs(x["score"]) for x in items) or 1
+    for x in items:
+        bar_w = int(abs(x["score"]) / max_score * 46)
+        bar_col = GREEN if x["score"] >= 0 else RED
+        score_cell = (f'<td style="padding:2px 8px; white-space:nowrap;">'
+                      f'<span style="display:inline-block; width:48px;">{x["score"]:+.2f}</span>'
+                      f'<span style="display:inline-block; width:{bar_w}px; height:8px; '
+                      f'background:{bar_col}; opacity:0.7; vertical-align:middle;"></span></td>')
+        cells = (
+            f'<td style="padding:2px 8px; color:{AMBER}; font-weight:700;">{x["ticker"]}</td>'
+            f'<td style="padding:2px 8px; text-align:right;">{x["px"]:,.2f}</td>'
+            f'{score_cell}'
+            f'<td style="padding:2px 8px; color:{DIM}; font-size:11px;">{x["sector"][:18]}</td>'
+            f'<td style="padding:2px 8px; text-align:right;">{x["raw"]["mom_12_1_pct"]:+.1f}</td>'
+            f'<td style="padding:2px 8px; text-align:right;">{x["raw"]["ret_1m_pct"]:+.1f}</td>'
+            f'<td style="padding:2px 8px; text-align:right;">{x["raw"]["pct_of_52w_high"]:.0f}</td>'
+            f'<td style="padding:2px 8px; text-align:right;">{x["raw"]["rv60_ann_pct"]:.0f}</td>'
+            f'<td style="padding:2px 8px; text-align:right; color:{DIM};">{x["raw"]["dollar_vol_21d_m"]:,.0f}</td>'
+            + "".join(_heat_cell(x["attribution"].get(k)) for k in zkeys)
+            + f'<td style="text-align:center;">{"⚡" if x.get("shock") else ""}</td>'
+            + f'<td style="text-align:center; color:{GREEN}; font-weight:700;">'
+              f'{"NEW" if x.get("new_entrant") else ""}</td>')
+        rows.append(f'<tr style="border-bottom:1px solid #161b22;">{cells}</tr>')
+    return (f'<div style="background:{PANEL_BG}; border:1px solid {PANEL_BORDER}; '
+            f'border-radius:2px; padding:4px; overflow-x:auto;">'
+            f'<table style="font-size:12px; font-family:Menlo,monospace; color:#e8e6e3; '
+            f'border-collapse:collapse; width:100%;">'
+            f'<thead><tr>{head}</tr></thead><tbody>{"".join(rows)}</tbody></table></div>')
 
 
 def portfolio_risk():
