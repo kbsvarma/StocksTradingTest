@@ -245,25 +245,63 @@ def open_calls_and_charts():
             if not tkr:
                 continue
             try:
-                h = yf.Ticker(tkr).history(period="6mo")
-                fig = go.Figure(go.Candlestick(
-                    x=h.index, open=h.Open, high=h.High, low=h.Low, close=h.Close,
-                    increasing_line_color=GREEN, decreasing_line_color=RED))
-                for key, col, lbl in (("target_px", GREEN, "target"),
-                                      ("stop_px", RED, "stop")):
+                from plotly.subplots import make_subplots
+                h = yf.Ticker(tkr).history(period="1y")
+                # technicals
+                sma20 = h.Close.rolling(20).mean()
+                sma50 = h.Close.rolling(50).mean()
+                sma200 = h.Close.rolling(200).mean()
+                delta = h.Close.diff()
+                up = delta.clip(lower=0).ewm(alpha=1/14).mean()
+                dn = (-delta.clip(upper=0)).ewm(alpha=1/14).mean()
+                rsi = 100 - 100 / (1 + up / dn)
+                h6 = h.tail(126); i6 = h6.index   # show 6mo, indicators warmed on 1y
+
+                fig = make_subplots(rows=3, cols=1, shared_xaxes=True,
+                                    row_heights=[0.62, 0.18, 0.20],
+                                    vertical_spacing=0.02)
+                fig.add_trace(go.Candlestick(
+                    x=i6, open=h6.Open, high=h6.High, low=h6.Low, close=h6.Close,
+                    increasing_line_color=GREEN, decreasing_line_color=RED,
+                    name=tkr), row=1, col=1)
+                for sma, col, nm in ((sma20, "#58a6ff", "SMA20"),
+                                     (sma50, AMBER, "SMA50"),
+                                     (sma200, "#bc8cff", "SMA200")):
+                    fig.add_trace(go.Scatter(x=i6, y=sma.tail(126), name=nm,
+                                             line=dict(color=col, width=1)),
+                                  row=1, col=1)
+                vol_col = [GREEN if c >= o else RED
+                           for c, o in zip(h6.Close, h6.Open)]
+                fig.add_trace(go.Bar(x=i6, y=h6.Volume, marker_color=vol_col,
+                                     opacity=0.55, name="vol"), row=2, col=1)
+                fig.add_trace(go.Scatter(x=i6, y=rsi.tail(126), name="RSI14",
+                                         line=dict(color="#e8e6e3", width=1)),
+                              row=3, col=1)
+                for lvl, lc in ((70, RED), (30, GREEN)):
+                    fig.add_hline(y=lvl, line_color=lc, line_dash="dot",
+                                  line_width=1, row=3, col=1)
+                for key, col, lbl in (("target_px", GREEN, "TGT"),
+                                      ("stop_px", RED, "STP")):
                     if isinstance(e.get(key), (int, float)):
                         fig.add_hline(y=e[key], line_color=col, line_dash="dot",
                                       annotation_text=f"{lbl} {e[key]}",
-                                      annotation_font_color=col)
+                                      annotation_font_color=col, row=1, col=1)
                 lo, hi = e.get("entry_px_low"), e.get("entry_px_high")
                 if isinstance(lo, (int, float)) and isinstance(hi, (int, float)):
                     fig.add_hrect(y0=lo, y1=hi, fillcolor=AMBER, opacity=0.15,
-                                  line_width=0, annotation_text="entry zone",
-                                  annotation_font_color=AMBER)
-                fig.update_layout(template="plotly_dark", height=320,
-                                  margin=dict(l=10, r=10, t=10, b=10),
-                                  paper_bgcolor="#0b0e11", plot_bgcolor="#11151a",
-                                  xaxis_rangeslider_visible=False, showlegend=False)
+                                  line_width=0, annotation_text="ENTRY",
+                                  annotation_font_color=AMBER, row=1, col=1)
+                fig.update_layout(
+                    template="plotly_dark", height=430,
+                    margin=dict(l=10, r=10, t=22, b=10),
+                    paper_bgcolor="#000000", plot_bgcolor=PANEL_BG,
+                    xaxis_rangeslider_visible=False,
+                    hovermode="x unified",
+                    legend=dict(orientation="h", y=1.06, font=dict(size=9)),
+                    font=dict(family="Menlo, monospace", size=10))
+                fig.update_xaxes(showspikes=True, spikecolor=DIM, spikemode="across",
+                                 spikethickness=1, spikedash="dot")
+                fig.update_yaxes(title_text="RSI", row=3, col=1, range=[0, 100])
                 st.plotly_chart(fig, use_container_width=True,
                                 key=f"chart_{eid}")
             except Exception as exc:
