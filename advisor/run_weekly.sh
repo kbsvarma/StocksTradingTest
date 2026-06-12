@@ -17,6 +17,8 @@ DATE=$(date +%F)
     "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.journal:*)" \
     "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.market_context:*)" \
     "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.telegram_io:*)" \
+    "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.research.validate:*)" \
+    "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.research.fair_value:*)" \
     "Bash(date:*)" \
   --max-turns 60 \
   >> "advisor/logs/weekly_$DATE.log" 2>&1

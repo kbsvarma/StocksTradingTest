@@ -84,6 +84,37 @@ def run(step: int = 21) -> dict:
                 "n_periods": len(a),
                 "pct_positive": round(float((a > 0).mean() * 100), 0)}
 
+    # ── Walk-forward top-20 portfolio vs SPY (strongest evidence tier) ───
+    # Equal-weight the top 20 composite names at each as-of date, hold 21
+    # trading days, chain. Costs ignored (21d holds, liquid names — sub-0.1%
+    # round trip; noted, not modeled). This is what the IC abstracts.
+    port_rets, spy_rets = [], []
+    spy = close["SPY"]
+    for k, comp in comp_series:
+        top20 = comp.sort_values(ascending=False).head(20).index
+        fwd_names = (close.iloc[k + FWD - 1][top20] / close.iloc[k - 1][top20] - 1).dropna()
+        if len(fwd_names) >= 15:
+            port_rets.append(float(fwd_names.mean()))
+            spy_rets.append(float(spy.iloc[k + FWD - 1] / spy.iloc[k - 1] - 1))
+    wf = None
+    if port_rets:
+        p, s_ = np.array(port_rets), np.array(spy_rets)
+        # beta-adjust: momentum top-20 is high-beta; raw excess in a bull tape
+        # overstates skill. alpha = mean(p - beta*s) per 21d.
+        beta = float(np.polyfit(s_, p, 1)[0]) if len(p) > 3 else 1.0
+        alpha_21d = float((p - beta * s_).mean())
+        wf = {"beta_vs_spy": round(beta, 2),
+              "alpha_per_21d_pct": round(alpha_21d * 100, 2),
+              "n_periods": len(p),
+              "total_return_pct": round(float((1 + p).prod() - 1) * 100, 1),
+              "spy_total_pct": round(float((1 + s_).prod() - 1) * 100, 1),
+              "mean_excess_per_21d_pct": round(float((p - s_).mean()) * 100, 2),
+              "excess_t_stat": round(float((p - s_).mean() / ((p - s_).std(ddof=1)
+                                     / len(p) ** .5)), 2) if len(p) > 2 else None,
+              "worst_period_pct": round(float(p.min()) * 100, 1),
+              "pct_periods_beat_spy": round(float((p > s_).mean() * 100), 0),
+              "note": "top-20 equal-weight, 21d rebalance, costs ~sub-0.1%/RT not modeled"}
+
     # ── Signal decay / turnover: how sticky are the ranks? ───────────────
     rank_autocorr, decile_retention = [], []
     for (k1, c1), (k2, c2) in zip(comp_series, comp_series[1:]):
@@ -97,6 +128,7 @@ def run(step: int = 21) -> dict:
 
     return {
         "as_of": datetime.now(ET).isoformat(),
+        "walk_forward_top20": wf,
         "decay": {"rank_autocorr_21d": round(float(np.mean(rank_autocorr)), 3)
                   if rank_autocorr else None,
                   "top_decile_retention_21d": round(float(np.mean(decile_retention)), 3)
@@ -135,6 +167,14 @@ def render(v: dict) -> str:
     if d.get("rank_autocorr_21d") is not None:
         L.append(f"decay: rank autocorr(21d)={d['rank_autocorr_21d']}  "
                  f"top-decile retention={d['top_decile_retention_21d']}")
+    wf = v.get("walk_forward_top20")
+    if wf:
+        L.append(f"WALK-FORWARD top-20: {wf['total_return_pct']:+.1f}% vs SPY "
+                 f"{wf['spy_total_pct']:+.1f}% over {wf['n_periods']} periods · "
+                 f"excess {wf['mean_excess_per_21d_pct']:+.2f}%/21d (t={wf['excess_t_stat']}) · "
+                 f"beta {wf['beta_vs_spy']} → alpha {wf['alpha_per_21d_pct']:+.2f}%/21d · "
+                 f"beat SPY {wf['pct_periods_beat_spy']:.0f}% · "
+                 f"worst {wf['worst_period_pct']:+.1f}%")
     for c in v["caveats"]:
         L.append(f"  ⚠ {c}")
     return "\n".join(L)

@@ -79,3 +79,16 @@ and flags factor-IC sign flips to user (weights never auto-flip post-hour).
 MEASURED: composite IC unchanged (.073, t 1.84) under new regime detection
 (regime still risk_on; thresholds matched old constants in current era).
 NEXT: weekly run_weekly.sh allowedTools needs validate; fair_value sector layer.
+### PASS 6 (16:20–16:26) — Walk-forward backtest + beta-adjusted alpha
+FINDINGS: Strongest evidence tier added to validate.py: top-20 equal-weight,
+21d rebalance, 11 non-overlapping periods (~1yr): +78.6% vs SPY +22.1%,
+excess +3.85%/21d (t=1.73), beat SPY 73% of periods, worst -7.4%. Skeptic
+pass: portfolio beta 1.38 → beta-adjusted alpha +3.13%/21d — signal is NOT
+just leverage. Caveats stand: 11 periods, survivorship-flattered, one regime.
+CHANGES: walk_forward_top20 block in validate.py + render; weekly review
+allowedTools gained research.validate + research.fair_value (was missing —
+the C3 self-check I added in pass 5 couldn't actually run).
+RE-RANKED: 1) terminal: show validation evidence on SCORECARD 2) full test
+suite sweep + service restarts 3) fair_value sector layer (deferred — needs
+slow peer fetches) 4) brief.json schema validator (deferred — terminal is
+tolerant). Time check: ~35min remain; items 1-2 then final report.
