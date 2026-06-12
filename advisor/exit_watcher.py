@@ -82,23 +82,52 @@ def watchable_calls() -> list[dict]:
     return out
 
 
-def fetch_price(ticker: str):
-    """Last traded price via yfinance. Returns (price, source) or (None, err)."""
+STALE_MINUTES = 30   # never alert on a quote older than this during RTH
+
+
+def batch_prices(tickers: list[str]) -> dict[str, tuple]:
+    """One batched 1m-bar request for all watched tickers.
+
+    Returns {ticker: (price, source_label)} — only FRESH quotes (last bar
+    within STALE_MINUTES). A stale/no-data ticker is simply absent: the
+    watcher must never fire an exit signal off a dead feed (2026-06-12
+    loop-pass-3; same class of failure as the bot's stale-yfinance-LIMIT
+    incident of 2026-05-20).
+    """
+    out: dict[str, tuple] = {}
+    if not tickers:
+        return out
     try:
+        import pandas as pd
         import yfinance as yf
-        t = yf.Ticker(ticker)
-        px = None
-        try:
-            px = t.fast_info.last_price
-        except Exception:
-            pass
-        if not px:
-            h = t.history(period="1d", interval="1m")
-            if len(h):
-                px = float(h["Close"].iloc[-1])
-        return (round(float(px), 4), "yfinance (delayed ~15min)") if px else (None, "no data")
+        data = yf.download(tickers, period="1d", interval="1m", progress=False,
+                           group_by="ticker", threads=True)
+        now = datetime.now(ET)
+        for t in tickers:
+            try:
+                closes = (data[t]["Close"] if len(tickers) > 1 else data["Close"]).dropna()
+                if not len(closes):
+                    continue
+                ts = closes.index[-1]
+                ts = ts.tz_convert(ET) if ts.tzinfo else ts.tz_localize("UTC").tz_convert(ET)
+                age_min = (now - ts).total_seconds() / 60
+                if age_min > STALE_MINUTES:
+                    print(f"[watcher] {t}: quote stale ({age_min:.0f}min) — skipping",
+                          flush=True)
+                    continue
+                out[t] = (round(float(closes.iloc[-1]), 4),
+                          f"yfinance 1m (bar {ts.strftime('%H:%M')} ET, ~15min delay)")
+            except Exception:
+                continue
     except Exception as exc:
-        return None, str(exc)
+        print(f"[watcher] batch fetch failed: {exc}", flush=True)
+    return out
+
+
+def fetch_price(ticker: str):
+    """Single-ticker fallback (kept for --once debugging)."""
+    px = batch_prices([ticker]).get(ticker)
+    return px if px else (None, "no fresh data")
 
 
 def check_call(e: dict, px: float, src: str, alerted: dict) -> list[str]:
@@ -154,12 +183,14 @@ def scan_once(verbose: bool = False) -> int:
         return 0
     alerted = _load_alerted()
     n = 0
+    prices = batch_prices(sorted({e["yf_ticker"] for e in calls}))
     for e in calls:
-        px, src = fetch_price(e["yf_ticker"])
-        if px is None:
+        got = prices.get(e["yf_ticker"])
+        if not got:
             if verbose:
-                print(f"[watcher] {e['yf_ticker']}: price unavailable ({src})")
+                print(f"[watcher] {e['yf_ticker']}: no fresh quote — skipped")
             continue
+        px, src = got
         for msg in check_call(e, px, src, alerted):
             telegram_io.send(msg)
             n += 1

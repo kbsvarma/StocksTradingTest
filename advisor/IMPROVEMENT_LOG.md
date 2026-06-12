@@ -54,3 +54,10 @@ terminal idempotency wall. One test-harness gotcha: Proposal.expired() uses
 real clock — fixture now sets real-future TTLs.
 CHANGES: advisor/tests/test_executor_gates.py — 8 tests, 8/8 pass.
 NEXT: watcher robustness (top of backlog).
+### PASS 3 (16:17–16:19) — Watcher: batch pricing + stale-quote guard
+FINDINGS: per-ticker serial fetch was N requests/scan and would happily alert
+on a stale quote (same failure class as 2026-05-20 stale-yfinance incident).
+CHANGES: batch_prices() — ONE 1m-bar download for all watched tickers; quotes
+older than 30min are dropped (watcher never alerts on a dead feed; absence of
+fresh data = skip, logged). Live-tested vs the 4 open calls; service restarted.
+NEXT: listener hardening (replay after offset loss + expired-PENDING sweep).
