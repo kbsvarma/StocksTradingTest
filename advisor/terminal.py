@@ -318,6 +318,29 @@ def scorecard_doctrine():
         c2.metric("RESOLVED", len(resolved))
         c3.metric("HIT RATE", f"{wins/len(resolved)*100:.0f}%" if len(resolved) else "—")
         st.dataframe(df, use_container_width=True, hide_index=True, height=260)
+    val = load_json(RESEARCH / "ic_validation.json")
+    if val:
+        wf = val.get("walk_forward_top20") or {}
+        d = val.get("decay") or {}
+        st.markdown(
+            f'<div style="border:1px solid #2a2f36; background:#11151a; padding:10px; '
+            f'border-radius:4px; margin:8px 0;">'
+            f'<span style="color:{AMBER}; font-weight:700;">SIGNAL VALIDATION</span> '
+            + chip(f"as of {val.get('as_of','')[:16]}", DIM)
+            + f'<div style="color:#c9c7c2; font-size:12px; margin-top:6px;">'
+            f'walk-forward top-20: <span style="color:{GREEN};">'
+            f'{wf.get("total_return_pct","?"):+.1f}%</span> vs SPY '
+            f'{wf.get("spy_total_pct","?"):+.1f}% ({wf.get("n_periods","?")} periods) · '
+            f'beta {wf.get("beta_vs_spy","?")} → alpha '
+            f'<span style="color:{GREEN};">{wf.get("alpha_per_21d_pct","?"):+.2f}%/21d</span> · '
+            f'worst {wf.get("worst_period_pct","?"):+.1f}%<br>'
+            + " · ".join(f'{k} IC {s["mean_ic"]:+.3f} (t {s["t_stat"]})'
+                         for k, s in (val.get("factors") or {}).items() if s)
+            + f'<br>decay: rank autocorr {d.get("rank_autocorr_21d","?")} · '
+            f'top-decile retention {d.get("top_decile_retention_21d","?")}'
+            f'</div><div style="color:{DIM}; font-size:10px; margin-top:4px;">'
+            + " · ".join(val.get("caveats", [])) + "</div></div>",
+            unsafe_allow_html=True)
     with st.expander("METHODOLOGY (loop doctrine + lessons log)"):
         st.markdown((REPO / "advisor" / "METHODOLOGY.md").read_text())
     with st.expander("IPS (investment policy)"):

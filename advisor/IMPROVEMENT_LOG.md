@@ -92,3 +92,19 @@ RE-RANKED: 1) terminal: show validation evidence on SCORECARD 2) full test
 suite sweep + service restarts 3) fair_value sector layer (deferred — needs
 slow peer fetches) 4) brief.json schema validator (deferred — terminal is
 tolerant). Time check: ~35min remain; items 1-2 then final report.
+### PASS 7 (16:21–16:28) — Terminal validation panel + INCIDENT: legacy stack paused
+CHANGES: SCORECARD tab now renders SIGNAL VALIDATION (walk-forward, factor
+ICs, decay, caveats) from ic_validation.json. Full test suite: 19/19 green.
+INCIDENT FINDING: webull-bot/telegram-service/watchdog/reconcile-watchdog/
+ssm-sync plists were RENAMED *.PAUSED-2026-06 in ~/Library/LaunchAgents
+(human convention, matches .RETIRED/.DISABLED precedents) — an INTENTIONAL
+pause of the entire legacy stack by the user or their other session, NOT the
+BTM/security failure I first assumed. Loop did NOT resurrect them (reverting
+deliberate human action is out of scope, mandate notwithstanding). My morning
+re-enable of the same four may itself have fought an earlier pause attempt —
+flagged for the final report. Advisor services unaffected and all green.
+IMPLICATION: advisor stack is now the ONLY live safety surface: exit-watcher
+covers journal calls; Tier-1 executor runs its own inline SL monitor. The
+legacy reconcile-watchdog's orphan sweep is paused with the rest — fine while
+nothing trades, NOTE for when Tier-1 executes: executor monitor is the sole
+SL layer until user revisits the pause.
