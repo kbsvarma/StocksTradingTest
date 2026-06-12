@@ -241,7 +241,7 @@ def factor_sheets():
                  f"regime {reg['name'].upper()} (VIX {reg['vix']} term {reg['vix_term']}) · "
                  f"panel age {s['panel_age_hours']}h")
     st.markdown(chip(s["method"], DIM), unsafe_allow_html=True)
-    tabs = st.tabs(["LONGS", "SHORTS", "SHOCK/PEAD"])
+    tabs = st.tabs(["LONGS", "SHORTS", "SHOCK (REVERSION CANDIDATES)"])
     for tab, key in zip(tabs, ("longs", "shorts", "shock_candidates")):
         with tab:
             rows = []
@@ -338,6 +338,9 @@ def scorecard_doctrine():
                          for k, s in (val.get("factors") or {}).items() if s)
             + f'<br>decay: rank autocorr {d.get("rank_autocorr_21d","?")} · '
             f'top-decile retention {d.get("top_decile_retention_21d","?")}'
+            + (f' · shock drift {val["pead_shock_drift"]["mean_signed_drift_excess_21d_pct"]:+.2f}%/21d '
+               f'(t {val["pead_shock_drift"]["t_stat"]}) → REVERSION'
+               if val.get("pead_shock_drift") else "")
             f'</div><div style="color:{DIM}; font-size:10px; margin-top:4px;">'
             + " · ".join(val.get("caveats", [])) + "</div></div>",
             unsafe_allow_html=True)
