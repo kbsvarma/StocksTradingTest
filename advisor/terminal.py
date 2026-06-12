@@ -399,12 +399,7 @@ def portfolio_risk():
     c4.metric("TIER-1 POSITION", f"{op.get('short_strike')}/{op.get('long_strike')}P"
               if op else "NONE")
     if open_calls:
-        rows = [{"id": k, "instrument": v.get("instrument"), "dir": v.get("direction"),
-                 "conviction": v.get("conviction"), "entry": v.get("entry"),
-                 "target": v.get("target"), "stop": v.get("stop"),
-                 "time_stop": v.get("time_stop"), "since": (v.get("ts") or "")[:16]}
-                for k, v in open_calls.items()]
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+        st.markdown(_levels_board(open_calls), unsafe_allow_html=True)
     alerts = {k: v for k, v in (load_json(DATA / "watcher_alerts.json") or {}).items() if v}
     if alerts:
         st.markdown(f'<div style="color:{DIM}; font-size:12px;">exit-watcher alerts fired: '
@@ -413,6 +408,50 @@ def portfolio_risk():
     else:
         st.markdown(f'<div style="color:{DIM}; font-size:12px;">exit-watcher: armed on all '
                     f'open calls — no levels hit yet</div>', unsafe_allow_html=True)
+
+
+def _levels_board(open_calls: dict) -> str:
+    """Live stop ↔ price ↔ target position bar per open call."""
+    tkrs = tuple(sorted({v.get("yf_ticker") for v in open_calls.values()
+                         if v.get("yf_ticker")}))
+    px_map = {x["t"]: x["px"] for x in tape_quotes(tkrs) if x["px"]}
+    rows = []
+    for k, v in open_calls.items():
+        tkr = v.get("yf_ticker", "")
+        px, sp, tp = px_map.get(tkr), v.get("stop_px"), v.get("target_px")
+        bar = f'<span style="color:{DIM};">no live levels</span>'
+        if all(isinstance(x, (int, float)) for x in (px, sp, tp)) and sp != tp:
+            long_ = (v.get("direction") or "long").lower() != "short"
+            pos = (px - sp) / (tp - sp)            # works both directions
+            pos_c = max(0.0, min(1.0, pos))
+            toward = "→TGT" if (pos > 0.5) else ("→STP" if pos < 0.25 else "")
+            t_col = GREEN if toward == "→TGT" else (RED if toward else DIM)
+            bar = (
+                f'<span style="color:{RED}; font-size:10px;">STP {sp}</span>'
+                f'<span style="display:inline-block; width:170px; height:9px; '
+                f'background:linear-gradient(90deg, rgba(255,92,87,.35), '
+                f'rgba(51,209,122,.35)); border:1px solid {PANEL_BORDER}; '
+                f'position:relative; vertical-align:middle; margin:0 6px;">'
+                f'<span style="position:absolute; left:{pos_c*100:.0f}%; top:-2px; '
+                f'width:2px; height:11px; background:#fff;"></span></span>'
+                f'<span style="color:{GREEN}; font-size:10px;">TGT {tp}</span> '
+                f'<span style="color:#e8e6e3;">px {px:,.2f}</span> '
+                f'<span style="color:{t_col}; font-size:10px;">{toward}</span> '
+                f'<span style="color:{DIM}; font-size:10px;">'
+                f'({"long" if long_ else "short"} · {pos*100:.0f}% of stop→target)</span>')
+        rows.append(
+            f'<tr style="border-bottom:1px solid #161b22;">'
+            f'<td style="padding:4px 10px; color:{AMBER}; font-weight:700; '
+            f'white-space:nowrap;">{v.get("instrument","?")[:34]}</td>'
+            f'<td style="padding:4px 10px; color:{DIM}; font-size:10px;">{k}</td>'
+            f'<td style="padding:4px 10px; white-space:nowrap;">{bar}</td>'
+            f'<td style="padding:4px 10px; color:{DIM}; font-size:10px; '
+            f'white-space:nowrap;">t-stop {v.get("time_stop","—")}</td></tr>')
+    return (f'<div style="background:{PANEL_BG}; border:1px solid {PANEL_BORDER}; '
+            f'border-radius:2px; padding:4px; margin-top:6px;">'
+            f'<table style="font-family:Menlo,monospace; font-size:12px; '
+            f'color:#e8e6e3; border-collapse:collapse; width:100%;">'
+            f'{"".join(rows)}</table></div>')
 
 
 def scorecard_doctrine():
