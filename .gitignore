@@ -37,3 +37,7 @@ webull_bot/data/
 webull_bot/logs/
 webull_bot/logs.*
 webull_bot/__pycache__/
+
+# ── Advisor runtime data (2026-06-12) ────────────────────────
+advisor/data/
+advisor/logs/

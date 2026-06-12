@@ -1,0 +1,34 @@
+# Advisor configuration — Tier 0 (research briefs) + Tier 1 (propose/approve/execute)
+# Created 2026-06-11. See advisor/IPS.md for the policy these limits enforce.
+#
+# HARD RAILS LIVE HERE AND IN CODE — never in prompts. A prompt rule is a
+# suggestion; these are enforced by advisor/proposals.py + advisor/executor.py.
+
+approval:
+  ttl_minutes_default: 30        # proposal lifetime if --ttl not given
+  ttl_minutes_max: 240           # hard cap on any proposal TTL
+  poll_timeout_seconds: 50       # Telegram getUpdates long-poll
+
+limits:
+  # Tier 1 auto-execution is deliberately caged to what the proven
+  # execution layer supports (SPX-family combo spreads on Webull).
+  # Recommendations in briefs are NOT limited by this — anything outside
+  # the cage is delivered as a research report for manual execution.
+  symbol_whitelist: ["SPXW", "SPX", "NDXP"]
+  max_qty: 1                     # contracts per proposal
+  max_width_points: 50
+  max_loss_per_trade_usd: 5000   # (width*100 - credit*100) * qty must be <= this
+  daily_realized_loss_cap_usd: 600   # refuse new executions if today's realized P&L <= -cap
+  max_proposals_per_day: 3
+  max_executions_per_day: 1      # mirrors the 1-trade/day invariant for the advisor path
+  rth_entry_start: "09:35"       # ET — executor refuses entries before this
+  rth_entry_end: "15:00"         # ET — no new 0DTE entries after this
+  tick_size: 0.05                # SPX/NDX option tick — limit prices must align
+
+paths:
+  data_dir: "advisor/data"
+  proposals_dir: "advisor/data/proposals"
+  journal: "advisor/data/decision_journal.jsonl"
+  context_dir: "advisor/data/context"
+  logs_dir: "advisor/logs"
+  webull_bot_config: "webull_bot/config.yaml"   # source of state_file / account / stop_multiplier

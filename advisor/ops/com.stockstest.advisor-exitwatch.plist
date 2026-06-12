@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>KeepAlive</key>
+	<true/>
+	<key>Label</key>
+	<string>com.stockstest.advisor-exitwatch</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/zsh</string>
+		<string>-lc</string>
+		<string>source /Users/varmakammili/.webull_env &amp;&amp; cd /Users/varmakammili/Documents/GitHub/StocksTradingTest &amp;&amp; PYTHONPATH=/Users/varmakammili/Documents/GitHub/StocksTradingTest exec /opt/anaconda3/envs/llms/bin/python3 -u -m advisor.exit_watcher</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>/tmp/advisor-exitwatch.err</string>
+	<key>StandardOutPath</key>
+	<string>/tmp/advisor-exitwatch.out</string>
+	<key>ThrottleInterval</key>
+	<integer>30</integer>
+</dict>
+</plist>

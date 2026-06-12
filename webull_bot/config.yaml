@@ -32,7 +32,7 @@ quantity: 1                     # contracts — fixed at 1 for now
 trade_once_per_day: true
 
 # ── Exit / risk ───────────────────────────────────────────────────────────────
-stop_multiplier: 2.0            # close if mark >= 2x entry credit
+stop_multiplier: 2.0            # reverted 3.0→2.0 on 2026-05-18 for 2-week live-validation period (tighter loss cap while validating autonomous fill/close cycle); HARD SWITCH BACK to 3.0 on 2026-06-01 per backtest sl_variants_2026_05_15 (+9% P&L)
 disable_profit_target: true     # let 0DTE winners expire worthless
 
 # ── Order execution ───────────────────────────────────────────────────────────
@@ -46,7 +46,7 @@ fill_timeout_seconds: 300       # (legacy — not used)
 #   2. Wait retry_wait_seconds. If filled → done.
 #   3. If not filled and entry_market_fallback=true → cancel + place MARKET (one shot).
 #      If false → give up cleanly (no walk-down, no further attempts).
-entry_market_fallback: false    # default OFF — flip to true if limit-only fails on a session
+entry_market_fallback: false    # REVERTED true → false 2026-05-20 after 7320/7270P market fill at $0.45 vs $1.93 expected (77% slippage); combo MARKET order on SPX is too dangerous. LIMIT-only safer.
 
 # ── Account ───────────────────────────────────────────────────────────────────
 account_id: "QJJGQCBGAN8M2JL2C1OA1J37KB"
@@ -58,4 +58,16 @@ state_file: "spx_spread_bot/data/webull_live/vG_spx_w50_vix25/state.json"
 trade_csv: "spx_spread_bot/data/webull_live/vG_spx_w50_vix25/trades.csv"
 
 # ── Run days (0=Mon, 4=Fri) ───────────────────────────────────────────────────
-run_days: [0, 1, 2, 3, 4]
+# 2026-06-12: AUTO-ENTRY DISABLED (run_days: []) for the advisor Tier 0/1
+# human-in-the-loop validation phase — ALL entries (incl. SPX) now go through
+# advisor proposals requiring Telegram approval. Daemon stays up: heartbeat,
+# queue/orphan-hint processing, startup reconcile, and position-resume all
+# still run (they sit before the run-day gate in main.py). To restore
+# auto-entry: run_days: [0, 1, 2, 3, 4] + restart com.stockstest.webull-bot.
+run_days: []
+
+# ── Pre-window observability (added 2026-05-21) ──────────────────────────────
+# Between market open (9:30) and entry_start (10:30), make read-only IBKR
+# calls so the dashboard's data-source pills reflect real state.
+# Observation-only — NEVER triggers a trade.
+pre_window_observe: true

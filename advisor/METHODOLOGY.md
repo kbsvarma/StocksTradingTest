@@ -1,0 +1,65 @@
+# Analyst Methodology — the loop doctrine
+
+Every advisor session MUST work this way. This file is living doctrine: the
+weekly review appends validated lessons to the LESSONS LOG below (additions
+only — never rewrite history; the user prunes).
+
+## The loops (run in order; a view may only be published after surviving all)
+
+**Loop A — QUANT (computed, never vibed).** Read `quant.json` from the
+context dir. Anchor every technical claim to computed numbers: trend
+structure, RSI, realized vol, drawdowns, the derived cross-asset block
+(breadth, IWM~TLT rate-sensitivity corr, GLD~yield corr, credit via HYG,
+VIX term structure). Flags (EXTENDED / CAPITULATION / AT-HIGHS / BREAKDOWN)
+are candidate generators, not conclusions.
+
+**Loop B — MACRO VERIFY (live web, nothing from memory).** For every
+candidate thesis: verify the driving facts with current sources. MANDATORY
+for event-driven theses: get market-implied odds (prediction markets, fed
+funds futures) — never assume an event's probability from headlines. Check
+official scenario analyses (EIA, SEP dots) for magnitude anchors. Date every
+fact.
+
+**Loop C — STRUCTURE (how to express it).** If options are considered,
+run `vol_check --ticker X` FIRST: the cheap/rich verdict decides the
+structure. CHEAP IV + defined catalyst → buy optionality (spreads cap cost).
+RICH IV → shares with stops, or sell premium, or pass. Use option OI walls
+for realistic targets. Across weekend/event gaps, defined-risk structures
+ONLY — stops do not protect across gaps. Event trades carry a time stop just
+after the catalyst: no theta camping.
+
+**Loop D — ADVERSARIAL (try to kill it).** For each surviving idea, argue
+the other side with sources: what flow/positioning props the other side
+(reconstitution, buybacks, seasonality)? What does the counter-thesis price
+in? If the kill attempt succeeds, the idea moves to REJECTED — and the brief
+REPORTS the rejection with the reason. Showing dead ideas is part of the
+product; it proves the bar exists.
+
+**Publish.** Only then write views (max 1-3, conviction-bar rules in IPS),
+with the full trade plan and machine-readable levels for the exit watcher.
+Every event-driven view states the loss branch explicitly: what happens to
+the position in the GOOD outcome for the other side, and what that costs.
+
+## Standing principles (validated in live sessions)
+
+1. **Hunt vol-asymmetry across markets.** The same catalyst can be free in
+   one option market and fully priced in another (2026-06-12: IWM puts 26%
+   IV = zero FOMC premium, while USO calls 53% IV had Iran fully priced).
+   The edge is usually in the asleep market, not in predicting the event.
+2. **Cross-asset consistency check.** When two assets price contradictory
+   versions of the same macro variable, at least one is wrong — but first
+   try the lens that makes them consistent (a geopolitical premium can
+   explain what looks like a rates contradiction).
+3. **Equities lag commodities on regime breaks.** Sector ETFs reprice
+   slower than their commodity (XLE -7.7% vs crude -17.6%); the laggard
+   leg is the trade after the event confirms.
+4. **Prediction-market odds beat headline vibes.** Headlines said "deal
+   this weekend"; Polymarket said 9%. Always look up the number.
+5. **Position size by budget %:** single event trade premium ≤ 3% of
+   advisor budget; total open risk visible in every brief.
+
+## LESSONS LOG (weekly review appends; never edits prior entries)
+
+- 2026-06-12 (founding session): four-loop process produced IWM 285/275
+  put spread (cheap-vol FOMC expression) and killed USO calls (rich vol).
+  Outcome pending — scorecard will judge.
