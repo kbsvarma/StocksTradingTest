@@ -1,0 +1,14 @@
+# Advisor Terminal theme (Bloomberg-dark). Loaded by streamlit from cwd.
+[theme]
+base = "dark"
+backgroundColor = "#0b0e11"
+secondaryBackgroundColor = "#11151a"
+primaryColor = "#ff9f0a"
+textColor = "#e8e6e3"
+font = "monospace"
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false

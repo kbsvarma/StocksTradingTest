@@ -136,6 +136,20 @@ python -m advisor.telegram_io --send-file <path to the brief you wrote>
 Write the brief to `advisor/data/context/<today>/brief.md` first, then send.
 Confirm the send succeeded (exit code 0) before finishing.
 
+ALSO write `advisor/data/context/<today>/brief.json` for the terminal UI —
+structured views with verifiable evidence:
+```json
+{"views": [{"instrument": "XLE", "direction": "long", "conviction": "high",
+  "thesis": "...", "entry": "92-93", "target": "101", "stop": "88.40",
+  "time_stop": "2026-07-10",
+  "evidence": [{"claim": "fact with number", "url": "https://source",
+                "retrieved": "09:02 ET 2026-06-15"}]}],
+ "rejected": [{"idea": "...", "killed_by": "loop D: ..."}],
+ "regime_summary": "one line"}
+```
+Every evidence item carries its source URL and retrieval timestamp — the
+terminal renders these as verifiable links.
+
 ## Hard prohibitions
 
 - You have NO order-placement tools and must not attempt any. Your only
