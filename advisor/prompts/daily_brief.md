@@ -24,6 +24,17 @@ Today's context files are in `advisor/data/context/<today YYYY-MM-DD>/`:
   technical claim to these numbers. For options ideas, additionally run:
   `python -m advisor.vol_check --ticker <X>` — the CHEAP/FAIR/RICH verdict
   decides the structure (see METHODOLOGY Loop C).
+- `factor_sheet.json` / `factor_sheet.txt` — the FULL-MARKET cross-section
+  (~1,500 liquid US names): regime-weighted, sector-neutral factor ranks
+  (momentum 12-1, 1m reversal, residual momentum, 52w-high proximity,
+  low-vol, turnover anomaly) with per-name attribution, plus shock/PEAD
+  drift candidates. YOU MUST review the LONG, SHORT and SHOCK sheets every
+  session — single-name ideas come from here and from the news loop, never
+  only from index-level data. For any candidate you take seriously, run:
+  `python -m advisor.research.fair_value --ticker <X>` — fair-value range
+  with methods disclosed. Share positions exit at fair value; the FAIR
+  VALUE field is mandatory on every single-name share recommendation.
+  If no single name clears the bar, say so explicitly in the brief.
 
 Read them. Also read the last ~20 lines of `advisor/data/decision_journal.jsonl`
 (your open calls — you are accountable for every one) and check

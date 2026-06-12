@@ -6,12 +6,17 @@ only — never rewrite history; the user prunes).
 
 ## The loops (run in order; a view may only be published after surviving all)
 
-**Loop A — QUANT (computed, never vibed).** Read `quant.json` from the
-context dir. Anchor every technical claim to computed numbers: trend
-structure, RSI, realized vol, drawdowns, the derived cross-asset block
-(breadth, IWM~TLT rate-sensitivity corr, GLD~yield corr, credit via HYG,
-VIX term structure). Flags (EXTENDED / CAPITULATION / AT-HIGHS / BREAKDOWN)
-are candidate generators, not conclusions.
+**Loop A — QUANT (computed, never vibed).** Read `quant.json` AND
+`factor_sheet.json` from the context dir. The factor sheet is the
+full-market cross-section (~1,500 liquid names, S&P 1500 + extras):
+sector-neutral z-scores on literature-grounded factors — momentum 12-1
+(Jegadeesh-Titman), 1m reversal, residual momentum (Blitz-Huij-Martens),
+52w-high proximity (George-Hwang), low-vol (Ang et al), turnover anomaly —
+combined with regime-conditioned weights (momentum de-weighted in stress
+regimes per Daniel-Moskowitz momentum-crash evidence). Review LONG, SHORT
+and SHOCK/PEAD sheets every session. Single-name discovery is data-driven
+from this cross-section plus the news loop — never from memory of past
+positions. Flags are candidate generators, not conclusions.
 
 **Loop B — MACRO VERIFY (live web, nothing from memory).** For every
 candidate thesis: verify the driving facts with current sources. MANDATORY
@@ -57,6 +62,13 @@ the position in the GOOD outcome for the other side, and what that costs.
    this weekend"; Polymarket said 9%. Always look up the number.
 5. **Position size by budget %:** single event trade premium ≤ 3% of
    advisor budget; total open risk visible in every brief.
+6. **Shares with fair-value exits are the default expression.** A
+   single-name recommendation is a valuation/catalyst gap: buy below fair
+   value, exit at fair value (advisor/research/fair_value.py — range with
+   methods disclosed, confidence graded). Options are the exception that
+   must earn its place via vol_check. Factor rank alone is never a thesis —
+   it nominates candidates; the analyst loops must find WHY the gap exists
+   and why it should close.
 
 ## LESSONS LOG (weekly review appends; never edits prior entries)
 
