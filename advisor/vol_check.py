@@ -43,12 +43,15 @@ def check(ticker: str, max_dte: int = 45) -> list[dict]:
             continue
         try:
             ch = t.option_chain(exp)
-            atm_p = ch.puts.iloc[(ch.puts.strike - spot).abs().argsort()[:2]]
-            atm_c = ch.calls.iloc[(ch.calls.strike - spot).abs().argsort()[:2]]
-            ivs = list(atm_p.impliedVolatility) + list(atm_c.impliedVolatility)
-            ivs = [v for v in ivs if v and v > 0.01]
-            if not ivs:
-                continue
+            # ATM = strikes within ±2% of spot only — argsort alone can grab
+            # far strikes on thin chains and poison the IV average
+            near_p = ch.puts[(ch.puts.strike - spot).abs() <= spot * 0.02]
+            near_c = ch.calls[(ch.calls.strike - spot).abs() <= spot * 0.02]
+            ivs = list(near_p.impliedVolatility) + list(near_c.impliedVolatility)
+            # sanity bounds: junk quotes (IV<3% or >300%) excluded
+            ivs = [v for v in ivs if v and 0.03 <= v <= 3.0]
+            if len(ivs) < 2:
+                continue   # too thin to trust — silence beats a fake verdict
             iv = sum(ivs) / len(ivs) * 100
             ratio = iv / rv20 if rv20 else float("nan")
             verdict = "CHEAP" if ratio < 1.1 else ("FAIR" if ratio <= 1.4 else "RICH")

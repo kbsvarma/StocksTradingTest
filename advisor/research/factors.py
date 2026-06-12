@@ -53,9 +53,19 @@ WEIGHTS = {
 
 
 def detect_regime(close) -> dict:
-    """Regime from SPY trend, VIX level + term structure, credit, breadth."""
+    """Regime from SPY trend, VIX level + term structure, credit, breadth.
+
+    VIX cutoffs are DATA-DRIVEN (loop-pass-5): stress = VIX above its own
+    trailing 90th percentile, risk_on requires below the 70th — adapts to the
+    vol level of the era instead of hand-set 20/26 constants. Term-structure
+    backwardation (>1.0) and credit (-2% HYG/21d) remain absolute: those are
+    structural stress markers, not level-relative ones.
+    """
     spy = close["SPY"].dropna()
-    vix = float(close["^VIX"].dropna().iloc[-1])
+    vix_hist = close["^VIX"].dropna()
+    vix = float(vix_hist.iloc[-1])
+    vix_p70 = float(vix_hist.quantile(0.70))
+    vix_p90 = float(vix_hist.quantile(0.90))
     try:
         term = vix / float(close["^VIX3M"].dropna().iloc[-1])
     except Exception:
@@ -66,13 +76,16 @@ def detect_regime(close) -> dict:
         credit_21d = (float(hyg.iloc[-1]) / float(hyg.iloc[-22]) - 1) * 100
     except Exception:
         credit_21d = 0.0
-    if vix > 26 or term > 1.0 or credit_21d < -2.0 or not trend_up:
-        name = "stress" if (vix > 26 or term > 1.0 or credit_21d < -2.0) else "neutral"
-    elif vix < 20 and term < 0.95 and trend_up:
+    if vix > vix_p90 or term > 1.0 or credit_21d < -2.0:
+        name = "stress"
+    elif not trend_up:
+        name = "neutral"
+    elif vix < vix_p70 and term < 0.95 and trend_up:
         name = "risk_on"
     else:
         name = "neutral"
     return {"name": name, "vix": round(vix, 1), "vix_term": round(term, 2),
+            "vix_p70": round(vix_p70, 1), "vix_p90": round(vix_p90, 1),
             "spy_above_200dma": trend_up, "hyg_21d_pct": round(credit_21d, 1),
             "weights": WEIGHTS[name]}
 

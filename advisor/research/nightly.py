@@ -33,6 +33,19 @@ def run(subset: int | None = None) -> int:
     s = compute(top=20)
     RESEARCH_DIR.mkdir(parents=True, exist_ok=True)
     day = datetime.now(ET).date().isoformat()
+    # NEW-ENTRANT flags: ranks are sticky (autocorr .92/21d, validate.py) —
+    # a name newly arriving on the sheet is a genuine event; mark it.
+    try:
+        prior_files = sorted(RESEARCH_DIR.glob("signals_2*.json"))
+        prior = json.loads(prior_files[-1].read_text()) if prior_files else {}
+        for side in ("longs", "shorts"):
+            seen = {x["ticker"] for x in prior.get(side, [])}
+            for x in s.get(side, []):
+                x["new_entrant"] = x["ticker"] not in seen if seen else False
+        n_new = sum(1 for x in s.get("longs", []) if x.get("new_entrant"))
+        print(f"[nightly] new long-sheet entrants vs prior run: {n_new}")
+    except Exception as exc:
+        print(f"[nightly] new-entrant diff failed (non-fatal): {exc}")
     (RESEARCH_DIR / "signals_latest.json").write_text(json.dumps(s, indent=2))
     txt = render(s)
     (RESEARCH_DIR / "signals_latest.txt").write_text(txt)

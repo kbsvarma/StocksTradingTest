@@ -67,3 +67,15 @@ YES can no longer fire after telegram_offset.json loss); (2) expired-PENDING
 sweep every 10 poll cycles (proposals now expire actively, not lazily).
 Verified: syntax+import, service restarted clean.
 NEXT: vol_check ATM robustness, then signal decay/turnover study.
+### PASS 5 (16:19–16:23) — vol_check robustness, data-driven regime, decay study
+CHANGES: (1) vol_check ATM = strikes within ±2% of spot + IV sanity bounds
+[3%,300%] + min-2-quotes rule (thin chains → silence, not fake verdicts);
+(2) regime VIX cutoffs now percentile-based (p70/p90 of trailing 2y) — adapt
+to vol era, term/credit stay absolute; (3) decay study added to validate.py:
+rank autocorr(21d)=0.915, top-decile retention=72% → ranks sticky, so
+(4) nightly.py flags NEW ENTRANTS to long/short sheets (a new arrival is a
+rare, information-bearing event); (5) weekly review now re-runs IC validation
+and flags factor-IC sign flips to user (weights never auto-flip post-hour).
+MEASURED: composite IC unchanged (.073, t 1.84) under new regime detection
+(regime still risk_on; thresholds matched old constants in current era).
+NEXT: weekly run_weekly.sh allowedTools needs validate; fair_value sector layer.

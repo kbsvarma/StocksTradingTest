@@ -43,6 +43,12 @@ about X — weight them lower when liquidity thin"). If a standing principle
 was contradicted by evidence, append the contradiction; propose principle
 changes to the user in the review rather than rewriting them yourself.
 
+### C3. Signal health (quant engine self-check)
+Run `python -m advisor.research.validate` and compare factor ICs with the
+prior week's `advisor/data/research/ic_validation.json`. Report IC drift;
+if a previously-validated factor's IC flips sign with |t|>1.5, flag it
+prominently — the weight retuning decision goes to the user.
+
 ### D. Looking ahead
 Next week's calendar (FOMC/CPI/earnings majors). At most ONE structural
 recommendation (sleeve allocation, new standing watch, process change) —

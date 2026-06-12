@@ -48,6 +48,7 @@ def run(step: int = 21) -> dict:
     factor_ics: dict[str, list] = {}
     comp_ics: dict[str, list] = {k: [] for k in WEIGHTS}
     decile_spread: list = []
+    comp_series: list = []   # (k, risk_on composite) for decay/turnover study
 
     for k in asofs:
         cl, vo, re = close.iloc[:k], volume.iloc[:k], rets.iloc[:k]
@@ -70,6 +71,8 @@ def run(step: int = 21) -> dict:
                 comp_ics[wname].append(spearmanr(pair.iloc[:, 0], pair.iloc[:, 1]).statistic)
                 top = pair[pair.iloc[:, 0] >= pair.iloc[:, 0].quantile(0.9)].iloc[:, 1].mean()
                 decile_spread.append(top - pair.iloc[:, 1].mean()) if wname == "risk_on" else None
+                if wname == "risk_on":
+                    comp_series.append((k, comp))
 
     def stats(vals):
         if not vals:
@@ -81,8 +84,25 @@ def run(step: int = 21) -> dict:
                 "n_periods": len(a),
                 "pct_positive": round(float((a > 0).mean() * 100), 0)}
 
+    # ── Signal decay / turnover: how sticky are the ranks? ───────────────
+    rank_autocorr, decile_retention = [], []
+    for (k1, c1), (k2, c2) in zip(comp_series, comp_series[1:]):
+        common = c1.index.intersection(c2.index)
+        if len(common) > 200:
+            rank_autocorr.append(spearmanr(c1[common], c2[common]).statistic)
+            top1 = set(c1[common][c1[common] >= c1[common].quantile(0.9)].index)
+            top2 = set(c2[common][c2[common] >= c2[common].quantile(0.9)].index)
+            if top1:
+                decile_retention.append(len(top1 & top2) / len(top1))
+
     return {
         "as_of": datetime.now(ET).isoformat(),
+        "decay": {"rank_autocorr_21d": round(float(np.mean(rank_autocorr)), 3)
+                  if rank_autocorr else None,
+                  "top_decile_retention_21d": round(float(np.mean(decile_retention)), 3)
+                  if decile_retention else None,
+                  "note": "high = sticky ranks → daily sheet is fresh enough; "
+                          "low = need intra-month refresh"},
         "horizon_days": FWD, "step_days": step, "n_eval_dates": len(asofs),
         "factors": {k: stats(v) for k, v in factor_ics.items()},
         "composites": {k: stats(v) for k, v in comp_ics.items()},
@@ -111,6 +131,10 @@ def render(v: dict) -> str:
     if v.get("risk_on_top_decile_excess_21d_pct") is not None:
         L.append(f"top-decile excess (risk_on comp): "
                  f"{v['risk_on_top_decile_excess_21d_pct']:+.2f}%/21d")
+    d = v.get("decay") or {}
+    if d.get("rank_autocorr_21d") is not None:
+        L.append(f"decay: rank autocorr(21d)={d['rank_autocorr_21d']}  "
+                 f"top-decile retention={d['top_decile_retention_21d']}")
     for c in v["caveats"]:
         L.append(f"  ⚠ {c}")
     return "\n".join(L)
