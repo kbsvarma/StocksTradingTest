@@ -35,21 +35,36 @@ st.set_page_config(page_title="ADVISOR TERMINAL", layout="wide",
 
 st.markdown("""
 <style>
-  .stApp { background-color: #0b0e11; }
+  .stApp { background-color: #000000; }
   /* kill Streamlit's floating chrome — it was hiding the ADVISOR TERMINAL title */
   header[data-testid="stHeader"] { display: none !important; }
   #MainMenu, footer { visibility: hidden; }
   html, body, [class*="css"] { font-family: "SF Mono", Menlo, monospace; }
   h1,h2,h3 { color: #ff9f0a !important; font-family: "SF Mono", Menlo, monospace !important;
              letter-spacing: 1px; }
-  .block-container { padding-top: 0.6rem; padding-bottom: 1rem; max-width: 100% !important; }
-  div[data-testid="stMetricValue"] { font-size: 1.05rem; color: #e8e6e3; }
-  div[data-testid="stMetricLabel"] { color: #8a8f98; }
-  .stTabs [data-baseweb="tab"] { color: #8a8f98; font-family: Menlo, monospace; }
-  .stTabs [aria-selected="true"] { color: #ff9f0a !important; }
-  thead tr th { background-color: #11151a !important; color: #ff9f0a !important; }
+  /* Bloomberg density: kill streamlit's airy spacing */
+  .block-container { padding: 0.3rem 0.8rem 0.4rem 0.8rem !important; max-width: 100% !important; }
+  div[data-testid="stVerticalBlock"] { gap: 0.4rem; }
+  div[data-testid="stMetric"] { background: #0d1117; border: 1px solid #21262d;
+      padding: 4px 10px; border-radius: 2px; }
+  div[data-testid="stMetricValue"] { font-size: 1.0rem; color: #e8e6e3;
+      font-family: Menlo, monospace; }
+  div[data-testid="stMetricLabel"] { color: #8a8f98; font-size: 0.65rem;
+      letter-spacing: 1px; }
+  .stTabs [data-baseweb="tab-list"] { background: #0d1117; border: 1px solid #21262d;
+      gap: 0; padding: 0 4px; }
+  .stTabs [data-baseweb="tab"] { color: #8a8f98; font-family: Menlo, monospace;
+      font-size: 0.78rem; padding: 4px 14px; letter-spacing: 1px; }
+  .stTabs [aria-selected="true"] { color: #000 !important; background: #ff9f0a !important;
+      font-weight: 700; }
+  thead tr th { background-color: #0d1117 !important; color: #ff9f0a !important; }
+  div[data-testid="stExpander"] details { background: #0d1117; border: 1px solid #21262d; }
+  div[data-testid="stSelectbox"] * { font-family: Menlo, monospace; font-size: 0.8rem; }
 </style>
 """, unsafe_allow_html=True)
+
+PANEL_BG = "#0d1117"
+PANEL_BORDER = "#21262d"
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -80,11 +95,27 @@ def tape_quotes(tickers: tuple) -> list[dict]:
             fi = tk.fast_info
             px = fi.last_price
             prev = fi.previous_close
+            try:
+                dlo, dhi = fi.day_low, fi.day_high
+            except Exception:
+                dlo = dhi = None
             out.append({"t": t, "px": px, "chg": (px / prev - 1) * 100 if prev else 0,
-                        "ts": datetime.now(ET).strftime("%H:%M:%S")})
+                        "dlo": dlo, "dhi": dhi})
         except Exception:
-            out.append({"t": t, "px": None, "chg": 0, "ts": "—"})
+            out.append({"t": t, "px": None, "chg": 0, "dlo": None, "dhi": None})
     return out
+
+
+def _range_bar(px, lo, hi, width=44) -> str:
+    """Tiny day-range bar: where price sits between day low and high."""
+    if not all(isinstance(x, (int, float)) for x in (px, lo, hi)) or hi <= lo:
+        return ""
+    pos = max(0.0, min(1.0, (px - lo) / (hi - lo)))
+    return (f'<span style="display:inline-block; width:{width}px; height:7px; '
+            f'background:#21262d; border-radius:1px; position:relative; '
+            f'vertical-align:middle; margin-left:5px;">'
+            f'<span style="position:absolute; left:{pos*100:.0f}%; top:-1px; '
+            f'width:2px; height:9px; background:{AMBER};"></span></span>')
 
 
 def journal_effective() -> dict:
@@ -116,23 +147,32 @@ def tape():
     calls = journal_effective()
     open_tkrs = [e.get("yf_ticker") for e in calls.values()
                  if e.get("status") == "open" and e.get("yf_ticker")]
-    base = ["^GSPC", "^NDX", "IWM", "^VIX", "^TNX", "CL=F", "GLD", "BTC-USD"]
-    tickers = tuple(dict.fromkeys(open_tkrs + base))[:14]
-    q = tape_quotes(tickers)
-    cells = []
-    for x in q:
-        if x["px"] is None:
-            continue
-        col = GREEN if x["chg"] >= 0 else RED
-        cells.append(
-            f'<td style="padding:2px 14px 2px 0; white-space:nowrap;">'
-            f'<span style="color:{AMBER};">{x["t"]}</span> '
-            f'<span style="color:#e8e6e3;">{x["px"]:,.2f}</span> '
-            f'<span style="color:{col};">{x["chg"]:+.2f}%</span></td>')
+    row1 = list(dict.fromkeys(open_tkrs + ["^GSPC", "^NDX", "IWM", "^VIX"]))[:8]
+    row2 = ["^TNX", "CL=F", "GC=F", "SI=F", "EURUSD=X", "BTC-USD", "SMH", "TLT"]
+    rows_html = []
+    for tickers in (row1, row2):
+        q = tape_quotes(tuple(tickers))
+        cells = []
+        for x in q:
+            if x["px"] is None:
+                continue
+            col = GREEN if x["chg"] >= 0 else RED
+            arrow = "▲" if x["chg"] >= 0 else "▼"
+            cells.append(
+                f'<td style="padding:1px 16px 1px 0; white-space:nowrap; '
+                f'border-right:1px solid #161b22;">'
+                f'<span style="color:{AMBER}; font-weight:700;">{x["t"].replace("=X","").replace("=F","")}</span> '
+                f'<span style="color:#e8e6e3;">{x["px"]:,.2f}</span> '
+                f'<span style="color:{col}; font-size:11px;">{arrow}{abs(x["chg"]):.2f}%</span>'
+                f'{_range_bar(x["px"], x["dlo"], x["dhi"])}</td>')
+        rows_html.append(f'<tr>{"".join(cells)}</tr>')
     st.markdown(
-        f'<table><tr>{"".join(cells)}</tr></table>'
-        f'<div style="color:{DIM}; font-size:10px;">source: yfinance (delayed ~15min) '
-        f'· as of {datetime.now(ET).strftime("%H:%M:%S ET %Y-%m-%d")} · auto-refresh 60s</div>',
+        f'<div style="background:{PANEL_BG}; border:1px solid {PANEL_BORDER}; '
+        f'padding:4px 10px; border-radius:2px;">'
+        f'<table style="font-size:13px;">{"".join(rows_html)}</table>'
+        f'<div style="color:{DIM}; font-size:9px; letter-spacing:1px;">'
+        f'YFINANCE DELAYED ~15MIN · DAY-RANGE BARS LOW→HIGH · AS OF '
+        f'{datetime.now(ET).strftime("%H:%M:%S ET %Y-%m-%d")} · REFRESH 60S</div></div>',
         unsafe_allow_html=True)
 
 
@@ -352,16 +392,31 @@ def scorecard_doctrine():
 
 # ── LAYOUT ───────────────────────────────────────────────────────────────────
 
-st.markdown(f'<div style="color:{AMBER}; font-size:22px; font-weight:800; '
-            f'letter-spacing:3px; font-family:Menlo,monospace;">ADVISOR TERMINAL'
-            f'<span style="color:{DIM}; font-size:12px; letter-spacing:1px;"> '
-            f'· read-only research console · no execution paths</span></div>',
-            unsafe_allow_html=True)
+def _regime_chip() -> str:
+    s = load_json(RESEARCH / "signals_latest.json") or {}
+    reg = (s.get("regime") or {})
+    name = (reg.get("name") or "?").upper()
+    col = {"RISK_ON": GREEN, "NEUTRAL": AMBER, "STRESS": RED}.get(name, DIM)
+    return (f'<span style="color:{col}; border:1px solid {col}; padding:1px 8px; '
+            f'border-radius:2px; font-size:11px; font-weight:700;">REGIME {name}'
+            f' · VIX {reg.get("vix","?")} · TERM {reg.get("vix_term","?")}</span>')
+
+
+st.markdown(
+    f'<div style="display:flex; justify-content:space-between; align-items:center; '
+    f'background:{PANEL_BG}; border:1px solid {PANEL_BORDER}; padding:4px 12px; '
+    f'border-radius:2px; margin-bottom:4px;">'
+    f'<span style="color:{AMBER}; font-size:19px; font-weight:800; '
+    f'letter-spacing:3px; font-family:Menlo,monospace;">ADVISOR TERMINAL'
+    f'<span style="color:{DIM}; font-size:10px; letter-spacing:1px;"> '
+    f'READ-ONLY RESEARCH CONSOLE · NO EXECUTION PATHS</span></span>'
+    f'{_regime_chip()}</div>',
+    unsafe_allow_html=True)
 tape()
-st.markdown("<hr style='border-color:#2a2f36; margin:8px 0;'>", unsafe_allow_html=True)
 
 t1, t2, t3, t4, t5 = st.tabs(
-    ["📡 RESEARCH", "🎯 OPEN CALLS", "🧮 FACTOR SHEETS", "💼 PORTFOLIO", "📊 SCORECARD"])
+    ["RSCH ▸ RESEARCH", "CALL ▸ OPEN CALLS", "FCTR ▸ FACTOR SHEETS",
+     "PORT ▸ PORTFOLIO", "SCOR ▸ SCORECARD"])
 with t1:
     research_feed()
 with t2:
@@ -372,3 +427,54 @@ with t4:
     portfolio_risk()
 with t5:
     scorecard_doctrine()
+
+
+# ── STATUS FOOTER (service health + data ages) ───────────────────────────────
+
+@st.cache_data(ttl=60)
+def _service_status() -> list[tuple]:
+    import subprocess
+    out = []
+    try:
+        listing = subprocess.run(["launchctl", "list"], capture_output=True,
+                                 text=True, timeout=5).stdout
+        for svc, label in (("advisor-approvals", "APPROVALS"),
+                           ("advisor-exitwatch", "EXITWATCH"),
+                           ("advisor-terminal", "TERMINAL"),
+                           ("advisor-brief", "BRIEF.SCHED"),
+                           ("advisor-research", "RSCH.SCHED")):
+            line = [l for l in listing.splitlines() if svc in l]
+            if not line:
+                out.append((label, "MISSING", RED))
+            elif line[0].split()[0] != "-":
+                out.append((label, "LIVE", GREEN))
+            else:
+                out.append((label, "SCHED", AMBER))
+    except Exception:
+        out.append(("LAUNCHCTL", "ERR", RED))
+    return out
+
+
+def status_footer():
+    cells = "".join(
+        f'<span style="margin-right:14px;"><span style="color:{DIM};">{n}</span> '
+        f'<span style="color:{c}; font-weight:700;">●{s}</span></span>'
+        for n, s, c in _service_status())
+    meta = load_json(RESEARCH / "panels" / "meta.json") or {}
+    import time as _t
+    panel_age = (_t.time() - meta.get("built_unix", 0)) / 3600 if meta else None
+    sig = load_json(RESEARCH / "signals_latest.json") or {}
+    ages = (f'PANEL {panel_age:.1f}H' if panel_age and panel_age < 1e4 else 'PANEL —')
+    ages += f' · SIGNALS {(sig.get("as_of") or "—")[:16]}'
+    n_open = sum(1 for e in journal_effective().values() if e.get("status") == "open")
+    st.markdown(
+        f'<div style="background:{PANEL_BG}; border:1px solid {PANEL_BORDER}; '
+        f'padding:3px 12px; border-radius:2px; margin-top:6px; font-size:10px; '
+        f'font-family:Menlo,monospace; display:flex; justify-content:space-between;">'
+        f'<span>{cells}</span>'
+        f'<span style="color:{DIM};">{ages} · OPEN CALLS {n_open} · '
+        f'{datetime.now(ET).strftime("%a %H:%M ET")}</span></div>',
+        unsafe_allow_html=True)
+
+
+status_footer()
