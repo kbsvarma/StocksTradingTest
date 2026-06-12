@@ -341,7 +341,7 @@ def scorecard_doctrine():
             + (f' · shock drift {val["pead_shock_drift"]["mean_signed_drift_excess_21d_pct"]:+.2f}%/21d '
                f'(t {val["pead_shock_drift"]["t_stat"]}) → REVERSION'
                if val.get("pead_shock_drift") else "")
-            f'</div><div style="color:{DIM}; font-size:10px; margin-top:4px;">'
+            + f'</div><div style="color:{DIM}; font-size:10px; margin-top:4px;">'
             + " · ".join(val.get("caveats", [])) + "</div></div>",
             unsafe_allow_html=True)
     with st.expander("METHODOLOGY (loop doctrine + lessons log)"):
