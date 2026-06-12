@@ -35,13 +35,20 @@ warnings.filterwarnings("ignore")
 ET = ZoneInfo("America/New_York")
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
+# Weights re-tuned 2026-06-12 from IC validation (advisor/research/validate.py,
+# 11 non-overlapping 21d periods, mostly risk_on tape):
+#   validated: mom_12_1 (t 1.88), resid_mom (t 1.84), prox_52w (t 1.84)
+#   wrong-way IN RISK_ON sample: rev_1m (t -1.74), lowvol (t -1.85) → zeroed
+#     in risk_on ONLY; kept in neutral/stress where the literature prior
+#     (reversal/low-vol shine in turmoil) is untested by this bull-period sample.
+#   dead: turn_anom (IC -0.008) → zeroed everywhere; kept computed for display.
 WEIGHTS = {
-    "risk_on": {"mom_12_1": .30, "resid_mom": .20, "prox_52w": .15,
-                "rev_1m": .10, "lowvol": .05, "turn_anom": .05},
-    "neutral": {"mom_12_1": .20, "resid_mom": .15, "prox_52w": .10,
-                "rev_1m": .20, "lowvol": .15, "turn_anom": .05},
+    "risk_on": {"mom_12_1": .35, "resid_mom": .30, "prox_52w": .25,
+                "rev_1m": .00, "lowvol": .00, "turn_anom": .00},
+    "neutral": {"mom_12_1": .25, "resid_mom": .20, "prox_52w": .15,
+                "rev_1m": .15, "lowvol": .10, "turn_anom": .00},
     "stress":  {"mom_12_1": .08, "resid_mom": .07, "prox_52w": .05,
-                "rev_1m": .30, "lowvol": .30, "turn_anom": .05},
+                "rev_1m": .30, "lowvol": .30, "turn_anom": .00},
 }
 
 
@@ -70,30 +77,27 @@ def detect_regime(close) -> dict:
             "weights": WEIGHTS[name]}
 
 
-def compute(top: int = 20) -> dict:
+def raw_factors(close, volume, rets, u: dict):
+    """Compute raw factors + sector-neutral z's from PRE-SLICED panels.
+
+    Panels must already end at the as-of date (signal time = that date's
+    close; consumed next morning — the documented convention, no lookahead).
+    Shared by live compute() and the IC validation harness so there is one
+    source of truth for the math. Returns (f, z, liquid, dollar_vol, px,
+    shock_mask, shock_dir).
+    """
     import numpy as np
     import pandas as pd
-    from advisor.research.datastore import load_panel, panel_age_hours
-    from advisor.research.universe import load as load_universe
 
-    age = panel_age_hours()
-    u = load_universe()
     sectors = u["stocks"]
-    close, volume = load_panel("close"), load_panel("volume")
-    rets = close.pct_change()
-
     stock_cols = [c for c in close.columns if c in sectors]
-    c = close[stock_cols]
-    r = rets[stock_cols]
-    v = volume[stock_cols]
+    c, r, v = close[stock_cols], rets[stock_cols], volume[stock_cols]
 
-    # ── Liquidity floor ──────────────────────────────────────────────────
     dollar_vol = (c * v).rolling(21, min_periods=10).median().iloc[-1]
     px = c.iloc[-1]
     liquid = dollar_vol[(dollar_vol > 1e7) & (px > 5)].index
     c, r, v = c[liquid], r[liquid], v[liquid]
 
-    # ── Raw factors ──────────────────────────────────────────────────────
     f = pd.DataFrame(index=liquid)
     f["mom_12_1"] = c.iloc[-21] / c.iloc[-252] - 1
     f["rev_1m"] = -(c.iloc[-1] / c.iloc[-21] - 1)
@@ -102,8 +106,6 @@ def compute(top: int = 20) -> dict:
     f["turn_anom"] = (v.rolling(20, min_periods=10).mean().iloc[-1]
                       / v.rolling(120, min_periods=60).mean().iloc[-1])
 
-    # Residual momentum vs sector ETF (vectorized per sector, 126d window,
-    # excluding last 21d)
     f["resid_mom"] = np.nan
     win = r.tail(126)
     for sec, etf in u["sector_etf"].items():
@@ -116,18 +118,33 @@ def compute(top: int = 20) -> dict:
         resid = sub.sub(np.outer(re, beta), axis=0)
         f.loc[names, "resid_mom"] = (1 + resid.iloc[:-21]).prod() - 1
 
-    # Shock flag (PEAD-style candidates for the analyst loop)
     sigma = r.rolling(20).std()
     recent = r.tail(10)
     shock_mask = (recent.abs() > 2.5 * sigma.tail(10)).any()
     shock_dir = np.sign(recent.where(recent.abs() > 2.5 * sigma.tail(10)).sum())
 
-    # ── Sector-neutral winsorized z-scores ───────────────────────────────
     sec_series = pd.Series({t: sectors.get(t, "?") for t in f.index})
     z = pd.DataFrame(index=f.index)
     for col in f.columns:
         z[col] = (f[col].groupby(sec_series)
                   .transform(lambda s: ((s - s.mean()) / (s.std() or 1)).clip(-3, 3)))
+    return f, z, liquid, dollar_vol, px, shock_mask, shock_dir
+
+
+def compute(top: int = 20) -> dict:
+    import pandas as pd
+    from advisor.research.datastore import load_panel, panel_age_hours
+    from advisor.research.universe import load as load_universe
+
+    age = panel_age_hours()
+    u = load_universe()
+    sectors = u["stocks"]
+    close, volume = load_panel("close"), load_panel("volume")
+    rets = close.pct_change()
+
+    f, z, liquid, dollar_vol, px, shock_mask, shock_dir = raw_factors(
+        close, volume, rets, u)
+    stock_cols = [c for c in close.columns if c in sectors]
 
     regime = detect_regime(close)
     w = regime["weights"]
