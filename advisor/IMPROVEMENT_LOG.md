@@ -61,3 +61,9 @@ CHANGES: batch_prices() — ONE 1m-bar download for all watched tickers; quotes
 older than 30min are dropped (watcher never alerts on a dead feed; absence of
 fresh data = skip, logged). Live-tested vs the 4 open calls; service restarted.
 NEXT: listener hardening (replay after offset loss + expired-PENDING sweep).
+### PASS 4 (16:19–16:22) — Listener hardening
+CHANGES: (1) replay protection — messages older than 600s ignored (an old
+YES can no longer fire after telegram_offset.json loss); (2) expired-PENDING
+sweep every 10 poll cycles (proposals now expire actively, not lazily).
+Verified: syntax+import, service restarted clean.
+NEXT: vol_check ATM robustness, then signal decay/turnover study.

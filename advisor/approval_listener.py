@@ -31,6 +31,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 LOGS_DIR = REPO_ROOT / "advisor" / "logs"
 
 CMD_RE = re.compile(r"^\s*(yes|no|approve|reject)\s+([a-z0-9]{4})\s*$", re.IGNORECASE)
+MAX_MSG_AGE_S = 600   # ignore Telegram messages older than this — protects
+                      # against replaying an old YES after offset-file loss
+SWEEP_EVERY = 10      # poll cycles between expired-PENDING sweeps
 
 
 def _log(msg: str) -> None:
@@ -79,6 +82,18 @@ def _handle_command(verb: str, pid: str) -> None:
             telegram_io.send(f"⚠️ {pid}: {exc}")
 
 
+def _sweep_expired() -> None:
+    """Transition expired PENDING proposals to EXPIRED (housekeeping —
+    previously only happened lazily when a YES arrived too late)."""
+    for p in P.load_all():
+        if p.status == "PENDING" and p.expired():
+            try:
+                P.transition(p.id, "EXPIRED", "listener sweep")
+                _log(f"swept expired proposal {p.id}")
+            except ValueError:
+                pass
+
+
 def _handle_status() -> None:
     pend = [p for p in P.load_all() if p.status == "PENDING" and not p.expired()]
     if not pend:
@@ -99,9 +114,13 @@ def run() -> None:
     _log(f"approval listener up — authorized chat {me[:4]}…")
     cfg = P.load_advisor_cfg()
     timeout = int(cfg["approval"]["poll_timeout_seconds"])
+    cycles = 0
 
     while True:
         try:
+            cycles += 1
+            if cycles % SWEEP_EVERY == 1:
+                _sweep_expired()
             updates = telegram_io.get_updates(timeout=timeout)
             for u in updates:
                 telegram_io.save_offset(u["update_id"])
@@ -110,6 +129,11 @@ def run() -> None:
                 text = (msg.get("text") or "").strip()
                 if chat_id != me:
                     _log(f"IGNORED message from unauthorized chat {chat_id!r}")
+                    continue
+                msg_age = time.time() - int(msg.get("date", 0) or 0)
+                if msg_age > MAX_MSG_AGE_S:
+                    _log(f"IGNORED stale message ({msg_age:.0f}s old): {text!r} "
+                         f"— replay protection")
                     continue
                 if text.lower() == "status":
                     _handle_status()
