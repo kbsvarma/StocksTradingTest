@@ -20,6 +20,18 @@ DATE=$(date +%F)
 CTX="advisor/data/context/$DATE"
 mkdir -p "$CTX" advisor/logs
 
+# Wake-transient guard (2026-07-02: the 08:15 launchd run died in 5s with
+# ModuleNotFoundError while the Mac was mid-wake — repo not yet readable to
+# the fresh process tree; identical env imported fine minutes later).
+# Probe the import; give the machine up to 3 minutes to finish waking.
+for _try in 1 2 3; do
+  if "$PY" -c "import advisor.orchestrator" 2>>advisor/logs/wake_probe.err; then
+    break
+  fi
+  echo "[run_brief] $(date) import probe failed (attempt $_try/3) — waking? retry in 60s" >> advisor/logs/brief_runs.log
+  sleep 60
+done
+
 # Skip weekends outright (launchd schedule already excludes them; belt+braces)
 DOW=$(date +%u)
 if [ "$DOW" -gt 5 ]; then echo "weekend — skipping"; exit 0; fi
