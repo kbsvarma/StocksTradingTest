@@ -264,6 +264,117 @@ def tape():
         unsafe_allow_html=True)
 
 
+# ── ACTIVE RECOMMENDATIONS (pinned board — union of still-valid calls) ──────
+
+@st.fragment(run_every="30s")
+def active_recommendations():
+    """The standing set: every call that still carries conviction, from ANY
+    brief. A card leaves the board the moment its call stops being a
+    suggestion: time-stop passed (hidden), level hit (shows as an explicit
+    EXIT instruction until resolved), withdrawn/resolved (gone)."""
+    today = datetime.now(ET).date().isoformat()
+    cards = []
+    open_views = {k: v for k, v in journal_effective().items()
+                  if v.get("type") == "view" and v.get("status") == "open"}
+    tkrs = sorted({v.get("yf_ticker") for v in open_views.values()
+                   if v.get("yf_ticker")})
+    quotes = get_quotes(tkrs) if tkrs else {}
+
+    for eid, e in open_views.items():
+        tstop = e.get("time_stop") or "9999"
+        if tstop < today and not e.get("resolve_pending"):
+            continue        # conviction expired — post-mortem will resolve it
+        tkr = e.get("yf_ticker", "")
+        q = quotes.get(tkr) or {}
+        px = q.get("px")
+        long_ = (e.get("direction") or "long").lower() != "short"
+        conv = (e.get("conviction") or "?").upper()
+
+        if e.get("resolve_pending"):
+            hit = e.get("hit_level")
+            color = RED if hit == "stop" else GREEN
+            state = ("🛑 EXIT NOW — stop hit" if hit == "stop"
+                     else "🎯 TAKE PROFIT — target hit")
+            detail = (f'hit {e.get("hit_px")} at {str(e.get("hit_ts"))[:16]} — '
+                      f'no longer a recommendation, an instruction')
+        else:
+            color = GREEN if conv == "HIGH" else AMBER
+            lo, hi = e.get("entry_px_low"), e.get("entry_px_high")
+            sp, tp = e.get("stop_px"), e.get("target_px")
+            if isinstance(px, (int, float)) and isinstance(lo, (int, float)) \
+                    and isinstance(hi, (int, float)) and not (lo <= px <= hi) \
+                    and ((px > hi) if long_ else (px < lo)):
+                state = f"⏳ WAIT — outside entry zone {lo}–{hi}"
+                detail = f"px {px:,.2f} ({q.get('src', 'no quote')})"
+            elif isinstance(px, (int, float)) and isinstance(lo, (int, float)) \
+                    and isinstance(hi, (int, float)) and lo <= px <= hi:
+                state = f"🟢 ACTIONABLE — in the entry zone {lo}–{hi}"
+                detail = f"px {px:,.2f} ({q.get('src', '')})"
+            elif all(isinstance(x, (int, float)) for x in (px, sp, tp)) and sp != tp:
+                prog = max(0.0, min(1.0, (px - sp) / (tp - sp)))
+                state = f"▶ IN PLAY — {prog * 100:.0f}% of stop→target"
+                detail = f"px {px:,.2f} ({q.get('src', '')})"
+            else:
+                state = "▶ STANDING"
+                detail = f"px {px:,.2f}" if isinstance(px, (int, float)) else "no fresh quote"
+        cards.append(
+            f'<div style="border:1px solid #2a2f36; border-left:4px solid {color}; '
+            f'background:#11151a; padding:8px 12px; margin-bottom:5px; border-radius:3px;">'
+            f'<span style="color:{color}; font-weight:700;">'
+            f'{e.get("instrument", "?")} — {"LONG" if long_ else "SHORT"} — {conv}'
+            f'{" · p" + str(e.get("p_win")) if e.get("p_win") else ""}</span> '
+            f'<span style="color:#e8e6e3; font-size:12px; margin-left:8px;">{state}</span> '
+            f'<span style="color:{DIM}; font-size:11px;">{detail}</span><br>'
+            f'<span style="color:#c9c7c2; font-size:12px;">'
+            f'{(e.get("thesis") or "")[:150]}</span><br>'
+            f'{chip("ENTRY " + str(e.get("entry", "—")), "#e8e6e3")}'
+            f'{chip("TGT " + str(e.get("target", "—")), GREEN)}'
+            f'{chip("STOP " + str(e.get("stop", "—")), RED)}'
+            f'{chip("T-STOP " + str(e.get("time_stop", "—")), DIM)}'
+            f'{chip("since " + str(e.get("ts", ""))[:10], DIM)}'
+            f'{chip(eid, DIM)}</div>')
+
+    # watchlist entries whose trigger just fired = actionable re-entries
+    try:
+        from advisor.watchlist import load as wl_load
+        for t, w in wl_load().items():
+            if w.get("state") == "watchlist" and w.get("triggered"):
+                trg = w.get("trigger") or {}
+                cards.append(
+                    f'<div style="border:1px solid #2a2f36; border-left:4px solid '
+                    f'{AMBER}; background:#11151a; padding:8px 12px; '
+                    f'margin-bottom:5px; border-radius:3px;">'
+                    f'<span style="color:{AMBER}; font-weight:700;">{t} — '
+                    f'⚡ RE-ENTRY TRIGGERED</span> '
+                    f'<span style="color:#e8e6e3; font-size:12px;">crossed '
+                    f'{trg.get("dir")} {trg.get("px")} at '
+                    f'{str(w["triggered"].get("ts"))[:16]}</span><br>'
+                    f'<span style="color:#c9c7c2; font-size:12px;">'
+                    f'{w.get("note", "")[:150]} — parked by an earlier brief; '
+                    f'the morning session re-underwrites it before any action.'
+                    f'</span></div>')
+    except Exception:
+        pass
+
+    n = len(cards)
+    hdr = (f'<span style="color:{AMBER}; font-family:Menlo,monospace; '
+           f'font-size:13px; font-weight:700; letter-spacing:2px;">'
+           f'ACTIVE RECOMMENDATIONS ({n})</span>'
+           f'<span style="color:{DIM}; font-size:10px; margin-left:10px;">'
+           f'union of still-valid calls from all briefs · auto-clears when a '
+           f'call stops being suggested · 30s refresh</span>')
+    if not cards:
+        body = (f'<div style="color:{DIM}; font-size:12px; padding:6px 2px;">'
+                f'none — flat is the position. (0 standing calls; the high '
+                f'bar held.)</div>')
+    else:
+        body = "".join(cards)
+    st.markdown(
+        f'<div style="background:{PANEL_BG}; border:1px solid {AMBER}; '
+        f'padding:6px 10px; border-radius:2px; margin:4px 0;">'
+        f'{hdr}{body}</div>', unsafe_allow_html=True)
+
+
 # ── RESEARCH FEED ────────────────────────────────────────────────────────────
 
 def research_feed():
@@ -1037,6 +1148,7 @@ with _bc2:
         st.cache_data.clear()
         st.rerun()
 tape()
+active_recommendations()
 
 t1, t2, t3, t4, t5, t6, t7, t8 = st.tabs(
     ["RSCH ▸ RESEARCH", "CALL ▸ OPEN CALLS", "IDEA ▸ SLATE·WATCH",

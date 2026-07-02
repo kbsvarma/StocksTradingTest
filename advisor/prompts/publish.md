@@ -37,6 +37,19 @@ python -m advisor.journal --add '{"type":"rejected","instrument":"...","yf_ticke
 (Rejects are ref-price-stamped and counterfactual-scored — kills have a
 measurable cost; that measurement keeps the red-team honest.)
 
+## 2a. Withdraw dead standing calls (keeps the ACTIVE board honest)
+
+The portal pins every OPEN call as a standing recommendation until it stops
+being one. If today's synthesis/red-team explicitly invalidated the thesis
+of an EXISTING open journal call (not merely "no new view on it" — its
+driving thesis is dead), withdraw it so the board clears today:
+```
+python -m advisor.journal --resolve <ID> --status closed --note "withdrawn <date>: <one-line reason>" --fields '{"outcome_tag": "thesis_wrong_loss"}'
+```
+(Use the honest outcome_tag; if it was flat when withdrawn, use
+"expired_flat".) Mention the withdrawal in the brief's ④ KILLED section.
+Never withdraw silently and never withdraw just because a day was quiet.
+
 ## 2b. Watchlist — park "right idea, wrong price"
 
 For any rejected/killed idea whose kill reason is TIMING or LEVEL (not a
