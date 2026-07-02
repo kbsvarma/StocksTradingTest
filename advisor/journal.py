@@ -60,6 +60,19 @@ def add(entry: dict) -> dict:
     entry.setdefault("type", "view")
     # rejected ideas are terminal on arrival — they are never "open"
     entry.setdefault("status", "rejected" if entry["type"] == "rejected" else "open")
+    # rerun idempotency (2026-07-02: a second same-day pipeline run
+    # re-journaled all 10 rejects → double-counted counterfactuals): a
+    # rejected idea is one row per (instrument, day)
+    if entry["type"] == "rejected":
+        today = _now().date().isoformat()
+        for e in read_all():
+            if e.get("type") == "rejected" \
+                    and e.get("instrument") == entry.get("instrument") \
+                    and (e.get("ts") or "").startswith(today):
+                print(f"journal: rejected '{entry.get('instrument')}' already "
+                      f"recorded today as {e.get('id')} — skipping duplicate",
+                      file=sys.stderr)
+                return e
     with journal_path().open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry) + "\n")
     return entry

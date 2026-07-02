@@ -13,7 +13,6 @@ backtests. Backtests must use our own estimates/dt= snapshots.
 """
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -24,59 +23,59 @@ def _one(ticker: str) -> tuple[dict | None, list[dict]]:
     import pandas as pd
     import yfinance as yf
     cal_row, hist_rows = None, []
+    got_any = False
+    tk = yf.Ticker(ticker)
     try:
-        tk = yf.Ticker(ticker)
-        try:
-            cal = tk.calendar or {}
-            dates = cal.get("Earnings Date") or []
-            if dates:
-                cal_row = {
-                    "ticker": ticker,
-                    "next_earnings": str(dates[0]),
-                    "earnings_date_spread": len(dates),   # >1 = unconfirmed window
-                    "eps_avg": cal.get("Earnings Average"),
-                    "eps_low": cal.get("Earnings Low"),
-                    "eps_high": cal.get("Earnings High"),
-                    "rev_avg": cal.get("Revenue Average"),
-                    "ex_div": str(cal.get("Ex-Dividend Date") or ""),
-                }
-        except Exception:
-            pass
-        try:
-            ed = tk.earnings_dates
-            if ed is not None and not ed.empty:
-                for ts, r in ed.iterrows():
-                    est = r.get("EPS Estimate")
-                    act = r.get("Reported EPS")
-                    if not isinstance(act, (int, float)) or pd.isna(act):
-                        continue          # future/unreported rows
-                    sur = r.get("Surprise(%)")
-                    hist_rows.append({
-                        "ticker": ticker, "date": ts.date().isoformat(),
-                        "eps_estimate": float(est) if isinstance(est, (int, float)) and pd.notna(est) else None,
-                        "eps_actual": float(act),
-                        "surprise_pct": float(sur) if isinstance(sur, (int, float)) and pd.notna(sur) else None,
-                    })
-        except Exception:
-            pass
+        cal = tk.calendar or {}
+        got_any = got_any or bool(cal)
+        dates = cal.get("Earnings Date") or []
+        if dates:
+            cal_row = {
+                "ticker": ticker,
+                "next_earnings": str(dates[0]),
+                "earnings_date_spread": len(dates),   # >1 = unconfirmed window
+                "eps_avg": cal.get("Earnings Average"),
+                "eps_low": cal.get("Earnings Low"),
+                "eps_high": cal.get("Earnings High"),
+                "rev_avg": cal.get("Revenue Average"),
+                "ex_div": str(cal.get("Ex-Dividend Date") or ""),
+            }
     except Exception:
         pass
+    try:
+        ed = tk.earnings_dates
+        got_any = got_any or (ed is not None and not ed.empty)
+        if ed is not None and not ed.empty:
+            for ts, r in ed.iterrows():
+                est = r.get("EPS Estimate")
+                act = r.get("Reported EPS")
+                if not isinstance(act, (int, float)) or pd.isna(act):
+                    continue          # future/unreported rows
+                sur = r.get("Surprise(%)")
+                hist_rows.append({
+                    "ticker": ticker, "date": ts.date().isoformat(),
+                    "eps_estimate": float(est) if isinstance(est, (int, float)) and pd.notna(est) else None,
+                    "eps_actual": float(act),
+                    "surprise_pct": float(sur) if isinstance(sur, (int, float)) and pd.notna(sur) else None,
+                })
+    except Exception:
+        pass
+    if not got_any:
+        # both endpoints empty = throttled; raise so the pool retries
+        raise RuntimeError("calendar + earnings_dates both empty — throttled?")
     return cal_row, hist_rows
 
 
-def build(tickers: list[str], out_dir, workers: int = 6) -> dict:
+def build(tickers: list[str], out_dir, workers: int = 4) -> dict:
     import pandas as pd
+    from advisor.research.ingest._pool import run_pool
     t0 = datetime.now(ET)
-    cal_rows, hist_rows, errors = [], [], 0
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        futs = {pool.submit(_one, t): t for t in tickers}
-        for fut in as_completed(futs):
-            cal, hist = fut.result()
-            if cal is None and not hist:
-                errors += 1
-            if cal:
-                cal_rows.append(cal)
-            hist_rows.extend(hist)
+    results, errors, err_samples = run_pool(_one, tickers, workers=workers)
+    cal_rows, hist_rows = [], []
+    for cal, hist in results:
+        if cal:
+            cal_rows.append(cal)
+        hist_rows.extend(hist)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     cal_path = out_dir / "earnings_calendar.parquet"
@@ -100,5 +99,6 @@ def build(tickers: list[str], out_dir, workers: int = 6) -> dict:
         merged.to_parquet(hist_path, index=False)
 
     return {"rows": len(cal_rows), "history_rows": len(hist_rows),
-            "errors": errors, "path": str(cal_path),
+            "errors": errors, "err_samples": err_samples,
+            "path": str(cal_path),
             "secs": round((datetime.now(ET) - t0).total_seconds(), 1)}

@@ -10,7 +10,6 @@ Output: advisor/data/research/snapshots/info/dt=YYYY-MM-DD.parquet
 """
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -31,32 +30,24 @@ INFO_FIELDS = [
 ]
 
 
-def _one(ticker: str) -> dict | None:
+def _one(ticker: str) -> dict:
     import yfinance as yf
-    try:
-        info = yf.Ticker(ticker).info or {}
-        if not info:
-            return None
-        row = {"ticker": ticker}
-        for k in INFO_FIELDS:
-            row[k] = info.get(k)
-        return row
-    except Exception:
-        return None
+    info = yf.Ticker(ticker).info or {}
+    if len(info) < 5:
+        # yahoo returns a near-empty dict when throttling — raise so the
+        # pool retries after cooldown instead of silently dropping the name
+        raise RuntimeError(f"near-empty .info ({len(info)} keys) — throttled?")
+    row = {"ticker": ticker}
+    for k in INFO_FIELDS:
+        row[k] = info.get(k)
+    return row
 
 
-def build(tickers: list[str], out_dir, workers: int = 6) -> dict:
+def build(tickers: list[str], out_dir, workers: int = 4) -> dict:
     import pandas as pd
+    from advisor.research.ingest._pool import run_pool
     t0 = datetime.now(ET)
-    rows, errors = [], 0
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        futs = {pool.submit(_one, t): t for t in tickers}
-        for fut in as_completed(futs):
-            row = fut.result()
-            if row is None:
-                errors += 1
-            else:
-                rows.append(row)
+    rows, errors, err_samples = run_pool(_one, tickers, workers=workers)
     day = t0.date().isoformat()
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"dt={day}.parquet"
@@ -68,5 +59,6 @@ def build(tickers: list[str], out_dir, workers: int = 6) -> dict:
             if c not in ("ticker", "recommendationKey", "snapshot_ts"):
                 df[c] = pd.to_numeric(df[c], errors="coerce")
         df.to_parquet(path, index=False)
-    return {"rows": len(rows), "errors": errors, "path": str(path),
+    return {"rows": len(rows), "errors": errors, "err_samples": err_samples,
+            "path": str(path),
             "secs": round((datetime.now(ET) - t0).total_seconds(), 1)}

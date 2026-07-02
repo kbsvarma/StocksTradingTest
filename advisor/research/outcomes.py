@@ -63,9 +63,19 @@ def open_views() -> list[dict]:
 
 
 def rejected_ideas() -> list[dict]:
+    """One row per (instrument, day) — dedupes the 2026-07-02 rerun
+    duplicates already in the journal (append-only, so history stays)."""
     eff, origin = load_rows()
-    return [{**e, "id": eid} for eid, e in eff.items()
-            if origin.get(eid) == "rejected"]
+    out, seen = [], set()
+    for eid, e in eff.items():
+        if origin.get(eid) != "rejected":
+            continue
+        key = (e.get("instrument"), (e.get("ts") or "")[:10])
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({**e, "id": eid})
+    return out
 
 
 def p_win_of(e: dict) -> float | None:

@@ -11,7 +11,6 @@ epsrev_0q_upLast30days, epsest_0q_avg, revest_0y_growth, rec_0m_strongBuy…
 """
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -29,48 +28,42 @@ def _flatten(df, prefix: str, row: dict) -> None:
                 row[f"{prefix}_{p}_{col}"] = val
 
 
-def _one(ticker: str) -> dict | None:
+def _one(ticker: str) -> dict:
     import yfinance as yf
-    try:
-        tk = yf.Ticker(ticker)
-        row: dict = {"ticker": ticker}
-        for attr, prefix in (("eps_trend", "epstrend"),
-                             ("eps_revisions", "epsrev"),
-                             ("earnings_estimate", "epsest"),
-                             ("revenue_estimate", "revest")):
-            try:
-                _flatten(getattr(tk, attr), prefix, row)
-            except Exception:
-                continue
+    tk = yf.Ticker(ticker)
+    row: dict = {"ticker": ticker}
+    for attr, prefix in (("eps_trend", "epstrend"),
+                         ("eps_revisions", "epsrev"),
+                         ("earnings_estimate", "epsest"),
+                         ("revenue_estimate", "revest")):
         try:
-            rec = tk.recommendations
-            if rec is not None and not rec.empty:
-                for _, r in rec.iterrows():
-                    p = str(r.get("period", "?")).replace("-", "m")
-                    if p not in ("0m", "m1m"):
-                        continue
-                    for col in ("strongBuy", "buy", "hold", "sell", "strongSell"):
-                        if col in r:
-                            row[f"rec_{p}_{col}"] = r[col]
+            _flatten(getattr(tk, attr), prefix, row)
         except Exception:
-            pass
-        return row if len(row) > 1 else None   # ticker-only row = nothing worked
+            continue
+    try:
+        rec = tk.recommendations
+        if rec is not None and not rec.empty:
+            for _, r in rec.iterrows():
+                p = str(r.get("period", "?")).replace("-", "m")
+                if p not in ("0m", "m1m"):
+                    continue
+                for col in ("strongBuy", "buy", "hold", "sell", "strongSell"):
+                    if col in r:
+                        row[f"rec_{p}_{col}"] = r[col]
     except Exception:
-        return None
+        pass
+    if len(row) <= 1:
+        # every endpoint empty = throttled (true zero-coverage names are rare
+        # in this universe) — raise so the pool retries after cooldown
+        raise RuntimeError("all estimate endpoints empty — throttled?")
+    return row
 
 
-def build(tickers: list[str], out_dir, workers: int = 6) -> dict:
+def build(tickers: list[str], out_dir, workers: int = 4) -> dict:
     import pandas as pd
+    from advisor.research.ingest._pool import run_pool
     t0 = datetime.now(ET)
-    rows, errors = [], 0
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        futs = {pool.submit(_one, t): t for t in tickers}
-        for fut in as_completed(futs):
-            row = fut.result()
-            if row is None:
-                errors += 1
-            else:
-                rows.append(row)
+    rows, errors, err_samples = run_pool(_one, tickers, workers=workers)
     day = t0.date().isoformat()
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"dt={day}.parquet"
@@ -78,5 +71,6 @@ def build(tickers: list[str], out_dir, workers: int = 6) -> dict:
         df = pd.DataFrame(rows)
         df["snapshot_ts"] = t0.isoformat()
         df.to_parquet(path, index=False)
-    return {"rows": len(rows), "errors": errors, "path": str(path),
+    return {"rows": len(rows), "errors": errors, "err_samples": err_samples,
+            "path": str(path),
             "secs": round((datetime.now(ET) - t0).total_seconds(), 1)}
