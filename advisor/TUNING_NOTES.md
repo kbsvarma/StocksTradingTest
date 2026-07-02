@@ -41,6 +41,18 @@ decided honestly. Each item has a TRIGGER — do not act before it fires.
 - [ ] **13-week auto-de-weight rule** — REJECTED by quant panel (whipsaws on
       ~3 obs). Do not re-add without 26w+ window and t-gate.
 
+## Yahoo request budget (learned the hard way, 2026-07-02)
+- [x] **Full-universe estimates/events pulls burned the account into a
+      401-crumb penalty box on day 1.** Standing scope: estimates/events =
+      ACTIVE SET daily (~50-150 names), full universe Saturdays only; info =
+      full daily (1 req/ticker); pace ≤10 req/s aggregate. err_samples in
+      the ingest manifest are the diagnostic — check them FIRST on any
+      0-row night.
+- [ ] **Widen daily estimates scope** only if attribution shows the
+      est_revision generator earning its keep AND Saturday sweeps run clean
+      for 4 consecutive weeks. Day-1 estimates gap (2026-07-02) accepted:
+      active-set history resumes Fri 06:00.
+
 ## Pipeline cadence & cost
 - [ ] **Dossier budget** (librarian --max, currently 5/night) and
       **librarian turn cap** (45). TRIGGER: first week's token usage vs
