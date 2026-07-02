@@ -1,9 +1,12 @@
 """ADVISOR TERMINAL — Bloomberg-style research console (read-only).
 
-Renders the advisor system's exhaust: live tape, research feed with
-evidence + timestamps, trade-plan charts with entry/stop/target bands,
-full-market factor sheets with attribution, portfolio/risk, scorecard,
-doctrine. NO execution code paths — Tier-0 guarantee.
+Renders the advisor system's exhaust: live tape (quote-daemon store: IBKR
+live where entitled, delayed elsewhere, always labeled), research feed with
+evidence + timestamps, candidate slate + watchlist, dossier browser with
+kill lists, catalyst calendar, trade-plan charts, factor sheets, portfolio/
+risk + alert center, scorecard with calibration/attribution/validation.
+NO order paths — Tier-0 guarantee (REGEN spawns the research pipeline only,
+behind a single-flight lock; optional token gate via ADVISOR_PORTAL_TOKEN).
 
 Run:  streamlit run advisor/terminal.py --server.port 8505
 launchd: com.stockstest.advisor-terminal
@@ -11,7 +14,9 @@ launchd: com.stockstest.advisor-terminal
 from __future__ import annotations
 
 import json
+import os
 import re
+import subprocess
 from datetime import datetime, date
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -24,6 +29,7 @@ REPO = Path(__file__).resolve().parent.parent
 DATA = REPO / "advisor" / "data"
 CTX = DATA / "context"
 RESEARCH = DATA / "research"
+KNOW = DATA / "knowledge"
 
 AMBER = "#ff9f0a"
 GREEN = "#33d17a"
@@ -32,6 +38,16 @@ DIM = "#8a8f98"
 
 st.set_page_config(page_title="ADVISOR TERMINAL", layout="wide",
                    initial_sidebar_state="collapsed")
+
+# optional token gate (TUNING_NOTES: posture decision) — set
+# ADVISOR_PORTAL_TOKEN in the service env to require ?token=... in the URL
+_TOKEN = os.environ.get("ADVISOR_PORTAL_TOKEN", "")
+if _TOKEN and st.query_params.get("token") != _TOKEN:
+    st.markdown("<h3 style='color:#ff9f0a;font-family:Menlo,monospace;'>"
+                "ADVISOR TERMINAL — locked</h3>"
+                "<p style='color:#8a8f98;font-family:Menlo,monospace;'>append "
+                "?token=… to the URL.</p>", unsafe_allow_html=True)
+    st.stop()
 
 st.markdown("""
 <style>
@@ -59,7 +75,8 @@ st.markdown("""
       font-weight: 700; }
   thead tr th { background-color: #0d1117 !important; color: #ff9f0a !important; }
   div[data-testid="stExpander"] details { background: #0d1117; border: 1px solid #21262d; }
-  div[data-testid="stSelectbox"] * { font-family: Menlo, monospace; font-size: 0.8rem; }
+  div[data-testid="stSelectbox"] *, div[data-testid="stTextInput"] input
+      { font-family: Menlo, monospace; font-size: 0.8rem; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -70,7 +87,7 @@ PANEL_BORDER = "#21262d"
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 def chip(text: str, color: str = DIM) -> str:
-    text = text.replace("$", "&#36;")   # avoid Streamlit LaTeX interpretation
+    text = str(text).replace("$", "&#36;")   # avoid Streamlit LaTeX interpretation
     return (f'<span style="border:1px solid {color}; color:{color}; '
             f'border-radius:3px; padding:0px 6px; font-size:11px; '
             f'font-family:Menlo,monospace; margin-right:6px;">{text}</span>')
@@ -85,29 +102,108 @@ def panel_header(title: str, sub: str = "") -> None:
         unsafe_allow_html=True)
 
 
+def load_json(p: Path):
+    try:
+        return json.loads(p.read_text())
+    except Exception:
+        return None
+
+
+def load_jsonl_tail(p: Path, n: int = 20) -> list[dict]:
+    try:
+        rows = []
+        for line in p.read_text().splitlines()[-n:]:
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+        return rows[::-1]
+    except Exception:
+        return []
+
+
+def journal_effective() -> dict:
+    p = DATA / "decision_journal.jsonl"
+    out: dict[str, dict] = {}
+    if not p.exists():
+        return out
+    machine = ("stamp", "resolve_pending")
+    for line in p.read_text().splitlines():
+        try:
+            e = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        eid = e.get("id", "?")
+        if eid in out and e.get("type") in machine:
+            upd = {k: v for k, v in e.items() if k not in ("id", "ts", "type", "status")}
+            if e.get("type") == "resolve_pending":
+                upd["resolve_pending"] = True
+            out[eid] = {**out[eid], **upd}
+        else:
+            out[eid] = {**out.get(eid, {}), **e}
+    return out
+
+
+def quote_store() -> dict:
+    """Quote-daemon snapshot (zero network). {} when missing/stale >120s."""
+    snap = load_json(DATA / "quotes" / "latest.json")
+    if not snap:
+        return {}
+    try:
+        age = (datetime.now(ET) - datetime.fromisoformat(snap["as_of"])).total_seconds()
+        if age > 120:
+            return {}
+        snap["age_s"] = age
+        return snap
+    except Exception:
+        return {}
+
+
 @st.cache_data(ttl=55)
-def tape_quotes(tickers: tuple) -> list[dict]:
+def yf_quotes(tickers: tuple) -> dict[str, dict]:
+    """yfinance fallback for symbols the daemon doesn't serve."""
     import yfinance as yf
-    out = []
+    out = {}
     for t in tickers:
         try:
-            tk = yf.Ticker(t)
-            fi = tk.fast_info
+            fi = yf.Ticker(t).fast_info
             px = fi.last_price
             prev = fi.previous_close
             try:
                 dlo, dhi = fi.day_low, fi.day_high
             except Exception:
                 dlo = dhi = None
-            out.append({"t": t, "px": px, "chg": (px / prev - 1) * 100 if prev else 0,
-                        "dlo": dlo, "dhi": dhi})
+            out[t] = {"px": px, "prev_close": prev, "day_low": dlo,
+                      "day_high": dhi, "src": "yfinance ~15min", "type": "delayed"}
         except Exception:
-            out.append({"t": t, "px": None, "chg": 0, "dlo": None, "dhi": None})
+            continue
     return out
 
 
+def get_quotes(tickers: list[str]) -> dict[str, dict]:
+    """Merged view: quote store first, yfinance for the rest."""
+    snap = quote_store()
+    out = {}
+    missing = []
+    for t in tickers:
+        q = (snap.get("quotes") or {}).get(t)
+        if q:
+            out[t] = q
+        else:
+            missing.append(t)
+    if missing:
+        out.update(yf_quotes(tuple(missing)))
+    return out
+
+
+@st.cache_data(ttl=900)
+def chart_history(ticker: str):
+    """1y OHLCV for trade-plan charts — cached so tab clicks stop re-downloading."""
+    import yfinance as yf
+    return yf.Ticker(ticker).history(period="1y")
+
+
 def _range_bar(px, lo, hi, width=44) -> str:
-    """Tiny day-range bar: where price sits between day low and high."""
     if not all(isinstance(x, (int, float)) for x in (px, lo, hi)) or hi <= lo:
         return ""
     pos = max(0.0, min(1.0, (px - lo) / (hi - lo)))
@@ -118,65 +214,57 @@ def _range_bar(px, lo, hi, width=44) -> str:
             f'width:2px; height:9px; background:{AMBER};"></span></span>')
 
 
-def journal_effective() -> dict:
-    p = DATA / "decision_journal.jsonl"
-    out: dict[str, dict] = {}
-    if not p.exists():
-        return out
-    for line in p.read_text().splitlines():
-        try:
-            e = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        eid = e.get("id", "?")
-        out[eid] = {**out.get(eid, {}), **e}
-    return out
-
-
-def load_json(p: Path):
-    try:
-        return json.loads(p.read_text())
-    except Exception:
-        return None
-
-
 # ── TAPE ─────────────────────────────────────────────────────────────────────
 
-@st.fragment(run_every="60s")
+@st.fragment(run_every="20s")
 def tape():
     calls = journal_effective()
     open_tkrs = [e.get("yf_ticker") for e in calls.values()
                  if e.get("status") == "open" and e.get("yf_ticker")]
     row1 = list(dict.fromkeys(open_tkrs + ["^GSPC", "^NDX", "IWM", "^VIX"]))[:8]
     row2 = ["^TNX", "CL=F", "GC=F", "SI=F", "EURUSD=X", "BTC-USD", "SMH", "TLT"]
+    quotes = get_quotes(list(dict.fromkeys(row1 + row2)))
+    snap = quote_store()
     rows_html = []
+    n_live = 0
     for tickers in (row1, row2):
-        q = tape_quotes(tuple(tickers))
         cells = []
-        for x in q:
-            if x["px"] is None:
+        for t in tickers:
+            q = quotes.get(t)
+            if not q or not isinstance(q.get("px"), (int, float)):
                 continue
-            col = GREEN if x["chg"] >= 0 else RED
-            arrow = "▲" if x["chg"] >= 0 else "▼"
+            px = q["px"]
+            prev = q.get("prev_close")
+            chg = (px / prev - 1) * 100 if prev else 0.0
+            col = GREEN if chg >= 0 else RED
+            arrow = "▲" if chg >= 0 else "▼"
+            live = q.get("type") == "live"
+            n_live += 1 if live else 0
+            dot = (f'<span style="color:{GREEN}; font-size:8px;">●</span>'
+                   if live else "")
             cells.append(
                 f'<td style="padding:1px 16px 1px 0; white-space:nowrap; '
                 f'border-right:1px solid #161b22;">'
-                f'<span style="color:{AMBER}; font-weight:700;">{x["t"].replace("=X","").replace("=F","")}</span> '
-                f'<span style="color:#e8e6e3;">{x["px"]:,.2f}</span> '
-                f'<span style="color:{col}; font-size:11px;">{arrow}{abs(x["chg"]):.2f}%</span>'
-                f'{_range_bar(x["px"], x["dlo"], x["dhi"])}</td>')
+                f'<span style="color:{AMBER}; font-weight:700;">'
+                f'{t.replace("=X", "").replace("=F", "")}</span>{dot} '
+                f'<span style="color:#e8e6e3;">{px:,.2f}</span> '
+                f'<span style="color:{col}; font-size:11px;">{arrow}{abs(chg):.2f}%</span>'
+                f'{_range_bar(px, q.get("day_low"), q.get("day_high"))}</td>')
         rows_html.append(f'<tr>{"".join(cells)}</tr>')
+    src_note = (f'QUOTE DAEMON {snap.get("age_s", 0):.0f}S OLD · '
+                f'{n_live} LIVE (IBKR) · REST DELAYED ~15MIN'
+                if snap else 'DAEMON DOWN — YFINANCE DELAYED ~15MIN')
     st.markdown(
         f'<div style="background:{PANEL_BG}; border:1px solid {PANEL_BORDER}; '
         f'padding:4px 10px; border-radius:2px;">'
         f'<table style="font-size:13px;">{"".join(rows_html)}</table>'
         f'<div style="color:{DIM}; font-size:9px; letter-spacing:1px;">'
-        f'YFINANCE DELAYED ~15MIN · DAY-RANGE BARS LOW→HIGH · AS OF '
-        f'{datetime.now(ET).strftime("%H:%M:%S ET %Y-%m-%d")} · REFRESH 60S</div></div>',
+        f'{src_note} · ●=LIVE · AS OF '
+        f'{datetime.now(ET).strftime("%H:%M:%S ET %Y-%m-%d")} · REFRESH 20S</div></div>',
         unsafe_allow_html=True)
 
 
-# ── PANELS ───────────────────────────────────────────────────────────────────
+# ── RESEARCH FEED ────────────────────────────────────────────────────────────
 
 def research_feed():
     days = sorted([d.name for d in CTX.iterdir() if d.is_dir()], reverse=True) \
@@ -187,10 +275,34 @@ def research_feed():
     day = st.selectbox("brief date", days, index=0, label_visibility="collapsed")
     brief = CTX / day / "brief.md"
     bj = load_json(CTX / day / "brief.json")  # structured (newer briefs)
-    panel_header("RESEARCH FEED", f"{day} · generated by the morning loop engine")
+    macro = load_json(CTX / day / "macro.json")
+    themes_p = KNOW / "narrative" / "current_themes.md"
+    panel_header("RESEARCH FEED", f"{day} · macro → synthesis → red-team → publish")
+    if bj:
+        flags = []
+        if bj.get("redteam") == "missing":
+            flags.append(chip("⚠ UNREDTEAMED", RED))
+        if bj.get("narrative_delta"):
+            flags.append(chip(f"Δ {bj['narrative_delta'][:80]}", AMBER))
+        if flags:
+            st.markdown("".join(flags), unsafe_allow_html=True)
     if bj and bj.get("views"):
         for v in bj["views"]:
             _view_card(v)
+    if bj and bj.get("rejected"):
+        rows = "".join(
+            f'<div style="color:#c9c7c2; font-size:12px; margin:2px 0;">'
+            f'✕ <span style="color:{RED};">{r.get("idea", "?")}</span> — '
+            f'{r.get("killed_by", "")}</div>' for r in bj["rejected"])
+        st.markdown(
+            f'<div style="border:1px solid #2a2f36; border-left:3px solid {RED}; '
+            f'background:#11151a; padding:10px; margin-bottom:10px; border-radius:4px;">'
+            f'<span style="color:{RED}; font-weight:700; font-size:12px;">KILLED IDEAS '
+            f'(the bar exists)</span>{rows}</div>', unsafe_allow_html=True)
+    if macro and macro.get("calendar"):
+        cal = " · ".join(f"{c.get('time_et', '')} {c.get('event', '')}"
+                         for c in macro["calendar"][:6])
+        st.markdown(chip(f"today: {cal}", DIM), unsafe_allow_html=True)
     if brief.exists():
         mtime = datetime.fromtimestamp(brief.stat().st_mtime, ET)
         st.markdown(chip(f"brief.md · written {mtime.strftime('%H:%M ET')}", DIM),
@@ -201,59 +313,77 @@ def research_feed():
                     f'font-family:Menlo,monospace; background:#11151a; padding:14px; '
                     f'border:1px solid #2a2f36; border-radius:4px;">'
                     f'{body}</div>', unsafe_allow_html=True)
+    if themes_p.exists():
+        with st.expander("CURRENT THEMES (rolling market memory — macro stage maintains)"):
+            st.markdown(themes_p.read_text())
 
 
 def _view_card(v: dict):
     conv = (v.get("conviction") or "?").upper()
     cc = GREEN if conv == "HIGH" else AMBER
+    pw = v.get("p_win")
+    src = v.get("source")
     rows = ""
     for ev in v.get("evidence", []):
         link = (f' <a href="{ev["url"]}" target="_self" style="color:{AMBER};">[src]</a>'
                 if ev.get("url") else "")
         ts = chip(ev.get("retrieved", ""), DIM) if ev.get("retrieved") else ""
-        rows += f'<div style="color:#c9c7c2; font-size:12px; margin:2px 0;">• {ev.get("claim","")}{link} {ts}</div>'
+        rows += (f'<div style="color:#c9c7c2; font-size:12px; margin:2px 0;">'
+                 f'• {ev.get("claim", "")}{link} {ts}</div>')
+    meta = ""
+    if pw:
+        meta += chip(f"p_win {pw}", cc)
+    if src:
+        meta += chip(f"src {src}", DIM)
+    if v.get("sizing"):
+        meta += chip(str(v["sizing"])[:40], DIM)
     st.markdown(
         f'<div style="border:1px solid #2a2f36; border-left:3px solid {cc}; '
         f'background:#11151a; padding:12px; margin-bottom:10px; border-radius:4px;">'
-        f'<span style="color:{cc}; font-weight:700;">{v.get("instrument","?")} — '
-        f'{v.get("direction","")} — {conv}</span><br>'
-        f'<span style="color:#e8e6e3; font-size:13px;">{v.get("thesis","")}</span>'
+        f'<span style="color:{cc}; font-weight:700;">{v.get("instrument", "?")} — '
+        f'{v.get("direction", "")} — {conv}</span> {meta}<br>'
+        f'<span style="color:#e8e6e3; font-size:13px;">{v.get("thesis", "")}</span>'
         f'{rows}'
-        f'<div style="margin-top:6px;">{chip("ENTRY " + str(v.get("entry","—")), "#e8e6e3")}'
-        f'{chip("TARGET " + str(v.get("target","—")), GREEN)}'
-        f'{chip("STOP " + str(v.get("stop","—")), RED)}'
-        f'{chip("TIME " + str(v.get("time_stop","—")), DIM)}</div></div>',
+        f'<div style="margin-top:6px;">{chip("ENTRY " + str(v.get("entry", "—")), "#e8e6e3")}'
+        f'{chip("TARGET " + str(v.get("target", "—")), GREEN)}'
+        f'{chip("STOP " + str(v.get("stop", "—")), RED)}'
+        f'{chip("TIME " + str(v.get("time_stop", "—")), DIM)}</div></div>',
         unsafe_allow_html=True)
 
 
+# ── OPEN CALLS + CHARTS ──────────────────────────────────────────────────────
+
 def open_calls_and_charts():
     panel_header("OPEN CALLS · TRADE PLANS", "journal + exit-watcher levels, live chart bands")
-    calls = {k: v for k, v in journal_effective().items() if v.get("status") == "open"}
+    calls = {k: v for k, v in journal_effective().items() if v.get("status") == "open"
+             and v.get("type") == "view"}
     if not calls:
         st.info("No open calls.")
         return
     import plotly.graph_objects as go
-    import yfinance as yf
     for eid, e in calls.items():
         tkr = e.get("yf_ticker")
         cols = st.columns([2, 3])
         with cols[0]:
             _view_card({**e, "evidence": []})
-            st.markdown(chip(f"journaled {e.get('ts','')[:16]}", DIM)
-                        + chip(f"id {eid}", DIM), unsafe_allow_html=True)
+            flags = chip(f"journaled {e.get('ts', '')[:16]}", DIM) + chip(f"id {eid}", DIM)
+            if e.get("ref_px"):
+                flags += chip(f"ref {e['ref_px']}", DIM)
+            if e.get("resolve_pending"):
+                flags += chip(f"⚡ {e.get('hit_level')} hit {str(e.get('hit_ts'))[:16]}", RED)
+            st.markdown(flags, unsafe_allow_html=True)
         with cols[1]:
             if not tkr:
                 continue
             try:
                 from plotly.subplots import make_subplots
-                h = yf.Ticker(tkr).history(period="1y")
-                # technicals
+                h = chart_history(tkr)
                 sma20 = h.Close.rolling(20).mean()
                 sma50 = h.Close.rolling(50).mean()
                 sma200 = h.Close.rolling(200).mean()
                 delta = h.Close.diff()
-                up = delta.clip(lower=0).ewm(alpha=1/14).mean()
-                dn = (-delta.clip(upper=0)).ewm(alpha=1/14).mean()
+                up = delta.clip(lower=0).ewm(alpha=1 / 14).mean()
+                dn = (-delta.clip(upper=0)).ewm(alpha=1 / 14).mean()
                 rsi = 100 - 100 / (1 + up / dn)
                 h6 = h.tail(126); i6 = h6.index   # show 6mo, indicators warmed on 1y
 
@@ -308,6 +438,245 @@ def open_calls_and_charts():
                 st.warning(f"{tkr}: chart unavailable ({exc})")
 
 
+# ── IDEAS · SLATE · WATCHLIST ────────────────────────────────────────────────
+
+BUCKET_COLORS = {"tactical_long": GREEN, "tactical_short": RED,
+                 "pead_fresh": AMBER, "insider_cluster": "#58a6ff",
+                 "revision_leader": "#bc8cff", "cheap_quality": "#33d1c9",
+                 "new_entrant": GREEN, "squeeze_flag": RED}
+
+
+def ideas_tab():
+    slate = load_json(RESEARCH / "candidates_latest.json")
+    panel_header("CANDIDATE SLATE",
+                 (f"{slate['as_of'][:16]} · {slate['n']} names · confluence: "
+                  + (", ".join(slate["confluence"]) or "none"))
+                 if slate else "nightly generators haven't run yet")
+    if slate:
+        rows = []
+        for e in slate["slate"]:
+            bchips = "".join(chip(b, BUCKET_COLORS.get(b, DIM)) for b in e["buckets"])
+            d = e.get("detail", {})
+            det = " ".join(f'{k}={v}' for k, v in list(d.items())[:5])
+            rows.append(
+                f'<tr style="border-bottom:1px solid #161b22;">'
+                f'<td style="padding:3px 10px; color:{AMBER}; font-weight:700;">'
+                f'{e["ticker"]}{" ★" if len(e["buckets"]) >= 2 else ""}</td>'
+                f'<td style="padding:3px 6px;">{bchips}</td>'
+                f'<td style="padding:3px 10px; color:{DIM}; font-size:11px;">{det}</td>'
+                f'<td style="padding:3px 10px; color:{"#e8e6e3" if d.get("next_earnings") else DIM}; '
+                f'font-size:11px;">{d.get("next_earnings", "—")}</td>'
+                f'<td style="padding:3px 10px; text-align:center;">'
+                f'{"📁" if e.get("has_dossier") else ""}</td></tr>')
+        st.markdown(
+            f'<div style="background:{PANEL_BG}; border:1px solid {PANEL_BORDER}; '
+            f'border-radius:2px; padding:4px; overflow-x:auto;">'
+            f'<table style="font-size:12px; font-family:Menlo,monospace; '
+            f'color:#e8e6e3; border-collapse:collapse; width:100%;">'
+            f'<thead><tr>' + "".join(
+                f'<th style="padding:3px 10px; color:{AMBER}; text-align:left; '
+                f'border-bottom:1px solid {PANEL_BORDER};">{h}</th>'
+                for h in ("TKR", "GENERATORS", "DETAIL", "NEXT EPS", "DOSSIER"))
+            + f'</tr></thead><tbody>{"".join(rows)}</tbody></table></div>',
+            unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    panel_header("WATCHLIST", "state machine — ⚡ triggered entries are the warmest leads")
+    try:
+        from advisor.watchlist import load as wl_load
+        wl = wl_load()
+    except Exception:
+        wl = {}
+    active = {t: e for t, e in wl.items() if e.get("state") != "dormant"}
+    if not active:
+        st.info("Watchlist empty — publish parks 'right idea, wrong price' here.")
+    else:
+        state_col = {"watchlist": AMBER, "active_view": GREEN,
+                     "researched": "#58a6ff", "candidate": DIM, "resolved": DIM}
+        rows = []
+        for t, e in sorted(active.items(),
+                           key=lambda kv: (not kv[1].get("triggered"),
+                                           kv[1].get("state") != "watchlist")):
+            trg = e.get("trigger")
+            trg_s = f'{trg["dir"]} {trg["px"]}' if trg else "—"
+            fired = e.get("triggered")
+            rows.append(
+                f'<tr style="border-bottom:1px solid #161b22;">'
+                f'<td style="padding:3px 10px; color:{AMBER}; font-weight:700;">{t}</td>'
+                f'<td style="padding:3px 10px;">{chip(e.get("state", "?"), state_col.get(e.get("state"), DIM))}</td>'
+                f'<td style="padding:3px 10px; color:#e8e6e3; font-size:11px;">{trg_s}</td>'
+                f'<td style="padding:3px 10px; color:{RED}; font-size:11px;">'
+                f'{"⚡ " + str(fired.get("px")) + " @ " + str(fired.get("ts"))[:16] if fired else ""}</td>'
+                f'<td style="padding:3px 10px; color:{DIM}; font-size:11px;">exp {e.get("expires", "—")}</td>'
+                f'<td style="padding:3px 10px; color:{DIM}; font-size:11px;">{e.get("note", "")[:60]}</td></tr>')
+        st.markdown(
+            f'<div style="background:{PANEL_BG}; border:1px solid {PANEL_BORDER}; '
+            f'border-radius:2px; padding:4px;">'
+            f'<table style="font-size:12px; font-family:Menlo,monospace; color:#e8e6e3; '
+            f'border-collapse:collapse; width:100%;"><tbody>{"".join(rows)}</tbody></table></div>',
+            unsafe_allow_html=True)
+
+    clusters = load_json(RESEARCH / "positioning" / "insider_clusters.json")
+    if clusters and clusters.get("clusters"):
+        st.markdown("<br>", unsafe_allow_html=True)
+        panel_header("INSIDER BUY CLUSTERS",
+                      f"{clusters['as_of'][:16]} · ≥2 distinct insiders net buying, "
+                      f"{clusters['window_days']}d window · candidate source, not a factor")
+        for c in clusters["clusters"][:8]:
+            st.markdown(
+                chip(c["ticker"], AMBER)
+                + chip(f"{c['n_buys']} buys / {c['n_sells']} sells", GREEN)
+                + chip(f"net ${c['net_value_usd']:,.0f}", GREEN)
+                + chip(", ".join(c.get("buyers_seen", [])[:3]), DIM),
+                unsafe_allow_html=True)
+
+
+# ── DOSSIER BROWSER ──────────────────────────────────────────────────────────
+
+@st.cache_data(ttl=300)
+def _peek_cached(ticker: str) -> dict:
+    from advisor.research.peek import peek
+    return peek(ticker)
+
+
+def dossier_tab():
+    dossiers = sorted([p.name for p in (KNOW / "dossiers").iterdir()
+                       if p.is_dir()]) if (KNOW / "dossiers").exists() else []
+    panel_header("DOSSIERS", f"{len(dossiers)} names researched · facts persist, opinions re-earn")
+    c1, c2 = st.columns([1, 1])
+    with c1:
+        pick = st.selectbox("dossier", ["—"] + dossiers, index=0,
+                            label_visibility="collapsed")
+    with c2:
+        lookup = st.text_input("any ticker (PIT snapshot readout)",
+                               placeholder="ANY TICKER — e.g. FISV",
+                               label_visibility="collapsed").strip().upper()
+
+    if lookup:
+        try:
+            p = _peek_cached(lookup)
+            st.markdown(chip(f"{lookup} — {p.get('src', '')}", AMBER),
+                        unsafe_allow_html=True)
+            cols = st.columns(4)
+            secs = [("POSITIONING", p.get("positioning")),
+                    ("VALUATION", p.get("valuation")),
+                    ("ESTIMATE MOMENTUM", p.get("estimate_momentum")),
+                    ("ANALYST", p.get("analyst"))]
+            for col, (name, d) in zip(cols, secs):
+                with col:
+                    body = "".join(f'<div style="color:#c9c7c2; font-size:11px;">'
+                                   f'{k}: <span style="color:#e8e6e3;">{v}</span></div>'
+                                   for k, v in (d or {}).items()) or \
+                        f'<div style="color:{DIM}; font-size:11px;">no data yet</div>'
+                    st.markdown(
+                        f'<div style="background:{PANEL_BG}; border:1px solid '
+                        f'{PANEL_BORDER}; padding:8px; border-radius:2px;">'
+                        f'<div style="color:{AMBER}; font-size:10px; '
+                        f'letter-spacing:1px;">{name}</div>{body}</div>',
+                        unsafe_allow_html=True)
+            extra = ""
+            if p.get("next_earnings"):
+                extra += chip(f"next EPS {p['next_earnings'].get('next_earnings', '?')}", AMBER)
+            if p.get("insider_cluster"):
+                extra += chip(f"⚡ insider cluster: {p['insider_cluster']['n_buys']} buys "
+                              f"net ${p['insider_cluster']['net_value_usd']:,.0f}", GREEN)
+            if p.get("last_surprises"):
+                extra += chip("surprises: " + " ".join(
+                    f"{s['date'][:7]}:{s['surprise_pct']}%"
+                    for s in p["last_surprises"]), DIM)
+            if extra:
+                st.markdown(extra, unsafe_allow_html=True)
+        except Exception as exc:
+            st.warning(f"peek failed: {exc}")
+
+    if pick != "—":
+        d = KNOW / "dossiers" / pick
+        meta = load_json(d / "meta.json") or {}
+        facts = load_json(d / "facts.json") or {}
+        stale_days = None
+        try:
+            stale_days = (datetime.now(ET)
+                          - datetime.fromisoformat(meta.get("facts_refreshed"))).days
+        except Exception:
+            pass
+        flags = chip(f"state {meta.get('state', '?')}", "#58a6ff")
+        flags += chip(f"facts {str(meta.get('facts_refreshed', '?'))[:16]}",
+                      RED if (stale_days or 0) > 5 else DIM)
+        flags += chip(f"narrative {str(meta.get('narrative_updated', '—'))[:16]}", DIM)
+        st.markdown(flags, unsafe_allow_html=True)
+        kc1, kc2 = st.columns([1, 2])
+        with kc1:
+            kn = facts.get("key_numbers", {})
+            pos = facts.get("positioning", {})
+            body = "".join(f'<div style="color:#c9c7c2; font-size:11px;">{k}: '
+                           f'<span style="color:#e8e6e3;">{v}</span></div>'
+                           for k, v in list(kn.items())[:12] if v is not None)
+            ins = pos.get("insiders_90d") or {}
+            if ins:
+                body += (f'<div style="color:{AMBER}; font-size:11px; margin-top:4px;">'
+                         f'insiders 90d: {ins.get("n_buys", 0)}B/{ins.get("n_sells", 0)}S '
+                         f'net ${ins.get("net_value_usd", 0):,.0f}</div>')
+            st.markdown(
+                f'<div style="background:{PANEL_BG}; border:1px solid {PANEL_BORDER}; '
+                f'padding:10px; border-radius:2px;">'
+                f'<div style="color:{AMBER}; font-size:10px; letter-spacing:1px;">'
+                f'FACTS ({facts.get("as_of", "?")[:10]})</div>{body}</div>',
+                unsafe_allow_html=True)
+        with kc2:
+            narrative = d / "narrative.md"
+            if narrative.exists():
+                txt = narrative.read_text()
+                if txt.strip().startswith("⚡"):
+                    st.markdown(chip("⚡ REVISIT TRIGGERED", RED), unsafe_allow_html=True)
+                st.markdown(
+                    f'<div style="background:#11151a; border:1px solid #2a2f36; '
+                    f'padding:12px; border-radius:4px; max-height:520px; overflow-y:auto; '
+                    f'color:#c9c7c2; font-size:12.5px;">\n\n', unsafe_allow_html=True)
+                st.markdown(txt)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+
+# ── CALENDAR ─────────────────────────────────────────────────────────────────
+
+def calendar_tab():
+    days = sorted([d.name for d in CTX.iterdir() if d.is_dir()], reverse=True) \
+        if CTX.exists() else []
+    cal = load_json(CTX / days[0] / "calendar.json") if days else None
+    macro = load_json(CTX / days[0] / "macro.json") if days else None
+    panel_header("CATALYST CALENDAR",
+                 f"{cal['as_of'][:16]} · {cal['n_names_tracked']} names tracked · {cal['src']}"
+                 if cal else "no calendar built yet (next 08:15 run)")
+    if macro and macro.get("calendar"):
+        st.markdown("".join(chip(f"{c.get('time_et', '')} {c.get('event', '')}"
+                                 + (f" (cons {c['consensus']})" if c.get("consensus") else ""),
+                                 AMBER) for c in macro["calendar"][:8]),
+                    unsafe_allow_html=True)
+    events = (cal or {}).get("events", [])
+    if not events:
+        st.info("No equity catalysts in the 14-day window for tracked names.")
+        return
+    by_date: dict[str, list] = {}
+    for e in events:
+        by_date.setdefault(e["date"], []).append(e)
+    for d, evs in sorted(by_date.items()):
+        weekday = datetime.fromisoformat(d).strftime("%a")
+        rows = "".join(
+            f'<span style="margin-right:14px;">'
+            f'<span style="color:{AMBER}; font-weight:700;">{e["ticker"]}</span> '
+            f'<span style="color:#c9c7c2; font-size:11px;">{e["event"]}'
+            f'{" ✓" if e.get("confirmed") else " (est)"}</span> '
+            f'{chip(e["why"], GREEN if e["why"] == "HELD" else DIM)}</span>'
+            for e in evs)
+        st.markdown(
+            f'<div style="background:{PANEL_BG}; border:1px solid {PANEL_BORDER}; '
+            f'border-left:3px solid {AMBER}; padding:6px 12px; margin-bottom:4px; '
+            f'border-radius:2px;"><span style="color:{AMBER}; font-size:12px; '
+            f'font-weight:700;">{d} {weekday}</span>&nbsp;&nbsp;{rows}</div>',
+            unsafe_allow_html=True)
+
+
+# ── FACTOR SHEETS ────────────────────────────────────────────────────────────
+
 def factor_sheets():
     s = load_json(RESEARCH / "signals_latest.json")
     if not s:
@@ -318,17 +687,40 @@ def factor_sheets():
                  f"{s['as_of'][:16]} · {s['n_liquid']} liquid of {s['n_universe']} names · "
                  f"regime {reg['name'].upper()} (VIX {reg['vix']} term {reg['vix_term']}) · "
                  f"panel age {s['panel_age_hours']}h")
-    st.markdown(chip(s["method"], DIM), unsafe_allow_html=True)
-    tabs = st.tabs(["LONGS", "SHORTS", "SHOCK (REVERSION CANDIDATES)"])
-    for tab, key in zip(tabs, ("longs", "shorts", "shock_candidates")):
+    st.markdown(chip(s["method"], DIM)
+                + chip("validate2 verdict: factor tilts are candidate generators, "
+                       "NOT proven alpha (see SCORECARD)", RED),
+                unsafe_allow_html=True)
+    fund = load_json(RESEARCH / "fundamental_latest.json")
+    tabs = st.tabs(["LONGS", "SHORTS", "SHOCK (REVERSION CANDIDATES)",
+                    "REVISIONS", "CHEAP-QUALITY"])
+    for tab, key in zip(tabs[:3], ("longs", "shorts", "shock_candidates")):
         with tab:
             items = s.get(key, [])
             if items:
                 st.markdown(_heat_table(items), unsafe_allow_html=True)
+    with tabs[3]:
+        rows = (fund or {}).get("revision_leaders", [])
+        if rows:
+            st.markdown("".join(
+                chip(r["ticker"], AMBER) + chip(f"rev {r.get('est_revision')}", GREEN)
+                + (chip(f"val {r.get('value')}", DIM) if r.get("value") is not None else "")
+                for r in rows), unsafe_allow_html=True)
+            st.markdown(chip((fund or {}).get("gate", ""), RED), unsafe_allow_html=True)
+        else:
+            st.info("Revision sheet builds from tonight's estimate snapshots.")
+    with tabs[4]:
+        rows = (fund or {}).get("cheap_quality", [])
+        if rows:
+            st.markdown("".join(
+                chip(r["ticker"], AMBER) + chip(f"value {r.get('value')}", GREEN)
+                + chip(f"quality {r.get('quality')}", "#33d1c9") for r in rows),
+                unsafe_allow_html=True)
+        else:
+            st.info("Cheap-quality joint screen builds as snapshots accrue.")
 
 
 def _heat_cell(v) -> str:
-    """z-score cell with green/red intensity background — the heatmap look."""
     if v is None:
         return f'<td style="text-align:center; color:{DIM};">—</td>'
     a = max(-3.0, min(3.0, float(v)))
@@ -378,20 +770,22 @@ def _heat_table(items: list[dict]) -> str:
             f'<thead><tr>{head}</tr></thead><tbody>{"".join(rows)}</tbody></table></div>')
 
 
+# ── PORTFOLIO / RISK / ALERTS ────────────────────────────────────────────────
+
 def portfolio_risk():
     # ADVISOR BOOK ONLY — the legacy bot's pre-advisor record is a different
     # strategy and is deliberately not shown here (user rule 2026-06-12).
     panel_header("PORTFOLIO / RISK", "advisor book only — strategy started 2026-06-12")
     calls = journal_effective()
-    open_calls = {k: v for k, v in calls.items() if v.get("status") == "open"}
+    open_calls = {k: v for k, v in calls.items()
+                  if v.get("status") == "open" and v.get("type") == "view"}
     resolved = {k: v for k, v in calls.items()
                 if v.get("status") in ("hit_target", "stopped", "time_stop", "closed")}
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("BUDGET", "$25,000", "advisor mandate")
     c2.metric("OPEN CALLS", len(open_calls))
     c3.metric("RESOLVED CALLS", len(resolved),
-              f"{sum(1 for v in resolved.values() if v.get('status')=='hit_target')} hit target")
-    # live executions via Tier 1 land in bot state — show only if one is open
+              f"{sum(1 for v in resolved.values() if v.get('status') == 'hit_target')} hit target")
     days = sorted([d.name for d in CTX.iterdir() if d.is_dir()], reverse=True) \
         if CTX.exists() else []
     snap = load_json(CTX / days[0] / "portfolio.json") if days else None
@@ -400,25 +794,40 @@ def portfolio_risk():
               if op else "NONE")
     if open_calls:
         st.markdown(_levels_board(open_calls), unsafe_allow_html=True)
-    alerts = {k: v for k, v in (load_json(DATA / "watcher_alerts.json") or {}).items() if v}
-    if alerts:
-        st.markdown(f'<div style="color:{DIM}; font-size:12px;">exit-watcher alerts fired: '
-                    + ", ".join(f"{k} ({','.join(v.keys())})" for k, v in alerts.items())
-                    + "</div>", unsafe_allow_html=True)
-    else:
-        st.markdown(f'<div style="color:{DIM}; font-size:12px;">exit-watcher: armed on all '
-                    f'open calls — no levels hit yet</div>', unsafe_allow_html=True)
+
+    panel_header("ALERT CENTER", "filings on held/watched names · watcher level hits")
+    alerts = load_jsonl_tail(DATA / "alerts" / "intraday_alerts.jsonl", 15)
+    watcher = {k: v for k, v in (load_json(DATA / "watcher_alerts.json") or {}).items() if v}
+    if not alerts and not watcher:
+        st.markdown(f'<div style="color:{DIM}; font-size:12px;">quiet — exit-watcher '
+                    f'armed, filing poller live (RTH, 20min)</div>',
+                    unsafe_allow_html=True)
+    for a in alerts:
+        st.markdown(
+            chip(a.get("ts", "")[:16], DIM)
+            + chip(a.get("ticker", "?"), AMBER)
+            + chip(f"{a.get('form', a.get('kind', ''))} filed {a.get('filed', '')}", "#58a6ff")
+            + f'<a href="{a.get("url", "")}" target="_self" style="color:{AMBER}; '
+              f'font-size:11px;">[filing]</a>',
+            unsafe_allow_html=True)
+    if watcher:
+        st.markdown(f'<div style="color:{DIM}; font-size:12px; margin-top:6px;">'
+                    f'watcher level-hits: '
+                    + ", ".join(f"{k} ({','.join(v.keys())})" for k, v in watcher.items())
+                    + '</div>', unsafe_allow_html=True)
 
 
 def _levels_board(open_calls: dict) -> str:
     """Live stop ↔ price ↔ target position bar per open call."""
-    tkrs = tuple(sorted({v.get("yf_ticker") for v in open_calls.values()
-                         if v.get("yf_ticker")}))
-    px_map = {x["t"]: x["px"] for x in tape_quotes(tkrs) if x["px"]}
+    tkrs = [v.get("yf_ticker") for v in open_calls.values() if v.get("yf_ticker")]
+    quotes = get_quotes(sorted(set(tkrs)))
+    px_map = {t: q["px"] for t, q in quotes.items()
+              if isinstance(q.get("px"), (int, float))}
     rows = []
     for k, v in open_calls.items():
         tkr = v.get("yf_ticker", "")
         px, sp, tp = px_map.get(tkr), v.get("stop_px"), v.get("target_px")
+        src = (quotes.get(tkr) or {}).get("src", "")
         bar = f'<span style="color:{DIM};">no live levels</span>'
         if all(isinstance(x, (int, float)) for x in (px, sp, tp)) and sp != tp:
             long_ = (v.get("direction") or "long").lower() != "short"
@@ -438,15 +847,15 @@ def _levels_board(open_calls: dict) -> str:
                 f'<span style="color:#e8e6e3;">px {px:,.2f}</span> '
                 f'<span style="color:{t_col}; font-size:10px;">{toward}</span> '
                 f'<span style="color:{DIM}; font-size:10px;">'
-                f'({"long" if long_ else "short"} · {pos*100:.0f}% of stop→target)</span>')
+                f'({"long" if long_ else "short"} · {pos*100:.0f}% · {src})</span>')
         rows.append(
             f'<tr style="border-bottom:1px solid #161b22;">'
             f'<td style="padding:4px 10px; color:{AMBER}; font-weight:700; '
-            f'white-space:nowrap;">{v.get("instrument","?")[:34]}</td>'
+            f'white-space:nowrap;">{v.get("instrument", "?")[:34]}</td>'
             f'<td style="padding:4px 10px; color:{DIM}; font-size:10px;">{k}</td>'
             f'<td style="padding:4px 10px; white-space:nowrap;">{bar}</td>'
             f'<td style="padding:4px 10px; color:{DIM}; font-size:10px; '
-            f'white-space:nowrap;">t-stop {v.get("time_stop","—")}</td></tr>')
+            f'white-space:nowrap;">t-stop {v.get("time_stop", "—")}</td></tr>')
     return (f'<div style="background:{PANEL_BG}; border:1px solid {PANEL_BORDER}; '
             f'border-radius:2px; padding:4px; margin-top:6px;">'
             f'<table style="font-family:Menlo,monospace; font-size:12px; '
@@ -454,54 +863,128 @@ def _levels_board(open_calls: dict) -> str:
             f'{"".join(rows)}</table></div>')
 
 
+# ── SCORECARD · CALIBRATION · VALIDATION ─────────────────────────────────────
+
 def scorecard_doctrine():
-    panel_header("SCORECARD · DOCTRINE", "every call, accountable; the engine's rules")
+    panel_header("SCORECARD · DOCTRINE", "every call accountable; every number honest")
     calls = journal_effective()
     rows = [{"id": k, "status": v.get("status"), "type": v.get("type"),
              "instrument": v.get("instrument"), "dir": v.get("direction"),
+             "src": v.get("source"), "p_win": v.get("p_win"),
+             "ref_px": v.get("ref_px"), "R": v.get("realized_r"),
+             "outcome": v.get("outcome_tag"),
              "entry": v.get("entry"), "target": v.get("target"),
-             "stop": v.get("stop"), "ts": (v.get("ts") or "")[:16],
-             "note": v.get("note", "")}
-            for k, v in calls.items()]
+             "stop": v.get("stop"), "ts": (v.get("ts") or "")[:16]}
+            for k, v in calls.items() if v.get("type") != "stamp"]
     if rows:
         df = pd.DataFrame(rows)
         resolved = df[df.status.isin(["hit_target", "stopped", "time_stop", "closed"])]
         wins = (resolved.status == "hit_target").sum()
-        c1, c2, c3 = st.columns(3)
+        c1, c2, c3, c4 = st.columns(4)
         c1.metric("CALLS (ALL)", len(df))
         c2.metric("RESOLVED", len(resolved))
-        c3.metric("HIT RATE", f"{wins/len(resolved)*100:.0f}%" if len(resolved) else "—")
-        st.dataframe(df, use_container_width=True, hide_index=True, height=260)
-    val = load_json(RESEARCH / "ic_validation.json")
-    if val:
-        wf = val.get("walk_forward_top20") or {}
-        d = val.get("decay") or {}
+        c3.metric("HIT RATE", f"{wins / len(resolved) * 100:.0f}%" if len(resolved) else "—")
+        c4.metric("REJECTED TRACKED",
+                  int((df.type == "rejected").sum()) if "type" in df else 0,
+                  "counterfactual-scored")
+        st.dataframe(df, use_container_width=True, hide_index=True, height=240)
+
+    cal = load_json(RESEARCH / "calibration_latest.json")
+    att = load_json(RESEARCH / "attribution_latest.json")
+    cc1, cc2 = st.columns(2)
+    with cc1:
+        body = f'<div style="color:{DIM}; font-size:12px;">not computed yet</div>'
+        if cal:
+            rel = "".join(
+                f'<div style="color:#c9c7c2; font-size:11px;">stated {p}: '
+                f'n={r["n"]} realized {r["realized_hit_rate"]}</div>'
+                for p, r in (cal.get("reliability_by_stated_p") or {}).items())
+            body = (f'<div style="color:#e8e6e3; font-size:13px;">Brier '
+                    f'{cal.get("brier", "—")} vs 0.25 baseline · '
+                    f'n={cal.get("n_resolved_scored")}</div>'
+                    f'{chip(cal.get("sample_gate", ""), AMBER)}{rel}')
         st.markdown(
             f'<div style="border:1px solid #2a2f36; background:#11151a; padding:10px; '
-            f'border-radius:4px; margin:8px 0;">'
-            f'<span style="color:{AMBER}; font-weight:700;">SIGNAL VALIDATION</span> '
-            + chip(f"as of {val.get('as_of','')[:16]}", DIM)
+            f'border-radius:4px;"><span style="color:{AMBER}; font-weight:700;">'
+            f'CONVICTION CALIBRATION</span><br>{body}</div>', unsafe_allow_html=True)
+    with cc2:
+        body = f'<div style="color:{DIM}; font-size:12px;">not computed yet</div>'
+        if att:
+            body = "".join(
+                f'<div style="color:#c9c7c2; font-size:11px;">'
+                f'<span style="color:{AMBER};">{src}</span> n={t["n"]} '
+                f'hit={t["hit_rate"]} avgR={t["avg_realized_r"]} '
+                f'<span style="color:{DIM};">[{t["sample_gate"]}]</span></div>'
+                for src, t in (att.get("by_source") or {}).items()) or body
+            kills = [c for c in att.get("rejected_counterfactuals", [])
+                     if c.get("kill_cost_pct") is not None]
+            if kills:
+                worst = max(kills, key=lambda c: c["kill_cost_pct"])
+                body += (f'<div style="color:{DIM}; font-size:11px; margin-top:4px;">'
+                         f'kill costs tracked on {len(kills)} rejects · worst: '
+                         f'{worst["yf_ticker"]} {worst["kill_cost_pct"]:+.1f}%</div>')
+        st.markdown(
+            f'<div style="border:1px solid #2a2f36; background:#11151a; padding:10px; '
+            f'border-radius:4px;"><span style="color:{AMBER}; font-weight:700;">'
+            f'ATTRIBUTION BY GENERATOR</span><br>{body}</div>', unsafe_allow_html=True)
+
+    v2 = load_json(RESEARCH / "validation2_latest.json")
+    if v2:
+        wf = v2.get("walk_forward_top20", {})
+        dsr = (wf.get("deflated_sharpe") or {}).get("dsr")
+        survivors = [k for k, t in v2.get("tests", {}).items()
+                     if t.get("fdr10_survives")]
+        st.markdown(
+            f'<div style="border:1px solid #2a2f36; border-left:3px solid {RED}; '
+            f'background:#11151a; padding:10px; border-radius:4px; margin:8px 0;">'
+            f'<span style="color:{AMBER}; font-weight:700;">VALIDATION (validate2 — honest)</span> '
+            + chip(f"as of {v2.get('as_of', '')[:16]}", DIM)
+            + chip(f"config {v2.get('config_hash')}", DIM)
             + f'<div style="color:#c9c7c2; font-size:12px; margin-top:6px;">'
-            f'walk-forward top-20: <span style="color:{GREEN};">'
-            f'{wf.get("total_return_pct","?"):+.1f}%</span> vs SPY '
-            f'{wf.get("spy_total_pct","?"):+.1f}% ({wf.get("n_periods","?")} periods) · '
-            f'beta {wf.get("beta_vs_spy","?")} → alpha '
-            f'<span style="color:{GREEN};">{wf.get("alpha_per_21d_pct","?"):+.2f}%/21d</span> · '
-            f'worst {wf.get("worst_period_pct","?"):+.1f}%<br>'
-            + " · ".join(f'{k} IC {s["mean_ic"]:+.3f} (t {s["t_stat"]})'
-                         for k, s in (val.get("factors") or {}).items() if s)
-            + f'<br>decay: rank autocorr {d.get("rank_autocorr_21d","?")} · '
-            f'top-decile retention {d.get("top_decile_retention_21d","?")}'
-            + (f' · shock drift {val["pead_shock_drift"]["mean_signed_drift_excess_21d_pct"]:+.2f}%/21d '
-               f'(t {val["pead_shock_drift"]["t_stat"]}) → REVERSION'
-               if val.get("pead_shock_drift") else "")
-            + f'</div><div style="color:{DIM}; font-size:10px; margin-top:4px;">'
-            + " · ".join(val.get("caveats", [])) + "</div></div>",
+            f'{v2.get("n_periods")} non-overlapping 21d periods over ~10y · '
+            f'{v2.get("n_tests_in_grid")} tests · FDR-10% survivors: '
+            f'<span style="color:{RED};">{", ".join(survivors) or "NONE"}</span><br>'
+            f'walk-forward net {wf.get("net_total_return_pct")}% vs SPY '
+            f'{wf.get("spy_total_pct")}% · deflated Sharpe '
+            f'<span style="color:{RED if (dsr or 0) < 0.95 else GREEN};">{dsr}</span> '
+            f'(&lt;0.95 = not proven)</div>'
+            f'<div style="color:{DIM}; font-size:10px; margin-top:4px;">'
+            + " · ".join(v2.get("caveats", [])[:2]) + '</div></div>',
             unsafe_allow_html=True)
+
+    ic = load_json(RESEARCH / "ic_live.json")
+    if ic and ic.get("factors"):
+        line = " · ".join(f'{k} {s["ewma_ic"]:+.3f}' for k, s in ic["factors"].items())
+        st.markdown(chip(f"live IC (maturing, {ic.get('n_matured')} obs): {line}", DIM),
+                    unsafe_allow_html=True)
+    else:
+        st.markdown(chip("live IC series: first snapshots mature in ~21 trading days", DIM),
+                    unsafe_allow_html=True)
+
+    lessons = load_jsonl_tail(DATA / "lessons.jsonl", 6)
+    if lessons:
+        body = "".join(
+            f'<div style="color:#c9c7c2; font-size:11px;">'
+            f'{le.get("ts", "")[:10]} <span style="color:{AMBER};">{le.get("call_id")}</span> '
+            f'{le.get("outcome_tag", "")} — {le.get("proposed_lesson") or "no lesson"}</div>'
+            for le in lessons)
+        st.markdown(
+            f'<div style="border:1px solid #2a2f36; background:#11151a; padding:10px; '
+            f'border-radius:4px;"><span style="color:{AMBER}; font-weight:700;">'
+            f'POST-MORTEM LESSONS (auto)</span>{body}</div>', unsafe_allow_html=True)
+
+    val = load_json(RESEARCH / "ic_validation.json")
+    if val:
+        with st.expander("legacy 2y validation (superseded by validate2 — kept for history)"):
+            st.json(val)
     with st.expander("METHODOLOGY (loop doctrine + lessons log)"):
         st.markdown((REPO / "advisor" / "METHODOLOGY.md").read_text())
     with st.expander("IPS (investment policy)"):
         st.markdown((REPO / "advisor" / "IPS.md").read_text())
+    with st.expander("TUNING NOTES (data-gated decisions)"):
+        p = REPO / "advisor" / "TUNING_NOTES.md"
+        if p.exists():
+            st.markdown(p.read_text())
 
 
 # ── LAYOUT ───────────────────────────────────────────────────────────────────
@@ -513,7 +996,7 @@ def _regime_chip() -> str:
     col = {"RISK_ON": GREEN, "NEUTRAL": AMBER, "STRESS": RED}.get(name, DIM)
     return (f'<span style="color:{col}; border:1px solid {col}; padding:1px 8px; '
             f'border-radius:2px; font-size:11px; font-weight:700;">REGIME {name}'
-            f' · VIX {reg.get("vix","?")} · TERM {reg.get("vix_term","?")}</span>')
+            f' · VIX {reg.get("vix", "?")} · TERM {reg.get("vix_term", "?")}</span>')
 
 
 st.markdown(
@@ -526,67 +1009,124 @@ st.markdown(
     f'READ-ONLY RESEARCH CONSOLE · NO EXECUTION PATHS</span></span>'
     f'{_regime_chip()}</div>',
     unsafe_allow_html=True)
+
+# ── manual brief regen + hard refresh ────────────────────────────────────────
+_bc1, _bc2, _bc3 = st.columns([1, 1, 6])
+with _bc1:
+    if st.button("🔄 REGEN BRIEF", use_container_width=True,
+                 help="Run the full morning pipeline now (macro → synthesis → "
+                      "red-team → publish). Single-flight locked."):
+        already = subprocess.run(["pgrep", "-f", "run_brief.sh|advisor.orchestrator"],
+                                 capture_output=True, text=True).stdout.strip()
+        if already:
+            st.toast("A brief pipeline is already running — not starting a second.",
+                     icon="🔒")
+        else:
+            try:
+                subprocess.Popen(["/bin/zsh", str(REPO / "advisor" / "run_brief.sh")],
+                                 stdout=open("/tmp/manual_brief.log", "a"),
+                                 stderr=subprocess.STDOUT,
+                                 cwd=REPO, start_new_session=True)
+                st.toast("Pipeline started (~15-30 min for the full chain). "
+                         "Watch the footer; hit REFRESH when publish lands.", icon="🔄")
+            except Exception as _e:
+                st.toast(f"regen failed: {_e}", icon="⚠️")
+with _bc2:
+    if st.button("🔃 REFRESH", use_container_width=True,
+                 help="Clear caches and reload every panel from disk."):
+        st.cache_data.clear()
+        st.rerun()
 tape()
 
-t1, t2, t3, t4, t5 = st.tabs(
-    ["RSCH ▸ RESEARCH", "CALL ▸ OPEN CALLS", "FCTR ▸ FACTOR SHEETS",
+t1, t2, t3, t4, t5, t6, t7, t8 = st.tabs(
+    ["RSCH ▸ RESEARCH", "CALL ▸ OPEN CALLS", "IDEA ▸ SLATE·WATCH",
+     "FCTR ▸ FACTORS", "DOSR ▸ DOSSIERS", "CAL ▸ CALENDAR",
      "PORT ▸ PORTFOLIO", "SCOR ▸ SCORECARD"])
 with t1:
     research_feed()
 with t2:
     open_calls_and_charts()
 with t3:
-    factor_sheets()
+    ideas_tab()
 with t4:
-    portfolio_risk()
+    factor_sheets()
 with t5:
+    dossier_tab()
+with t6:
+    calendar_tab()
+with t7:
+    portfolio_risk()
+with t8:
     scorecard_doctrine()
 
 
 # ── STATUS FOOTER (service health + data ages) ───────────────────────────────
 
+SERVICES = (("advisor-quoted", "QUOTED"), ("advisor-approvals", "APPROVALS"),
+            ("advisor-exitwatch", "EXITWATCH"), ("advisor-terminal", "TERMINAL"),
+            ("advisor-events", "EVENTS"), ("advisor-watchdog", "WATCHDOG"),
+            ("advisor-brief", "BRIEF"), ("advisor-research", "RSCH"),
+            ("advisor-librarian", "LIBRARIAN"), ("advisor-ivsnap", "IVSNAP"))
+
+
 @st.cache_data(ttl=60)
 def _service_status() -> list[tuple]:
-    import subprocess
     out = []
     try:
         listing = subprocess.run(["launchctl", "list"], capture_output=True,
                                  text=True, timeout=5).stdout
-        for svc, label in (("advisor-approvals", "APPROVALS"),
-                           ("advisor-exitwatch", "EXITWATCH"),
-                           ("advisor-terminal", "TERMINAL"),
-                           ("advisor-brief", "BRIEF.SCHED"),
-                           ("advisor-research", "RSCH.SCHED")):
+        for svc, label in SERVICES:
             line = [l for l in listing.splitlines() if svc in l]
             if not line:
                 out.append((label, "MISSING", RED))
-            elif line[0].split()[0] != "-":
+                continue
+            pid, status = line[0].split()[0], line[0].split()[1]
+            if pid != "-":
                 out.append((label, "LIVE", GREEN))
+            elif status == "0":
+                out.append((label, "OK", AMBER))       # scheduled, last run clean
+            elif status == "-15":
+                out.append((label, "RESTART", AMBER))  # we SIGTERMed it
             else:
-                out.append((label, "SCHED", AMBER))
+                out.append((label, f"ERR({status})", RED))   # THE fix: exit codes visible
     except Exception:
         out.append(("LAUNCHCTL", "ERR", RED))
     return out
 
 
+def _last_pipeline_note() -> str:
+    rows = load_jsonl_tail(REPO / "advisor" / "logs" / "pipeline_runs.jsonl", 12)
+    for r in rows:
+        if r.get("stage") == "pipeline":
+            ok = r.get("rc") == 0
+            return (f'PIPE <span style="color:{GREEN if ok else RED};">'
+                    f'{"OK" if ok else "rc=" + str(r.get("rc"))}</span> '
+                    f'{r.get("ts", "")[5:16]}')
+    return "PIPE —"
+
+
 def status_footer():
     cells = "".join(
-        f'<span style="margin-right:14px;"><span style="color:{DIM};">{n}</span> '
+        f'<span style="margin-right:12px;"><span style="color:{DIM};">{n}</span> '
         f'<span style="color:{c}; font-weight:700;">●{s}</span></span>'
         for n, s, c in _service_status())
     meta = load_json(RESEARCH / "panels" / "meta.json") or {}
     import time as _t
-    panel_age = (_t.time() - meta.get("built_unix", 0)) / 3600 if meta else None
+    panel_age = (_t.time() - meta.get("built_unix", 0)) / 3600 if meta.get("built_unix") else None
     sig = load_json(RESEARCH / "signals_latest.json") or {}
-    ages = (f'PANEL {panel_age:.1f}H' if panel_age and panel_age < 1e4 else 'PANEL —')
+    snap = quote_store()
+    ages = (f'QUOTES {snap.get("age_s", 0):.0f}s' if snap else 'QUOTES DOWN')
+    ages += f' · PANEL {panel_age:.1f}h' if panel_age and panel_age < 1e4 else ' · PANEL —'
     ages += f' · SIGNALS {(sig.get("as_of") or "—")[:16]}'
-    n_open = sum(1 for e in journal_effective().values() if e.get("status") == "open")
+    ages += f' · {_last_pipeline_note()}'
+    n_open = sum(1 for e in journal_effective().values()
+                 if e.get("status") == "open" and e.get("type") == "view")
     st.markdown(
         f'<div style="background:{PANEL_BG}; border:1px solid {PANEL_BORDER}; '
         f'padding:3px 12px; border-radius:2px; margin-top:6px; font-size:10px; '
         f'font-family:Menlo,monospace; display:flex; justify-content:space-between;">'
         f'<span>{cells}</span>'
-        f'<span style="color:{DIM};">{ages} · OPEN CALLS {n_open} · '
+        f'<span style="color:{DIM};">{ages} · OPEN {n_open} · '
         f'{datetime.now(ET).strftime("%a %H:%M ET")}</span></div>',
         unsafe_allow_html=True)
 
