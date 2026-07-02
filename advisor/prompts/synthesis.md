@@ -20,10 +20,17 @@ hostile second reader.
 
 In CONTEXT_DIR: `portfolio.json/txt`, `market.json/txt`, `quant.json/txt`,
 `factor_sheet.json/txt` (full-market cross-section — YOU MUST review LONG,
-SHORT and SHOCK sheets; single-name ideas come from here and the news loop,
-never from memory). Also read the last ~20 lines of
-`advisor/data/decision_journal.jsonl` (your open calls) and
-`python -m advisor.proposals --list` for pending proposals.
+SHORT and SHOCK sheets), and **`candidates.json` — the stratified slate.
+TRIAGE THE SLATE FIRST**: ~50 names from every generator (tactical
+long/short, PEAD-fresh, insider clusters, revision leaders, cheap-quality,
+new entrants, squeeze flags), each tagged with WHY it's there plus
+next-earnings date and dossier existence. Names in `confluence` (flagged by
+≥2 independent generators) get research priority. `fundamental.json` holds
+the underlying prospective sheets (zero composite weight — nomination only).
+Single-name ideas come from this slate and the news loop, never from memory.
+Also read the last ~20 lines of `advisor/data/decision_journal.jsonl`
+(your open calls) and `python -m advisor.proposals --list` for pending
+proposals.
 
 NEW-DATA CHECKLIST (mandatory per candidate you take seriously):
 ```

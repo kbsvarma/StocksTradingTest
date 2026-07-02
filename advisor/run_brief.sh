@@ -43,6 +43,9 @@ if panel_age_hours() > 20:
 PYEOF
 cp advisor/data/research/signals_latest.json "$CTX/factor_sheet.json" 2>/dev/null || true
 cp advisor/data/research/signals_latest.txt "$CTX/factor_sheet.txt" 2>/dev/null || true
+# stratified candidate slate + fundamental sheets (nightly generators)
+cp advisor/data/research/candidates_latest.json "$CTX/candidates.json" 2>/dev/null || true
+cp advisor/data/research/fundamental_latest.json "$CTX/fundamental.json" 2>/dev/null || true
 
 # Three-stage pipeline (synthesis → red-team → publish), INTELLIGENCE_PLAN §4.
 # The orchestrator owns stage tool-whitelists, checks, retries, the legacy

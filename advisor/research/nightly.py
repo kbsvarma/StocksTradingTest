@@ -76,6 +76,30 @@ def run(subset: int | None = None, ingest: bool = True) -> int:
         except Exception as exc:
             print(f"[nightly] ingest failed (non-fatal — signals already written): {exc}")
 
+        # downstream of ingest: fundamental scores → candidate slate → live IC.
+        # Each guarded — a failure here never blocks the morning.
+        try:
+            from advisor.research.factors_fundamental import (OUT as FOUT,
+                                                              compute_scores,
+                                                              render_top)
+            f, meta = compute_scores()
+            FOUT.write_text(json.dumps(render_top(f, meta), indent=2))
+            print(f"[nightly] fundamental scores → {FOUT.name}")
+        except Exception as exc:
+            print(f"[nightly] fundamental scores failed (non-fatal): {exc}")
+        try:
+            from advisor.research.candidates import main as candidates_main
+            candidates_main()
+        except Exception as exc:
+            print(f"[nightly] candidates failed (non-fatal): {exc}")
+        try:
+            from advisor.research.ic_monitor import mature
+            res = mature()
+            print(f"[nightly] ic_monitor: {res['n_matured']} matured "
+                  f"(+{res['n_new_this_run']})")
+        except Exception as exc:
+            print(f"[nightly] ic_monitor failed (non-fatal): {exc}")
+
     print(f"[nightly] done in {time.time()-t0:.0f}s", flush=True)
     return 0
 
