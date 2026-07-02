@@ -7,9 +7,13 @@ mis-classifies resolved views — always derive origin here).
 
 Legacy rows (pre schema-v2) lack ref_px/p_win/source; every function here
 degrades gracefully and labels what it could not compute.
+
+CLI: python -m advisor.research.outcomes --path TICKER --start ISO [--end ISO]
 """
 from __future__ import annotations
 
+import json as _json
+import sys as _sys
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -104,6 +108,35 @@ def derive_outcome(e: dict) -> dict:
             "p_win_effective": p_win_of(e)}
 
 
+def price_path(ticker: str, start_iso: str, end_iso: str | None = None) -> dict:
+    """Daily closes over a call's life + SPY same-window — the post-mortem's
+    deterministic price evidence. CLI: python -m advisor.research.outcomes
+    --path TICKER --start ISO [--end ISO]"""
+    import yfinance as yf
+    start = start_iso[:10]
+    end = (end_iso or datetime.now(ET).isoformat())[:10]
+    out = {"ticker": ticker, "start": start, "end": end,
+           "src": "yfinance EOD"}
+    try:
+        h = yf.Ticker(ticker).history(start=start)
+        h = h[h.index.date <= datetime.fromisoformat(end).date()]
+        closes = [(str(i.date()), round(float(c), 2))
+                  for i, c in h.Close.items()]
+        out["closes"] = closes
+        if len(closes) >= 2:
+            out["return_pct"] = round((closes[-1][1] / closes[0][1] - 1) * 100, 2)
+            out["max_px"] = max(c for _, c in closes)
+            out["min_px"] = min(c for _, c in closes)
+        spy = yf.Ticker("SPY").history(start=start)
+        spy = spy[spy.index.date <= datetime.fromisoformat(end).date()]
+        if len(spy) >= 2:
+            out["spy_return_pct"] = round(
+                (float(spy.Close.iloc[-1]) / float(spy.Close.iloc[0]) - 1) * 100, 2)
+    except Exception as exc:
+        out["error"] = str(exc)
+    return out
+
+
 def forward_return(ticker: str, ref_px: float, ref_ts: str | None) -> dict | None:
     """Return since ref (vs SPY same window) — the rejected-idea counterfactual.
     Pure yfinance delayed data, labeled."""
@@ -127,3 +160,19 @@ def forward_return(ticker: str, ref_px: float, ref_ts: str | None) -> dict | Non
                 "src": "yfinance delayed ~15min"}
     except Exception:
         return None
+
+
+def _main() -> int:
+    args = _sys.argv[1:]
+    if "--path" in args and "--start" in args:
+        t = args[args.index("--path") + 1].upper()
+        start = args[args.index("--start") + 1]
+        end = args[args.index("--end") + 1] if "--end" in args else None
+        print(_json.dumps(price_path(t, start, end), indent=2))
+        return 0
+    print(__doc__)
+    return 2
+
+
+if __name__ == "__main__":
+    _sys.exit(_main())

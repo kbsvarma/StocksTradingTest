@@ -19,6 +19,11 @@ LOG="advisor/logs/librarian_$DATE.log"
 DOW=$(date +%u)
 if [ "$DOW" -gt 5 ]; then echo "weekend — skipping" >> "$LOG"; exit 0; fi
 
+# post-mortems first: resolve level-hit / past-time-stop calls while today's
+# price path is fresh (facts already journaled by the watcher)
+export CLAUDE_BIN="$CLAUDE"
+"$PY" -m advisor.postmortem_runner --max 3 >> "$LOG" 2>&1 || true
+
 # deterministic queue (3-5 names: open calls, new entrants, stale dossiers)
 QUEUE="advisor/data/research/queue_$DATE.json"
 "$PY" -m advisor.research.librarian_queue --max 5 >> "$LOG" 2>&1 || true

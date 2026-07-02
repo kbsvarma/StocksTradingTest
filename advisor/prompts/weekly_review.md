@@ -47,13 +47,17 @@ Any rule violations this week (caps, process, missed journaling)? Any rule
 that's proving wrong and should be *proposed* for change (user decides)?
 
 ### C2. Update the doctrine (self-improvement — this is how the engine learns)
-Read `advisor/METHODOLOGY.md`. Based on this week's resolved calls, APPEND
-to the LESSONS LOG (never edit existing entries): what worked, what failed,
-and WHY — at the level of process, not just outcome (e.g. "vol_check verdict
-CHEAP correctly flagged the IWM trade" or "prediction-market odds were wrong
-about X — weight them lower when liquidity thin"). If a standing principle
-was contradicted by evidence, append the contradiction; propose principle
-changes to the user in the review rather than rewriting them yourself.
+Read `advisor/METHODOLOGY.md` AND `advisor/data/lessons.jsonl` (automated
+per-call post-mortem lessons with stage_verdicts). Promotion rule: a lesson
+is APPENDED to the METHODOLOGY LESSONS LOG only when (a) ≥3 independent
+lessons.jsonl entries support the same transferable pattern (cite their
+call_ids), or (b) one catastrophic instance. Never edit existing entries.
+DOCTRINE DIFFS: when a LESSONS LOG entry has survived ≥4 weeks without
+contradiction and implies a concrete prompt/process change, write the exact
+proposed diff (file, section, old → new text) to
+`advisor/data/proposals/doctrine_<date>.md` and put a one-line pointer in
+the Telegram review. The user applies it or ignores it — you NEVER edit
+prompts/METHODOLOGY principles yourself.
 
 ### C3. Signal health (quant engine self-check)
 Run `python -m advisor.research.validate` and compare factor ICs with the

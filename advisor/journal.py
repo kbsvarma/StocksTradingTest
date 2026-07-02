@@ -185,10 +185,24 @@ def main() -> int:
     ap.add_argument("--fields", default="",
                     help="extra JSON merged into the resolve row (v2 outcome fields)")
     ap.add_argument("--stamp-ref", action="store_true")
+    ap.add_argument("--lesson",
+                    help="append a structured post-mortem lesson (JSON) to lessons.jsonl")
     a = ap.parse_args()
 
     if a.stamp_ref:
         stamp_refs()
+        return 0
+    if a.lesson:
+        try:
+            lesson = json.loads(a.lesson)
+        except json.JSONDecodeError as exc:
+            print(f"REFUSED: --lesson is not valid JSON: {exc}", file=sys.stderr)
+            return 1
+        lesson.setdefault("ts", _now().isoformat())
+        base = journal_path().parent
+        with (base / "lessons.jsonl").open("a", encoding="utf-8") as f:
+            f.write(json.dumps(lesson) + "\n")
+        print(f"lesson recorded for {lesson.get('call_id', '?')}")
         return 0
 
     if a.add:
