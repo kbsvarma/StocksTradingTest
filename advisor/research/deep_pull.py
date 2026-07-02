@@ -223,6 +223,19 @@ def pull(ticker: str) -> dict:
             **(p.get("estimate_momentum") or {})}
         facts["events"] = {"next_earnings": p.get("next_earnings"),
                            "last_surprises": p.get("last_surprises")}
+        if p.get("insider_cluster"):
+            facts["insider_cluster"] = p["insider_cluster"]
+    except Exception:
+        pass
+    # EDGAR as-filed fundamentals + recent filings (fetch facts on first miss)
+    try:
+        from advisor.research import edgar
+        if not (edgar.FACTS_DIR / f"{ticker}.parquet").exists():
+            edgar.fetch_facts(ticker)
+        fs = edgar.facts_summary(ticker)
+        if fs:
+            facts["edgar_facts"] = fs
+        facts["recent_filings"] = edgar.recent_filings(ticker, limit=8)
     except Exception:
         pass
     return facts

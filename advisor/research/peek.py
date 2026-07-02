@@ -95,6 +95,28 @@ def peek(ticker: str) -> dict:
                 {"date": r.date, "surprise_pct": None if pd.isna(r.surprise_pct)
                  else round(r.surprise_pct, 1)}
                 for r in rows.itertuples()]
+
+    # EDGAR: insider-cluster flag + as-filed fundamentals if cached
+    try:
+        cl = json.loads((RESEARCH_DIR / "positioning" /
+                         "insider_clusters.json").read_text())
+        hit = next((c for c in cl.get("clusters", []) if c["ticker"] == ticker), None)
+        if hit:
+            out["insider_cluster"] = {**hit, "as_of": cl.get("as_of")}
+    except Exception:
+        pass
+    try:
+        from advisor.research.edgar import FACTS_DIR, facts_summary
+        if (FACTS_DIR / f"{ticker}.parquet").exists():
+            fs = facts_summary(ticker)
+            if fs:
+                keep = ("revenue", "net_income", "eps_diluted", "cfo", "capex",
+                        "lt_debt", "cash", "buybacks", "shares_outstanding")
+                out["edgar_facts"] = {
+                    "src": fs["src"],
+                    **{k: v for k, v in fs["concepts"].items() if k in keep}}
+    except Exception:
+        pass
     return out
 
 

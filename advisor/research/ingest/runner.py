@@ -45,6 +45,34 @@ def _prune(out_dir) -> int:
     return n
 
 
+def _active_set() -> list[str]:
+    """Names worth point-in-time fundamentals: factor-sheet longs/shorts/shock
+    + open journal calls + existing dossiers. Full-universe EDGAR sweeps are
+    deliberately out of scope (TUNING_NOTES)."""
+    out: set[str] = set()
+    try:
+        s = json.loads((RESEARCH_DIR / "signals_latest.json").read_text())
+        for side in ("longs", "shorts", "shock_candidates"):
+            out.update(x["ticker"] for x in s.get(side, []))
+    except Exception:
+        pass
+    try:
+        from advisor.journal import effective
+        for e in effective().values():
+            if e.get("status") == "open" and e.get("yf_ticker"):
+                t = e["yf_ticker"]
+                if not any(x in t for x in ("^", "=F", "=X", "-USD")):
+                    out.add(t)
+    except Exception:
+        pass
+    try:
+        dossiers = RESEARCH_DIR.parent / "knowledge" / "dossiers"
+        out.update(p.name for p in dossiers.iterdir() if p.is_dir())
+    except Exception:
+        pass
+    return sorted(out)
+
+
 def run_all(subset: int | None = None, only: list[str] | None = None) -> dict:
     u = load_universe()
     tickers = sorted(u["stocks"].keys())   # stocks only — .info fundamentals are meaningless for ETFs
@@ -73,6 +101,32 @@ def run_all(subset: int | None = None, only: list[str] | None = None) -> dict:
         manifest["datasets"][name] = res
         print(f"[ingest] {name}: {json.dumps({k: v for k, v in res.items() if k != 'trace'})}",
               flush=True)
+
+    # EDGAR datasets (different call signatures — checkpointed individually)
+    if not only or "form4" in (only or []):
+        try:
+            from advisor.research import edgar
+            res = edgar.form4_sweep()
+            if res.get("ok"):
+                cl = edgar.detect_clusters()
+                res["n_clusters"] = len(cl.get("clusters", []))
+            res.pop("tickers", None)
+        except Exception as exc:
+            res = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+        res["as_of"] = datetime.now(ET).isoformat()
+        manifest["datasets"]["form4"] = res
+        print(f"[ingest] form4: {json.dumps(res)}", flush=True)
+    if not only or "edgar_facts" in (only or []):
+        try:
+            from advisor.research import edgar
+            res = edgar.facts_sweep(_active_set())
+        except Exception as exc:
+            res = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+        else:
+            res["ok"] = True
+        res["as_of"] = datetime.now(ET).isoformat()
+        manifest["datasets"]["edgar_facts"] = res
+        print(f"[ingest] edgar_facts: {json.dumps(res)}", flush=True)
     MANIFEST.parent.mkdir(parents=True, exist_ok=True)
     tmp = MANIFEST.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(manifest, indent=2))
