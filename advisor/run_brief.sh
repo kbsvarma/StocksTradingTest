@@ -50,6 +50,8 @@ cp advisor/data/research/fundamental_latest.json "$CTX/fundamental.json" 2>/dev/
 # synthesis reads the ⚡ triggered flags as its warmest leads)
 "$PY" -m advisor.watchlist --sweep 2>>advisor/logs/watchlist.err || true
 "$PY" -m advisor.watchlist --check 2>>advisor/logs/watchlist.err || true
+# catalyst calendar: 14d earnings lookahead on held/watched/slate names
+"$PY" -m advisor.research.calendar_feed --json "$CTX/calendar.json" 2>>advisor/logs/calendar.err || true
 
 # Three-stage pipeline (synthesis → red-team → publish), INTELLIGENCE_PLAN §4.
 # The orchestrator owns stage tool-whitelists, checks, retries, the legacy

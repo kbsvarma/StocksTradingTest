@@ -78,6 +78,15 @@ def validate(path: Path) -> tuple[list[str], list[str]]:
             errs.append(f"rejected[{i}]: missing 'idea'")
         if not r.get("killed_by"):
             errs.append(f"rejected[{i}]: missing 'killed_by'")
+    # schema v2 blocks (calendar/watchlist/narrative_delta) — light validation
+    for i, c in enumerate(d.get("calendar") or []):
+        if not c.get("date") or not c.get("event"):
+            errs.append(f"calendar[{i}]: needs 'date' and 'event'")
+    if d.get("schema_version") == 2:
+        if "calendar" not in d:
+            warns.append("v2 brief without 'calendar' block")
+        if "watchlist" not in d:
+            warns.append("v2 brief without 'watchlist' block")
     return errs, warns
 
 

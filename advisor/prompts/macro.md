@@ -37,7 +37,8 @@ CONTEXT_DIR and TODAY are prepended.
  "calendar": [{"time_et": "08:30", "event": "NFP June", "consensus": "110k"}],
  "earnings": [{"ticker": "STZ", "when": "post-close", "note": "reported: ..."}],
  "anomalies": [{"asset": "CL=F", "move": "-2.1%", "why": "...", "url": "..."}],
- "themes_updated": true}
+ "themes_updated": true,
+ "themes_delta": "one line on what changed vs yesterday's themes, or null"}
 ```
 Validate (must exit 0): `python -m advisor.macro_check CONTEXT_DIR/macro.json`
 Final message: one line — N overnight facts, N calendar items, N anomalies

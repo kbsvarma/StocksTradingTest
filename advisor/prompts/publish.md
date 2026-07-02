@@ -67,7 +67,7 @@ DAILY BRIEF — <date>            (⚠ UNREDTEAMED if applicable)
 ① PORTFOLIO  advisor book only: open calls vs plans, budget deployed of
    $25k, Tier-1 position if any. NEVER the legacy bot's record.
 ② MARKET     2-4 lines from views_draft regime_summary + quant.json:
-   regime, what moved, VIX/term, today's calendar.
+   regime, what moved, VIX/term, today's macro calendar (macro.json).
 ③ VIEWS      each surviving view in report format:
    📑 [TICKER] — Long/Short — Conviction — p_win
    THESIS / EVIDENCE (sourced, dated) / ENTRY / EXIT (target, stop, time
@@ -75,16 +75,27 @@ DAILY BRIEF — <date>            (⚠ UNREDTEAMED if applicable)
    — or the explicit no-idea line with why.
 ④ KILLED     every rejected idea, one line each: idea → killed_by.
    (Dead ideas prove the bar exists — always show them.)
-⑤ WATCHES    standing conditions from open journal calls, if any.
+⑤ CAL        next 5 catalysts on held/watched names from
+   CONTEXT_DIR/calendar.json, one line each: `7/23 DECK earnings (HELD)`.
+⑥ WATCHLIST  ⚡ triggered entries first (ticker, trigger, note), then
+   `N parked` count. Omit section if empty.
+⑦ Δ          one line ONLY if the macro stage reported a themes change
+   (macro.json themes_delta) — what changed since yesterday.
+Footer: `depth → terminal :8505`
 ```
 Label every number's source (yfinance EOD / advisor PIT snapshot <date> /
-web). Never present stale data as live.
+web). Never present stale data as live. If over budget, truncate ⑤-⑦
+first — views and kills are never cut.
 
 ## 5. brief.json + validate + send
 
-Write `CONTEXT_DIR/brief.json`: `regime_summary`, final `views` (surviving,
-amended — with their evidence arrays), `rejected` (all kills with
-killed_by), plus `"redteam": "applied"|"missing"`.
+Write `CONTEXT_DIR/brief.json` (schema v2): `schema_version: 2`,
+`regime_summary`, final `views` (surviving, amended — with their evidence
+arrays), `rejected` (all kills with killed_by),
+`"redteam": "applied"|"missing"`, `calendar` (copy the events array from
+CONTEXT_DIR/calendar.json), `watchlist` ({triggered: [...], n_parked: N}
+from `python -m advisor.watchlist --list`), and `narrative_delta`
+(macro.json themes_delta, or null).
 Validate — MUST exit 0 before sending, fix and re-run if not:
 ```
 python -m advisor.brief_check CONTEXT_DIR/brief.json
