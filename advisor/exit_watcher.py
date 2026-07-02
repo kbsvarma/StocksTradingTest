@@ -38,6 +38,7 @@ from advisor.journal import append_raw, effective
 ET = ZoneInfo("America/New_York")
 REPO_ROOT = Path(__file__).resolve().parent.parent
 POLL_SECONDS = 300          # 5-min cadence — these are swing levels, not 0DTE SL
+STORE_POLL_SECONDS = 30     # cadence when the quote daemon's store is fresh
 OFF_HOURS_SECONDS = 600
 LOCKFILE = "/tmp/advisor-exit-watcher.lock"
 
@@ -114,10 +115,38 @@ def watchable_calls() -> list[dict]:
 
 
 STALE_MINUTES = 30   # never alert on a quote older than this during RTH
+STORE_FRESH_S = 90   # quote-daemon snapshot age we trust
+
+
+def store_prices(tickers: list[str]) -> dict[str, tuple]:
+    """Quote-daemon path (2026-07-02): read advisor/data/quotes/latest.json —
+    zero network, seconds-fresh where IBKR serves it. Only rows whose OWN
+    timestamp is fresh are used; anything else falls through to yfinance."""
+    out: dict[str, tuple] = {}
+    try:
+        snap = json.loads((_data_dir() / "quotes" / "latest.json").read_text())
+        now = datetime.now(ET)
+        snap_age = (now - datetime.fromisoformat(snap["as_of"])).total_seconds()
+        if snap_age > STORE_FRESH_S:
+            return out
+        for t in tickers:
+            q = snap.get("quotes", {}).get(t)
+            if not q:
+                continue
+            q_age = (now - datetime.fromisoformat(q["ts"])).total_seconds()
+            # delayed feeds carry ~15min embedded lag; the row ts is write
+            # time — accept writes ≤STORE_FRESH_S and label the lag honestly
+            if q_age > STORE_FRESH_S:
+                continue
+            out[t] = (round(float(q["px"]), 4),
+                      f"quoted:{q['src']} ({q['kind']})")
+    except Exception:
+        return {}
+    return out
 
 
 def batch_prices(tickers: list[str]) -> dict[str, tuple]:
-    """One batched 1m-bar request for all watched tickers.
+    """Quote store first (fast path), yfinance 1m bars for the remainder.
 
     Returns {ticker: (price, source_label)} — only FRESH quotes (last bar
     within STALE_MINUTES). A stale/no-data ticker is simply absent: the
@@ -125,7 +154,8 @@ def batch_prices(tickers: list[str]) -> dict[str, tuple]:
     loop-pass-3; same class of failure as the bot's stale-yfinance-LIMIT
     incident of 2026-05-20).
     """
-    out: dict[str, tuple] = {}
+    out: dict[str, tuple] = store_prices(tickers)
+    tickers = [t for t in tickers if t not in out]
     if not tickers:
         return out
     try:
@@ -256,14 +286,19 @@ def run() -> None:
     except BlockingIOError:
         print("[watcher] another instance running — exiting")
         return
-    print(f"[watcher] up — polling every {POLL_SECONDS}s during RTH", flush=True)
+    print(f"[watcher] up — {STORE_POLL_SECONDS}s cadence on the quote store, "
+          f"{POLL_SECONDS}s on yfinance fallback", flush=True)
     while True:
         try:
             if market_open():
                 sent = scan_once()
                 if sent:
                     print(f"[watcher] sent {sent} alert(s)", flush=True)
-                time.sleep(POLL_SECONDS)
+                # quote daemon fresh → tight loop (reads are local file I/O);
+                # daemon down → old 5-min yfinance cadence
+                fast = bool(store_prices(
+                    [e["yf_ticker"] for e in watchable_calls()][:1]))
+                time.sleep(STORE_POLL_SECONDS if fast else POLL_SECONDS)
             else:
                 time.sleep(OFF_HOURS_SECONDS)
         except KeyboardInterrupt:
