@@ -64,6 +64,15 @@ decided honestly. Each item has a TRIGGER — do not act before it fires.
 - [ ] **IBKR read-only mode** — KEEP ON permanently (advisor is data-only).
 
 ## Validation
+- [x] **validate2 first run (2026-07-02, config 107 periods/36 tests):**
+      NO factor survives FDR-10% all-sample; momentum family suggestive only
+      in 2024+ OOS (t≈1.8, same regime the weights were tuned in); rev_1m
+      significantly NEGATIVE oos (t=-2.56 — vindicates zeroing it in
+      risk_on); walk-forward net 786.9% vs SPY 248% but deflated Sharpe 0.79
+      < 0.95 = NOT PROVEN. STANDING CONCLUSION: price-factor tilts are
+      candidate generators, never cite them as proven alpha. Re-run monthly
+      (panel refresh) — a factor earns weight discussion only if it survives
+      FDR on the growing OOS window.
 - [ ] **validate2 OOS freeze** — weights frozen on data ≤2023; 2024-2026
       touched once for the final report. Any post-hoc tweak restarts the
       freeze clock. Log every run's config hash.
@@ -72,9 +81,15 @@ decided honestly. Each item has a TRIGGER — do not act before it fires.
       backtest numbers without the label.
 
 ## Portal
-- [ ] **Auth posture** — token gate ships (ADVISOR_PORTAL_TOKEN); decide
-      LAN-open vs localhost+Tailscale after user tries phone access.
+- [ ] **Auth posture** — token gate ships OFF (set ADVISOR_PORTAL_TOKEN in
+      the terminal plist env to arm it); decide LAN-open vs
+      localhost+Tailscale after user tries phone access.
 - [ ] **Calibration dashboard** renders "insufficient data" until n≥15 —
       by design, not a bug.
 - [ ] **Terminal CPU** — re-measure idle % after tape moves to quote store;
       target <5% (was 26% on yfinance polling).
+- [ ] **SCOR naive hit-rate metric** counts ambiguous "closed" statuses as
+      losses (top row) — the calibration panel below is the honest number;
+      unify once outcome_tags accumulate.
+- [ ] **Events/watchdog Telegram volume** — review after week 1; both dedup
+      per (check|filing, day) but combined ping count is unproven.

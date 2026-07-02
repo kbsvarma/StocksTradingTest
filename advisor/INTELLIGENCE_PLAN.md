@@ -1,8 +1,16 @@
 # INTELLIGENCE PLAN — making the advisor a materially smarter idea generator
 
-Status: **WEEK 1 SHIPPED 2026-07-02** (learning loop v1 · snapshotters ·
-red-team pipeline · dossiers+librarian — details in §7; weeks 2-3 pending) ·
-Plan written 2026-07-01
+Status: **FULL BUILD SHIPPED 2026-07-02** — every planned subsystem live in
+one push (user directive: build everything, tune later — see TUNING_NOTES.md
+for every data-gated decision deliberately left open). Commits intel-wk1 →
+intel-M10. Highlights beyond §7: EDGAR layer (companyfacts PIT + Form 4
+sweep + insider clusters), candidates slate + fundamental factors (gated),
+watchlist machine, themes memory + macro stage (4-stage 08:15 pipeline),
+post-mortems + doctrine flow, filing poller, IV snapshots (16:15),
+validate2 10y harness (VERDICT: no factor survives FDR-10%; deflated Sharpe
+0.79 = walk-forward NOT PROVEN — factor tilts are candidate generators, not
+alpha), IBKR quote daemon (SPX/VIX LIVE) + 30s exit-watcher, 8-tab portal +
+watchdog. · Plan written 2026-07-01
 Provenance: designed via multi-agent deep dive (2 grounding audits, 6 subsystem
 designs, 3-critic adversarial panel: quant skeptic / ops realist / PM).
 Scope decisions (user, 2026-07-01): IBKR streaming OFF for now (free data:

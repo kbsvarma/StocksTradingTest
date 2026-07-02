@@ -8,6 +8,9 @@ CLAUDE=/Users/varmakammili/.nvm/versions/node/v24.14.0/bin/claude
 cd "$REPO"
 export PYTHONPATH="$REPO"
 export PATH="/Users/varmakammili/.nvm/versions/node/v24.14.0/bin:$PATH"
+# launchd caps FDs at 256 — the claude CLI needs more (same 2026-07-01 fix
+# as run_brief.sh; this script missing it was why weekly exited 1)
+ulimit -n 65536 2>/dev/null || true
 mkdir -p advisor/logs advisor/data/context
 
 DATE=$(date +%F)
