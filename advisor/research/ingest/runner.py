@@ -84,7 +84,17 @@ def run_all(subset: int | None = None, only: list[str] | None = None) -> dict:
     tickers = sorted(u["stocks"].keys())   # stocks only — .info fundamentals are meaningless for ETFs
     if subset:
         tickers = tickers[:subset]
+    # Yahoo request budget (2026-07-02: full-universe estimates got the
+    # account rate-limited into a 401-crumb penalty box). estimates/events
+    # are ~5 requests/ticker → ACTIVE SET on weekdays, full universe only on
+    # Saturday's quiet sweep. info is 1 request/ticker → full daily is fine.
+    is_saturday = datetime.now(ET).weekday() == 5
+    scoped = tickers if (is_saturday or subset) else \
+        [t for t in _active_set() if t in set(tickers)] or tickers[:150]
+    scope_by_dataset = {"info": tickers, "estimates": scoped, "events": scoped}
     manifest = {"as_of": datetime.now(ET).isoformat(), "n_tickers": len(tickers),
+                "scope": {"estimates_events": ("full(saturday)" if is_saturday
+                                               else f"active_set({len(scoped)})")},
                 "datasets": {}}
     # carry forward prior results for datasets not run tonight
     try:
@@ -98,9 +108,10 @@ def run_all(subset: int | None = None, only: list[str] | None = None) -> dict:
     for name, (fn, out_dir) in all_datasets.items():
         if only and name not in only:
             continue
-        print(f"[ingest] {name}: {len(tickers)} tickers …", flush=True)
+        scope = scope_by_dataset.get(name, tickers)
+        print(f"[ingest] {name}: {len(scope)} tickers …", flush=True)
         try:
-            res = fn(tickers, out_dir)
+            res = fn(scope, out_dir)
             res["ok"] = True
             res["pruned"] = _prune(out_dir)
         except Exception as exc:
