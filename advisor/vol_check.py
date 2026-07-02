@@ -12,18 +12,41 @@ Verdict heuristic (ATM IV vs 20d realized):
     1.1-1.4 FAIR
     > 1.4x  RICH   — market already charging for the event; prefer shares/spreads
 
+2026-07-02 upgrades (both audit blind spots fixed):
+  IV-RANK    — verdict now also reports where today's ATM IV sits within
+               this ticker's OWN accrued nightly history (options/iv/
+               snapshots; needs ~20 obs, honest "accruing" note until then)
+  EARNINGS   — an earnings date inside the DTE window is flagged: rich IV
+               may be JUSTIFIED there; defined-risk only across the print
+  PERSISTED  — every run appends to research/options/vol_checks.jsonl so
+               verdicts are scoreable later and dossiers can cite them
+
 CLI:
     python -m advisor.vol_check --ticker IWM [--max-dte 45]
 """
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import sys
 import warnings
 from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 warnings.filterwarnings("ignore")
+ET = ZoneInfo("America/New_York")
+
+
+def _next_earnings(ticker: str) -> str | None:
+    try:
+        import pandas as pd
+        from advisor.research.datastore import RESEARCH_DIR
+        cal = pd.read_parquet(RESEARCH_DIR / "events" / "earnings_calendar.parquet")
+        hit = cal[cal.ticker == ticker]
+        return str(hit.next_earnings.iloc[-1])[:10] if len(hit) else None
+    except Exception:
+        return None
 
 
 def check(ticker: str, max_dte: int = 45) -> list[dict]:
@@ -35,6 +58,7 @@ def check(ticker: str, max_dte: int = 45) -> list[dict]:
     rv20 = float(c.pct_change().rolling(20).std().iloc[-1]) * math.sqrt(252) * 100
     rv60 = float(c.pct_change().rolling(60).std().iloc[-1]) * math.sqrt(252) * 100
     print(f"{ticker}  spot={spot:.2f}  RV20={rv20:.0f}%  RV60={rv60:.0f}%")
+    earnings = _next_earnings(ticker)
     rows = []
     today = date.today()
     for exp in t.options:
@@ -55,13 +79,47 @@ def check(ticker: str, max_dte: int = 45) -> list[dict]:
             iv = sum(ivs) / len(ivs) * 100
             ratio = iv / rv20 if rv20 else float("nan")
             verdict = "CHEAP" if ratio < 1.1 else ("FAIR" if ratio <= 1.4 else "RICH")
-            rows.append(dict(expiry=exp, dte=dte, atm_iv=round(iv, 0),
-                             iv_rv=round(ratio, 2), verdict=verdict))
-            print(f"  {exp}  dte={dte:>3}  ATM IV={iv:>4.0f}%  IV/RV20={ratio:.2f}  {verdict}")
+            row = dict(expiry=exp, dte=dte, atm_iv=round(iv, 0),
+                       iv_rv=round(ratio, 2), verdict=verdict)
+            flag = ""
+            if earnings and str(today.isoformat()) <= earnings <= exp:
+                row["earnings_in_window"] = earnings
+                flag = (f"  ⚠ EARNINGS {earnings} INSIDE WINDOW — rich IV may "
+                        f"be justified; defined-risk only across the print")
+            rows.append(row)
+            print(f"  {exp}  dte={dte:>3}  ATM IV={iv:>4.0f}%  IV/RV20={ratio:.2f}  {verdict}{flag}")
         except Exception:
             continue
     if not rows:
         print("  (no usable chains)")
+        return rows
+
+    # IV-rank vs this ticker's own accrued nightly history
+    try:
+        from advisor.research.ingest.iv_surface import iv_rank
+        rank = iv_rank(ticker, rows[0]["atm_iv"])
+        if rank:
+            if rank.get("rank_pct") is not None:
+                print(f"  IV-RANK: today's ATM IV is in the {rank['rank_pct']}th "
+                      f"percentile of its own history ({rank['n_obs']} obs)")
+            else:
+                print(f"  IV-RANK: {rank['note']}")
+            rows[0]["iv_rank"] = rank
+    except Exception:
+        pass
+
+    # persist — verdicts are scoreable and citable, not stdout-and-gone
+    try:
+        from advisor.research.datastore import RESEARCH_DIR
+        out = RESEARCH_DIR / "options" / "vol_checks.jsonl"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        with out.open("a", encoding="utf-8") as f:
+            f.write(json.dumps({"ts": datetime.now(ET).isoformat(),
+                                "ticker": ticker, "spot": round(spot, 2),
+                                "rv20": round(rv20, 1), "rv60": round(rv60, 1),
+                                "earnings": earnings, "rows": rows}) + "\n")
+    except Exception:
+        pass
     return rows
 
 

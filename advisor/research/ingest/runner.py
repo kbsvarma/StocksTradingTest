@@ -17,7 +17,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from advisor.research.datastore import RESEARCH_DIR
-from advisor.research.ingest import estimates, events, snapshots
+from advisor.research.ingest import estimates, events, iv_surface, snapshots
 from advisor.research.universe import load as load_universe
 
 ET = ZoneInfo("America/New_York")
@@ -27,6 +27,12 @@ DATASETS = {
     "info": (snapshots.build, RESEARCH_DIR / "snapshots" / "info"),
     "estimates": (estimates.build, RESEARCH_DIR / "estimates"),
     "events": (events.build, RESEARCH_DIR / "events"),
+}
+# IV runs ONLY when explicitly requested (--datasets iv): overnight Yahoo
+# serves placeholder IVs (~1.56%) that fail the sanity floor — the snapshot
+# must run near the close (com.stockstest.advisor-ivsnap, 16:15 ET).
+EXPLICIT_DATASETS = {
+    "iv": (iv_surface.build, RESEARCH_DIR / "options" / "iv"),
 }
 RETAIN_DAYS = 730   # prune dt= partitions older than ~2y (matches OHLCV panels)
 
@@ -86,7 +92,10 @@ def run_all(subset: int | None = None, only: list[str] | None = None) -> dict:
         manifest["datasets"].update(prior.get("datasets", {}))
     except Exception:
         pass
-    for name, (fn, out_dir) in DATASETS.items():
+    all_datasets = {**DATASETS,
+                    **{k: v for k, v in EXPLICIT_DATASETS.items()
+                       if only and k in only}}
+    for name, (fn, out_dir) in all_datasets.items():
         if only and name not in only:
             continue
         print(f"[ingest] {name}: {len(tickers)} tickers …", flush=True)
