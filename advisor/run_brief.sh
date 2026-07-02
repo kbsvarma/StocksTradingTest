@@ -46,6 +46,10 @@ cp advisor/data/research/signals_latest.txt "$CTX/factor_sheet.txt" 2>/dev/null 
 # stratified candidate slate + fundamental sheets (nightly generators)
 cp advisor/data/research/candidates_latest.json "$CTX/candidates.json" 2>/dev/null || true
 cp advisor/data/research/fundamental_latest.json "$CTX/fundamental.json" 2>/dev/null || true
+# watchlist: expire stale entries, evaluate price triggers (deterministic —
+# synthesis reads the ⚡ triggered flags as its warmest leads)
+"$PY" -m advisor.watchlist --sweep 2>>advisor/logs/watchlist.err || true
+"$PY" -m advisor.watchlist --check 2>>advisor/logs/watchlist.err || true
 
 # Three-stage pipeline (synthesis → red-team → publish), INTELLIGENCE_PLAN §4.
 # The orchestrator owns stage tool-whitelists, checks, retries, the legacy

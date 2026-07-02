@@ -37,6 +37,20 @@ python -m advisor.journal --add '{"type":"rejected","instrument":"...","yf_ticke
 (Rejects are ref-price-stamped and counterfactual-scored — kills have a
 measurable cost; that measurement keeps the red-team honest.)
 
+## 2b. Watchlist — park "right idea, wrong price"
+
+For any rejected/killed idea whose kill reason is TIMING or LEVEL (not a
+broken thesis) and that has a concrete re-entry price, park it:
+```
+python -m advisor.watchlist --set DECK --state watchlist --trigger-px 92.0 --trigger-dir below --expires <+4 weeks> --note "PEAD long; enter on gap-fill" --source pead_fresh --by publish
+```
+The watcher re-surfaces it the morning its trigger fires. Ideas killed on
+substance do NOT get watchlist entries — they live in the dossier kill list.
+Also: for each view you journaled, set its ticker to active_view:
+```
+python -m advisor.watchlist --set XLE --state active_view --journal-id <id> --by publish
+```
+
 ## 3. Optional Tier-1 proposal
 
 ONLY if a surviving view is (a) high conviction AND (b) an SPX-family put

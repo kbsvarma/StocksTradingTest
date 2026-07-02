@@ -61,6 +61,15 @@ prior week's `advisor/data/research/ic_validation.json`. Report IC drift;
 if a previously-validated factor's IC flips sign with |t|>1.5, flag it
 prominently — the weight retuning decision goes to the user.
 
+### C4. Knowledge maintenance
+- Archive this week's themes: copy
+  `advisor/data/knowledge/narrative/current_themes.md` to
+  `advisor/data/knowledge/narrative/themes_archive/<year>-W<week>.md`
+  (Write tool), then prune any theme whose evidence is >2 weeks stale.
+- Watchlist hygiene: `python -m advisor.watchlist --sweep`; for each resolved
+  journal call, set its ticker `--state resolved`; dossier post-mortem notes
+  go in the name's `narrative.md` Thesis history (dated).
+
 ### D. Looking ahead
 Next week's calendar (FOMC/CPI/earnings majors). At most ONE structural
 recommendation (sleeve allocation, new standing watch, process change) —

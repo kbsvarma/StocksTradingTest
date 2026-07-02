@@ -48,6 +48,8 @@ and every bullet in it must carry a date.
 
 4. **Update `meta.json`**: set `narrative_updated` to now, `state` to
    "researched". Do not touch `facts_refreshed` (deep_pull owns it).
+   Also register the state machine:
+   `python -m advisor.watchlist --set <X> --state researched --by librarian --note "<5-word gist>"`
 
 ## Final message
 One line per name: `TICKER — new|refresh — 5-word gist — revisit-triggered?`

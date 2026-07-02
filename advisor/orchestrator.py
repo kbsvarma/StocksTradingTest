@@ -52,6 +52,17 @@ def _tools(*mods: str) -> list[str]:
 
 
 STAGES: dict[str, dict] = {
+    "macro": {
+        "prompt": "advisor/prompts/macro.md",
+        "max_turns": 25,
+        "timeout_s": 1200,
+        "tools": READ_TOOLS + ["WebSearch", "WebFetch",
+                               "Write(advisor/data/context/**)",
+                               "Write(advisor/data/knowledge/narrative/**)"]
+        + ["Bash(date:*)"],
+        "check": lambda ctx: _run_check(
+            [PY, "-m", "advisor.macro_check", str(ctx / "macro.json")]),
+    },
     "synthesis": {
         "prompt": "advisor/prompts/synthesis.md",
         "max_turns": 40,
@@ -59,7 +70,7 @@ STAGES: dict[str, dict] = {
         "tools": READ_TOOLS + ["WebSearch", "WebFetch", "Write(advisor/data/**)"]
         + _tools("journal --list", "proposals --list", "vol_check", "quant",
                  "research.fair_value", "research.factors", "research.peek",
-                 "brief_check") + ["Bash(date:*)"],
+                 "watchlist --list", "brief_check") + ["Bash(date:*)"],
         "check": lambda ctx: _run_check(
             [PY, "-m", "advisor.brief_check", "--draft",
              str(ctx / "views_draft.json")]),
@@ -81,8 +92,8 @@ STAGES: dict[str, dict] = {
         "max_turns": 20,
         "timeout_s": 1200,
         "tools": READ_TOOLS + ["Write(advisor/data/**)"]
-        + _tools("journal", "proposals", "telegram_io", "brief_check")
-        + ["Bash(date:*)"],
+        + _tools("journal", "proposals", "telegram_io", "watchlist",
+                 "brief_check") + ["Bash(date:*)"],
         "check": lambda ctx: _run_check(
             [PY, "-m", "advisor.brief_check", str(ctx / "brief.json")]),
     },
@@ -197,6 +208,11 @@ def run_pipeline(date: str, skip_preflight: bool = False,
                       "(likely expired `claude /login`). No brief today until fixed.")
             _heartbeat("pipeline", 78, time.time() - t_start, "preflight failed")
             return 78
+
+    mrc = run_stage("macro", date, dry_run)
+    if mrc != 0:
+        _heartbeat("macro", mrc, 0,
+                   "failed — synthesis will do its own overnight scan")
 
     rc = run_stage("synthesis", date, dry_run)
     if rc != 0:

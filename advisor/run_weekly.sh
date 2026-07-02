@@ -19,6 +19,11 @@ DATE=$(date +%F)
     "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.telegram_io:*)" \
     "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.research.validate:*)" \
     "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.research.fair_value:*)" \
+    "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.research.calibration:*)" \
+    "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.research.attribution:*)" \
+    "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.research.ic_monitor:*)" \
+    "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.watchlist:*)" \
+    "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.research.peek:*)" \
     "Bash(date:*)" \
   --max-turns 60 \
   >> "advisor/logs/weekly_$DATE.log" 2>&1

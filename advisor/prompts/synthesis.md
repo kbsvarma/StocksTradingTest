@@ -59,13 +59,24 @@ For options ideas additionally: `python -m advisor.vol_check --ticker <X>`
 `python -m advisor.research.fair_value --ticker <X>` — FAIR VALUE is
 mandatory on share recommendations; shares exit at fair value.
 
-## Step 2 — Research (live web, this morning's facts)
+## Step 2 — Research (macro is pre-fetched; you verify specifics)
 
-Use WebSearch thoroughly (this is the value-add): overnight movers +
-futures drivers; today's economic calendar; earnings last night/today;
-the 2-3 biggest single-name stories; explanations for anomalies in
-market.json. Date every fact. For event-driven theses get market-implied
-odds — never headline vibes.
+The macro stage already ran: read `CONTEXT_DIR/macro.json` (overnight facts,
+today's calendar, earnings, anomaly explanations — all sourced) and
+`advisor/data/knowledge/narrative/current_themes.md` (the standing themes,
+your rolling market memory — themes marked CHALLENGED deserve attention).
+If macro.json is MISSING (stage failed), do a quick overnight+calendar web
+scan yourself before proceeding.
+
+WATCHLIST TRIGGERS — check `python -m advisor.watchlist --list` (the
+pipeline pre-ran --check): entries showing ⚡ triggered are prior good-idea-
+wrong-price calls whose price condition JUST fired — they are your warmest
+leads and get researched before anything else on the slate.
+
+Your own WebSearch budget goes to CANDIDATE-SPECIFIC verification: the
+driving facts of each thesis you take seriously, market-implied odds for
+event trades, and anything macro.json flagged that touches your candidates.
+Date every fact.
 
 ## Step 3 — Form views. The conviction bar is unchanged.
 
