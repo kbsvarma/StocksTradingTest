@@ -17,12 +17,24 @@ Work from /Users/varmakammili/Documents/GitHub/StocksTradingTest. Read
 ## Tasks
 
 ### A. Score yourself — this is the heart of the review
-For every OPEN journal call: check current price vs entry/target/stop.
-- Hit target → `python -m advisor.journal --resolve <ID> --status hit_target --note "..."`
-- Hit stop → resolve `stopped`. Past time-stop → resolve `time_stop`.
-- Still valid → leave open, note progress.
-Then compute and report honestly: calls made, hit rate, avg R achieved,
-and how the basket performed **vs just holding SPY over the same period**.
+For every OPEN journal call: check current price vs entry/target/stop. Calls
+with a `resolve_pending` flag (the exit watcher recorded a level hit with
+hit_px/hit_ts) are your first queue — the facts are already journaled.
+- Hit target → `python -m advisor.journal --resolve <ID> --status hit_target --note "..." --fields '{"exit_px": <px>, "exit_ts": "<iso>", "realized_return_pct": <pct>, "realized_r": <r>, "holding_days": <n>, "spy_return_pct": <pct>, "outcome_tag": "thesis_right_win|lucky_win"}'`
+- Hit stop → resolve `stopped` with the same --fields shape
+  (outcome_tag: `thesis_wrong_loss` or `thesis_right_loss` if unlucky).
+- Past time-stop → resolve `time_stop` (outcome_tag `never_triggered` or
+  `expired_flat`). Still valid → leave open, note progress.
+Use `advisor/data/excursions.json` (watcher-tracked max/min while open) for
+MAE/MFE: add `mae_r`/`mfe_r` to --fields when the data exists.
+Then RUN the deterministic scorers and interpret (never hand-compute):
+- `python -m advisor.research.calibration` — Brier + reliability; respect its
+  sample gate line verbatim in the report.
+- `python -m advisor.research.attribution` — hit rate/avg R by idea source +
+  rejected-idea counterfactuals (what the kills cost). A generator's weighting
+  is untouchable below the printed sample gates.
+Report honestly: calls made, hit rate, avg R, and how the basket performed
+**vs just holding SPY over the same period**.
 If the advisor isn't beating buy-and-hold after a fair sample, SAY SO.
 
 ### B. Portfolio review

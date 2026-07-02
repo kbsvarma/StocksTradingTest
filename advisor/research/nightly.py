@@ -5,7 +5,13 @@ Writes signals to advisor/data/research/signals_latest.{json,txt} (+ dated
 copy) so run_brief.sh just copies the latest into the day's context dir.
 
 launchd: com.stockstest.advisor-research (06:00 ET weekdays).
-CLI:    python -m advisor.research.nightly [--subset N]
+CLI:    python -m advisor.research.nightly [--subset N] [--no-ingest]
+
+2026-07-02: also appends regime_history.jsonl, snapshots full factor score
+vectors to factor_history/ (maturing live-IC series), and runs the PIT
+ingest snapshotters (info/estimates/events) AFTER signals are written so a
+slow or broken ingest never delays the factor sheet. The inline stale-panel
+rebuild in run_brief.sh uses --no-ingest.
 """
 from __future__ import annotations
 
@@ -24,13 +30,13 @@ from advisor.research.universe import load as load_universe
 ET = ZoneInfo("America/New_York")
 
 
-def run(subset: int | None = None) -> int:
+def run(subset: int | None = None, ingest: bool = True) -> int:
     t0 = time.time()
     print(f"[nightly] start {datetime.now(ET).isoformat()}", flush=True)
     u = load_universe()
     print(f"[nightly] universe: {u['n_stocks']} stocks", flush=True)
     build(subset=subset)
-    s = compute(top=20)
+    s = compute(top=20, score_snapshot_dir=RESEARCH_DIR / "factor_history")
     RESEARCH_DIR.mkdir(parents=True, exist_ok=True)
     day = datetime.now(ET).date().isoformat()
     # NEW-ENTRANT flags: ranks are sticky (autocorr .92/21d, validate.py) —
@@ -51,10 +57,29 @@ def run(subset: int | None = None) -> int:
     (RESEARCH_DIR / "signals_latest.txt").write_text(txt)
     shutil.copy(RESEARCH_DIR / "signals_latest.json", RESEARCH_DIR / f"signals_{day}.json")
     print(txt)
+
+    # regime history: one append-only row per build (enables regime-transition
+    # study later; detect_regime alone is point-in-time)
+    try:
+        reg = {k: v for k, v in (s.get("regime") or {}).items() if k != "weights"}
+        with (RESEARCH_DIR / "regime_history.jsonl").open("a", encoding="utf-8") as f:
+            f.write(json.dumps({"date": day, "ts": s.get("as_of"), **reg}) + "\n")
+    except Exception as exc:
+        print(f"[nightly] regime-history append failed (non-fatal): {exc}")
+
+    print(f"[nightly] signals done in {time.time()-t0:.0f}s", flush=True)
+
+    if ingest:
+        try:
+            from advisor.research.ingest.runner import run_all
+            run_all(subset=subset)
+        except Exception as exc:
+            print(f"[nightly] ingest failed (non-fatal — signals already written): {exc}")
+
     print(f"[nightly] done in {time.time()-t0:.0f}s", flush=True)
     return 0
 
 
 if __name__ == "__main__":
     n = int(sys.argv[sys.argv.index("--subset") + 1]) if "--subset" in sys.argv else None
-    sys.exit(run(subset=n))
+    sys.exit(run(subset=n, ingest="--no-ingest" not in sys.argv))

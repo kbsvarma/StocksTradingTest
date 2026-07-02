@@ -61,18 +61,40 @@ def detect_regime(close) -> dict:
     backwardation (>1.0) and credit (-2% HYG/21d) remain absolute: those are
     structural stress markers, not level-relative ones.
     """
-    spy = close["SPY"].dropna()
-    vix_hist = close["^VIX"].dropna()
+    import pandas as _pd
+    def _bench(col, min_len=1):
+        # Benchmark series from the panel if present + long enough, else from
+        # yfinance. A panel that drops SPY/^VIX must NOT crash the whole research
+        # build (KeyError 'SPY' was silently killing daily briefs — 2026-07-01 fix).
+        try:
+            if col in getattr(close, "columns", []):
+                s = close[col].dropna()
+                if len(s) >= min_len:
+                    return s
+        except Exception:
+            pass
+        try:
+            import yfinance as _yf
+            return _yf.Ticker(col).history(period="2y")["Close"].dropna()
+        except Exception:
+            return _pd.Series(dtype=float)
+    spy = _bench("SPY", min_len=200)
+    vix_hist = _bench("^VIX")
+    if len(spy) < 200 or len(vix_hist) < 1:
+        # Benchmarks unavailable — default neutral instead of crashing the build.
+        return {"name": "neutral", "vix": None, "vix_term": None,
+                "vix_p70": None, "vix_p90": None, "spy_above_200dma": None,
+                "hyg_21d_pct": None, "weights": WEIGHTS["neutral"]}
     vix = float(vix_hist.iloc[-1])
     vix_p70 = float(vix_hist.quantile(0.70))
     vix_p90 = float(vix_hist.quantile(0.90))
     try:
-        term = vix / float(close["^VIX3M"].dropna().iloc[-1])
+        term = vix / float(_bench("^VIX3M").iloc[-1])
     except Exception:
         term = 0.9
     trend_up = float(spy.iloc[-1]) > float(spy.rolling(200).mean().iloc[-1])
     try:
-        hyg = close["HYG"].dropna()
+        hyg = _bench("HYG")
         credit_21d = (float(hyg.iloc[-1]) / float(hyg.iloc[-22]) - 1) * 100
     except Exception:
         credit_21d = 0.0
@@ -144,7 +166,7 @@ def raw_factors(close, volume, rets, u: dict):
     return f, z, liquid, dollar_vol, px, shock_mask, shock_dir
 
 
-def compute(top: int = 20) -> dict:
+def compute(top: int = 20, score_snapshot_dir: Path | None = None) -> dict:
     import pandas as pd
     from advisor.research.datastore import load_panel, panel_age_hours
     from advisor.research.universe import load as load_universe
@@ -184,6 +206,23 @@ def compute(top: int = 20) -> dict:
 
     ranked = composite.dropna().sort_values(ascending=False)
     shocks = [t for t in liquid if shock_mask.get(t, False)]
+
+    if score_snapshot_dir is not None:
+        # full score-vector snapshot → maturing live-IC series (each row is
+        # scoreable against realized 21d returns once it ages; the honest
+        # replacement for the frozen 11-period backtest)
+        try:
+            snap = z.copy()
+            snap["composite"] = composite
+            snap["px"] = px[z.index]
+            snap["sector"] = [sectors.get(t, "?") for t in z.index]
+            snap["regime"] = regime["name"]
+            snap["shock"] = [bool(shock_mask.get(t, False)) for t in z.index]
+            d = Path(score_snapshot_dir)
+            d.mkdir(parents=True, exist_ok=True)
+            snap.to_parquet(d / f"{datetime.now(ET).date().isoformat()}.parquet")
+        except Exception as exc:
+            print(f"[factors] score snapshot failed (non-fatal): {exc}")
     return {
         "as_of": datetime.now(ET).isoformat(),
         "panel_age_hours": round(age, 1),

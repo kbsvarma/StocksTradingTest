@@ -13,6 +13,11 @@ positions are NOT watched here — they have the bot's own SL monitor.
 Alert-only: this process can never place an order.
 
 State: advisor/data/watcher_alerts.json — one alert per (call, level), no spam.
+       advisor/data/excursions.json — running max/min price per open call
+       (gives MAE/MFE for the learning loop for free, 2026-07-01).
+       On a level hit it also appends a machine `resolve_pending` row to the
+       journal (facts only — the final resolve with outcome_tag is written by
+       the post-mortem/weekly session, never by the watcher).
 
 Run:  python -m advisor.exit_watcher [--once]   (launchd: KeepAlive)
 """
@@ -28,7 +33,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from advisor import telegram_io
-from advisor.journal import effective
+from advisor.journal import append_raw, effective
 
 ET = ZoneInfo("America/New_York")
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -58,6 +63,32 @@ def _save_alerted(d: dict) -> None:
     tmp = _alerts_path().with_suffix(".json.tmp")
     tmp.write_text(json.dumps(d, indent=2))
     os.replace(tmp, _alerts_path())
+
+
+def _excursions_path() -> Path:
+    return _data_dir() / "excursions.json"
+
+
+def _load_excursions() -> dict:
+    try:
+        return json.loads(_excursions_path().read_text())
+    except Exception:
+        return {}
+
+
+def _save_excursions(d: dict) -> None:
+    tmp = _excursions_path().with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(d, indent=2))
+    os.replace(tmp, _excursions_path())
+
+
+def _track_excursion(exc: dict, eid: str, px: float) -> None:
+    now = datetime.now(ET).isoformat()
+    e = exc.setdefault(eid, {"max_px": px, "min_px": px, "first_ts": now, "n_obs": 0})
+    e["max_px"] = max(e["max_px"], px)
+    e["min_px"] = min(e["min_px"], px)
+    e["last_ts"] = now
+    e["n_obs"] = e.get("n_obs", 0) + 1
 
 
 def market_open(now: datetime | None = None) -> bool:
@@ -130,6 +161,18 @@ def fetch_price(ticker: str):
     return px if px else (None, "no fresh data")
 
 
+def _journal_hit(eid: str, level: str, px: float, src: str) -> None:
+    """Record the fact of a level hit (facts only — resolution stays human)."""
+    try:
+        append_raw({"id": eid, "ts": datetime.now(ET).isoformat(),
+                    "type": "resolve_pending", "hit_level": level,
+                    "hit_px": px, "hit_ts": datetime.now(ET).isoformat(),
+                    "hit_src": src})
+    except Exception as exc:   # journaling must never block the alert path
+        print(f"[watcher] resolve_pending append failed for {eid}: {exc}",
+              flush=True)
+
+
 def check_call(e: dict, px: float, src: str, alerted: dict) -> list[str]:
     """Return alert messages for newly-crossed levels of one call."""
     eid = e["id"]
@@ -144,6 +187,7 @@ def check_call(e: dict, px: float, src: str, alerted: dict) -> list[str]:
 
     if stop_hit and not st.get("stop"):
         st["stop"] = datetime.now(ET).isoformat()
+        _journal_hit(eid, "stop", px, src)
         msgs.append(
             f"🛑 EXIT SIGNAL — STOP HIT  [{eid}]\n"
             f"{e.get('instrument', tick)} {'long' if long_ else 'short'} — "
@@ -153,6 +197,7 @@ def check_call(e: dict, px: float, src: str, alerted: dict) -> list[str]:
         )
     if tgt_hit and not st.get("target"):
         st["target"] = datetime.now(ET).isoformat()
+        _journal_hit(eid, "target", px, src)
         msgs.append(
             f"🎯 EXIT SIGNAL — TARGET HIT  [{eid}]\n"
             f"{e.get('instrument', tick)} {'long' if long_ else 'short'} — "
@@ -182,6 +227,7 @@ def scan_once(verbose: bool = False) -> int:
     if not calls:
         return 0
     alerted = _load_alerted()
+    excursions = _load_excursions()
     n = 0
     prices = batch_prices(sorted({e["yf_ticker"] for e in calls}))
     for e in calls:
@@ -191,6 +237,7 @@ def scan_once(verbose: bool = False) -> int:
                 print(f"[watcher] {e['yf_ticker']}: no fresh quote — skipped")
             continue
         px, src = got
+        _track_excursion(excursions, e["id"], px)
         for msg in check_call(e, px, src, alerted):
             telegram_io.send(msg)
             n += 1
@@ -198,6 +245,7 @@ def scan_once(verbose: bool = False) -> int:
             print(f"[watcher] {e['yf_ticker']} px={px} stop={e['stop_px']} "
                   f"target={e['target_px']}")
     _save_alerted(alerted)
+    _save_excursions(excursions)
     return n
 
 

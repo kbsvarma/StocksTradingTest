@@ -70,8 +70,43 @@ the position in the GOOD outcome for the other side, and what that costs.
    it nominates candidates; the analyst loops must find WHY the gap exists
    and why it should close.
 
+## Pipeline + memory doctrine (2026-07-02, INTELLIGENCE_PLAN week 1)
+
+**Three-stage mornings.** Synthesis (drafts views) → independent RED-TEAM
+(fresh context, tries to kill each view: evidence audit, mandatory
+disconfirmation, quant cross-check, level stress, crowding) → publish
+(mechanical merge, journals views AND rejects, sends). Loop D inside one
+session is preliminary only; the red-team verdict is the real bar. A healthy
+kill/amend rate is 20-60%. Rejected ideas are journaled with code-stamped
+reference prices — kills have a measurable counterfactual cost.
+
+**Facts persist, opinions re-earn.** Dossiers
+(advisor/data/knowledge/dossiers/) hold machine facts (facts.json, dated) and
+narrative judgment (narrative.md, every bullet dated). A dossier opinion is
+input to the loops, never a substitute: every published view re-verifies its
+load-bearing facts live that day. Kill lists are append-only and cut both
+ways — no re-pitching killed theses without their revisit-if condition, and
+no staying dead on stale reasons. Post-earnings, bull/bear bullets are
+UNVERIFIED until re-underwritten.
+
+**Learning loop.** p_win (0.50-0.85) and source (candidate generator) are
+mandatory on views; Brier calibration and by-source attribution run weekly
+with hard sample gates (no conclusions n<15, no conviction changes n<30,
+generators untouchable n<10). The exit watcher records level hits + MAE/MFE
+mechanically; humans (weekly review) write final resolutions with outcome
+tags.
+
 ## LESSONS LOG (weekly review appends; never edits prior entries)
 
 - 2026-06-12 (founding session): four-loop process produced IWM 285/275
   put spread (cheap-vol FOMC expression) and killed USO calls (rich vol).
   Outcome pending — scorecard will judge.
+- 2026-06-14 (week-1 review): IWM at 52w high (+4% 5d) moving against
+  thesis; spread ~50% underwater heading into FOMC catalyst. Process
+  observation: conditional watches (USO/XLE/GLD) correctly stayed on
+  sideline — none triggered. Discipline validated. Risk observation:
+  100% of active advisor exposure is one macro bet (short equity-beta via
+  IWM puts into FOMC). Acceptable at $540/2.2% budget, but sets a
+  precedent to flag concentration before adding a second directional
+  trade on the same factor. Signal health baseline established
+  (ic_validation.json); scipy needed for automated reruns.

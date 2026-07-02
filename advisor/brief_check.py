@@ -57,14 +57,38 @@ def validate(path: Path) -> tuple[list[str], list[str]]:
                 errs.append(f"{tag}: evidence[{j}] missing claim")
         if not v.get("evidence"):
             warns.append(f"{tag}: no evidence array — terminal card will be bare")
+        # schema v2 learning-loop fields (2026-07-01) — warnings for the first
+        # live week, promoted to errors once the pipeline runs clean
+        if not v.get("source"):
+            warns.append(f"{tag}: no 'source' (candidate generator) — "
+                         f"attribution cannot credit this call")
+        p = v.get("p_win")
+        if p is None:
+            warns.append(f"{tag}: no 'p_win' — legacy conviction map will be used")
+        elif not (isinstance(p, (int, float)) and 0.50 <= p <= 0.85):
+            errs.append(f"{tag}: p_win must be numeric in [0.50, 0.85], got {p!r}")
+        if not v.get("thesis_tags"):
+            warns.append(f"{tag}: no 'thesis_tags'")
+        if not v.get("time_stop"):
+            warns.append(f"{tag}: no 'time_stop'")
+        if not v.get("sizing"):
+            warns.append(f"{tag}: no 'sizing' — IPS mandates $ of budget per view")
+    for i, r in enumerate(d.get("rejected") or []):
+        if not r.get("idea"):
+            errs.append(f"rejected[{i}]: missing 'idea'")
+        if not r.get("killed_by"):
+            errs.append(f"rejected[{i}]: missing 'killed_by'")
     return errs, warns
 
 
 def main() -> int:
-    if len(sys.argv) < 2:
+    paths = [a for a in sys.argv[1:] if not a.startswith("--")]
+    if not paths:
         print(__doc__)
         return 2
-    errs, warns = validate(Path(sys.argv[1]))
+    # --draft: same contract, used by the pipeline on views_draft.json before
+    # the red-team stage (reserved for divergence later)
+    errs, warns = validate(Path(paths[0]))
     for w in warns:
         print(f"WARN  {w}")
     for e in errs:

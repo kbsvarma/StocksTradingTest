@@ -1,0 +1,96 @@
+"""Ingest orchestrator — runs each snapshotter, checkpointed per dataset.
+
+One dataset failing (yfinance breaks something quarterly) must never kill the
+others or the factor build. Writes _meta/ingest_manifest.json so the morning
+session can see exactly what's fresh and what failed — no silent staleness.
+
+CLI: python -m advisor.research.ingest.runner [--subset N] [--datasets info,estimates,events]
+Called by research/nightly.py after signals are written (so a slow or dead
+ingest never delays the factor sheet).
+"""
+from __future__ import annotations
+
+import json
+import sys
+import traceback
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+from advisor.research.datastore import RESEARCH_DIR
+from advisor.research.ingest import estimates, events, snapshots
+from advisor.research.universe import load as load_universe
+
+ET = ZoneInfo("America/New_York")
+MANIFEST = RESEARCH_DIR / "_meta" / "ingest_manifest.json"
+
+DATASETS = {
+    "info": (snapshots.build, RESEARCH_DIR / "snapshots" / "info"),
+    "estimates": (estimates.build, RESEARCH_DIR / "estimates"),
+    "events": (events.build, RESEARCH_DIR / "events"),
+}
+RETAIN_DAYS = 730   # prune dt= partitions older than ~2y (matches OHLCV panels)
+
+
+def _prune(out_dir) -> int:
+    cutoff = datetime.now(ET).date().toordinal() - RETAIN_DAYS
+    n = 0
+    for p in out_dir.glob("dt=*.parquet"):
+        try:
+            day = datetime.fromisoformat(p.stem.split("=", 1)[1]).date()
+            if day.toordinal() < cutoff:
+                p.unlink()
+                n += 1
+        except (ValueError, IndexError):
+            continue
+    return n
+
+
+def run_all(subset: int | None = None, only: list[str] | None = None) -> dict:
+    u = load_universe()
+    tickers = sorted(u["stocks"].keys())   # stocks only — .info fundamentals are meaningless for ETFs
+    if subset:
+        tickers = tickers[:subset]
+    manifest = {"as_of": datetime.now(ET).isoformat(), "n_tickers": len(tickers),
+                "datasets": {}}
+    # carry forward prior results for datasets not run tonight
+    try:
+        prior = json.loads(MANIFEST.read_text())
+        manifest["datasets"].update(prior.get("datasets", {}))
+    except Exception:
+        pass
+    for name, (fn, out_dir) in DATASETS.items():
+        if only and name not in only:
+            continue
+        print(f"[ingest] {name}: {len(tickers)} tickers …", flush=True)
+        try:
+            res = fn(tickers, out_dir)
+            res["ok"] = True
+            res["pruned"] = _prune(out_dir)
+        except Exception as exc:
+            res = {"ok": False, "error": f"{type(exc).__name__}: {exc}",
+                   "trace": traceback.format_exc()[-800:]}
+        res["as_of"] = datetime.now(ET).isoformat()
+        manifest["datasets"][name] = res
+        print(f"[ingest] {name}: {json.dumps({k: v for k, v in res.items() if k != 'trace'})}",
+              flush=True)
+    MANIFEST.parent.mkdir(parents=True, exist_ok=True)
+    tmp = MANIFEST.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(manifest, indent=2))
+    tmp.replace(MANIFEST)
+    return manifest
+
+
+def main() -> int:
+    subset = None
+    if "--subset" in sys.argv:
+        subset = int(sys.argv[sys.argv.index("--subset") + 1])
+    only = None
+    if "--datasets" in sys.argv:
+        only = sys.argv[sys.argv.index("--datasets") + 1].split(",")
+    m = run_all(subset=subset, only=only)
+    bad = [k for k, v in m["datasets"].items() if not v.get("ok")]
+    return 1 if bad else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

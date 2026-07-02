@@ -10,6 +10,11 @@ cd "$REPO"
 export PYTHONPATH="$REPO"
 # claude's shebang is `/usr/bin/env node` — launchd's PATH has no node (exit 127 on 2026-06-12)
 export PATH="/Users/varmakammili/.nvm/versions/node/v24.14.0/bin:$PATH"
+# launchd caps file descriptors at 256 — too low for the conda-env python
+# imports (surfaced as PermissionError during module find_spec) AND the headless
+# `claude` CLI ("Unexpected error, low max file descriptors: 256"). Raise it so
+# the brief pipeline stops silently failing. (2026-07-01 fix)
+ulimit -n 65536 2>/dev/null || true   # claude CLI needs >8192 FDs; kernel cap is 92160
 
 DATE=$(date +%F)
 CTX="advisor/data/context/$DATE"
@@ -32,26 +37,19 @@ fi
 from advisor.research.datastore import panel_age_hours
 import subprocess, sys
 if panel_age_hours() > 20:
-    print("[run_brief] panel stale — inline rebuild")
-    subprocess.run([sys.executable, "-m", "advisor.research.nightly"], timeout=1200)
+    print("[run_brief] panel stale — inline rebuild (no ingest: signals only)")
+    subprocess.run([sys.executable, "-m", "advisor.research.nightly", "--no-ingest"],
+                   timeout=1200)
 PYEOF
 cp advisor/data/research/signals_latest.json "$CTX/factor_sheet.json" 2>/dev/null || true
 cp advisor/data/research/signals_latest.txt "$CTX/factor_sheet.txt" 2>/dev/null || true
 
-"$CLAUDE" -p "$(cat advisor/prompts/daily_brief.md)" \
-  --allowedTools "Read" "Glob" "Grep" "WebSearch" "WebFetch" \
-    "Write(advisor/data/**)" \
-    "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.journal:*)" \
-    "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.proposals:*)" \
-    "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.telegram_io:*)" \
-    "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.vol_check:*)" \
-    "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.quant:*)" \
-    "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.research.fair_value:*)" \
-    "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.research.factors:*)" \
-    "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.brief_check:*)" \
-    "Bash(date:*)" \
-  --max-turns 60 \
-  >> "advisor/logs/brief_$DATE.log" 2>&1
+# Three-stage pipeline (synthesis → red-team → publish), INTELLIGENCE_PLAN §4.
+# The orchestrator owns stage tool-whitelists, checks, retries, the legacy
+# single-session fallback, failure Telegram alerts, and post-publish
+# `journal --stamp-ref`. Stage logs: advisor/logs/brief_$DATE_<stage>.log
+export CLAUDE_BIN="$CLAUDE"
+"$PY" -m advisor.orchestrator >> "advisor/logs/brief_$DATE.log" 2>&1
 RC=$?
 echo "[run_brief] $(date) exit=$RC" >> advisor/logs/brief_runs.log
 exit $RC
