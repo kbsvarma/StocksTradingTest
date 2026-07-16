@@ -109,12 +109,7 @@ def check_quotes(state: dict, send: bool) -> None:
                     "wrote", send)
 
 
-def check_brief_slo(state: dict, send: bool) -> None:
-    now = _now()
-    if now.weekday() > 4 or now.strftime("%H:%M") < "09:50":
-        return
-    today = now.date().isoformat()
-    ok = False
+def _brief_done_today(today: str) -> bool:
     try:
         for line in (LOGS / "pipeline_runs.jsonl").read_text().splitlines():
             try:
@@ -124,13 +119,88 @@ def check_brief_slo(state: dict, send: bool) -> None:
             if r.get("ts", "").startswith(today) \
                     and r.get("stage") in ("publish", "legacy", "pipeline") \
                     and r.get("rc") == 0:
-                ok = True
+                return True
     except Exception:
         pass
-    if not ok:
+    return False
+
+
+def check_brief_slo(state: dict, send: bool) -> None:
+    """SELF-HEAL (2026-07-16 RCA): the 08:15 calendar job dies in dark-wake
+    TCC context; this watchdog provably runs healthy all day. So past 09:00
+    on a weekday with no successful brief and no pipeline in flight, LAUNCH
+    the brief ourselves (once/day) instead of just barking about it —
+    8 of 10 trial days had context but no brief because nobody relaunched."""
+    now = _now()
+    today = now.date().isoformat()
+    if now.weekday() > 4 or now.strftime("%H:%M") < "09:00":
+        return
+    if now.strftime("%H:%M") > "15:30":
+        return          # a brief this late is stale — don't burn the tokens
+    if _brief_done_today(today):
+        return
+    running = subprocess.run(["pgrep", "-f", "run_brief.sh|advisor.orchestrator"],
+                             capture_output=True, text=True).stdout.strip()
+    if running:
+        return
+    if state.get("brief:selfheal") != today:
+        state["brief:selfheal"] = today
+        print(f"[watchdog] SELF-HEAL: no brief by {now.strftime('%H:%M')} — "
+              f"launching run_brief.sh from watchdog context")
+        try:
+            subprocess.Popen(["/bin/zsh", str(REPO / "advisor" / "run_brief.sh")],
+                             stdout=open("/tmp/advisor-brief-selfheal.log", "a"),
+                             stderr=subprocess.STDOUT, cwd=REPO,
+                             start_new_session=True)
+            if send:
+                from advisor import telegram_io
+                telegram_io.send("🐕→🔄 WATCHDOG SELF-HEAL: 08:15 brief didn't "
+                                 "complete — relaunching the pipeline now.")
+        except Exception as exc:
+            print(f"[watchdog] self-heal spawn failed: {exc}", file=sys.stderr)
+    elif now.strftime("%H:%M") >= "10:30":
+        # self-heal already tried today and still no brief — escalate once
         _alert_once(state, "brief:slo",
-                    f"NO successful brief by {now.strftime('%H:%M')} ET — "
-                    f"check advisor/logs/brief_{today}*.log", send)
+                    f"NO successful brief by {now.strftime('%H:%M')} ET even "
+                    f"after self-heal — check advisor/logs/brief_{today}*.log "
+                    f"and /tmp/advisor-brief-selfheal.log", send)
+
+
+def check_librarian_selfheal(state: dict, send: bool) -> None:
+    """Same dark-wake class as the brief (librarian died 07-15 19:00 with the
+    identical TCC ModuleNotFoundError): after 19:30 on a weekday with no
+    librarian heartbeat today, relaunch it once from this working context."""
+    now = _now()
+    today = now.date().isoformat()
+    if now.weekday() > 4 or not ("19:30" <= now.strftime("%H:%M") <= "22:00"):
+        return
+    try:
+        for line in (LOGS / "pipeline_runs.jsonl").read_text().splitlines():
+            try:
+                r = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if r.get("ts", "").startswith(today) \
+                    and str(r.get("stage", "")).startswith(("librarian",
+                                                            "post_mortem")) \
+                    and r.get("rc") == 0:
+                return
+    except Exception:
+        pass
+    if subprocess.run(["pgrep", "-f", "run_librarian.sh"],
+                      capture_output=True, text=True).stdout.strip():
+        return
+    if state.get("librarian:selfheal") != today:
+        state["librarian:selfheal"] = today
+        print(f"[watchdog] SELF-HEAL: no librarian by {now.strftime('%H:%M')} "
+              f"— relaunching")
+        try:
+            subprocess.Popen(["/bin/zsh", str(REPO / "advisor" / "run_librarian.sh")],
+                             stdout=open("/tmp/advisor-librarian-selfheal.log", "a"),
+                             stderr=subprocess.STDOUT, cwd=REPO,
+                             start_new_session=True)
+        except Exception as exc:
+            print(f"[watchdog] librarian self-heal failed: {exc}", file=sys.stderr)
 
 
 def check_signals(state: dict, send: bool) -> None:
@@ -171,6 +241,7 @@ def run_once(send: bool = True) -> None:
     check_services(state, send)
     check_quotes(state, send)
     check_brief_slo(state, send)
+    check_librarian_selfheal(state, send)
     check_signals(state, send)
     log_hygiene()
     state["last_run"] = _now().isoformat()

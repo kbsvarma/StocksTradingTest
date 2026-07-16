@@ -20,17 +20,25 @@ DATE=$(date +%F)
 CTX="advisor/data/context/$DATE"
 mkdir -p "$CTX" advisor/logs
 
-# Wake-transient guard (2026-07-02: the 08:15 launchd run died in 5s with
-# ModuleNotFoundError while the Mac was mid-wake — repo not yet readable to
-# the fresh process tree; identical env imported fine minutes later).
-# Probe the import; give the machine up to 3 minutes to finish waking.
+# Import probe (RCA 2026-07-16: calendar-fired 08:15 runs execute in a
+# dark-wake context where TCC denies the import path — PermissionError in
+# _path_importer_cache — while interval-fired jobs (watchdog) and
+# user-context runs always work. 8 of 10 trial days died this way.)
+# Probe; on persistent failure ABORT LOUDLY — the watchdog self-heal
+# (ops_watchdog) relaunches this script from its working context after 09:00.
+PROBE_OK=0
 for _try in 1 2 3; do
   if "$PY" -c "import advisor.orchestrator" 2>>advisor/logs/wake_probe.err; then
-    break
+    PROBE_OK=1; break
   fi
-  echo "[run_brief] $(date) import probe failed (attempt $_try/3) — waking? retry in 60s" >> advisor/logs/brief_runs.log
+  echo "[run_brief] $(date) import probe failed (attempt $_try/3) — dark-wake TCC? retry in 60s" >> advisor/logs/brief_runs.log
   sleep 60
 done
+if [ "$PROBE_OK" -ne 1 ]; then
+  echo "[run_brief] $(date) ABORT: import denied (dark-wake TCC) — watchdog will relaunch after 09:00" >> advisor/logs/brief_runs.log
+  "$PY" -m advisor.telegram_io --send "⚠️ 08:15 brief blocked by dark-wake permissions — watchdog will auto-relaunch it after 09:00. No action needed unless no brief by 10:00." 2>/dev/null || true
+  exit 78
+fi
 
 # Skip weekends outright (launchd schedule already excludes them; belt+braces)
 DOW=$(date +%u)

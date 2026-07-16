@@ -105,3 +105,19 @@ decided honestly. Each item has a TRIGGER — do not act before it fires.
       unify once outcome_tags accumulate.
 - [ ] **Events/watchdog Telegram volume** — review after week 1; both dedup
       per (check|filing, day) but combined ping count is unproven.
+
+## Dark-wake TCC (RCA 2026-07-16 — the 8-dead-days incident)
+- [x] **Calendar-fired launchd jobs (brief 08:15, librarian 19:00) die in
+      dark-wake with PermissionError in the import path; interval-fired jobs
+      (watchdog 5-min) and user-context runs always work.** Standing fix:
+      run_brief aborts loudly on probe failure; ops_watchdog SELF-HEALS both
+      (brief 09:00–15:30, librarian 19:30–22:00, once/day each) + escalates
+      at 10:30 if still no brief. Terminal shows a red NO-BRIEF banner after
+      09:45.
+- [ ] VERIFY 2026-07-17: self-heal fires from the launchd tick itself (manual
+      fire worked 07-16 15:12; the 15:06/15:11 launchd ticks may have raced
+      the code edit).
+- [ ] PERMANENT CURE (user action, I can't change security settings): grant
+      Full Disk Access to /opt/anaconda3/envs/llms/bin/python3 in System
+      Settings → Privacy, and/or `sudo pmset repeat wakeorpoweron MTWRF
+      08:13:00` so 08:15 fires in a real wake.

@@ -266,6 +266,44 @@ def tape():
 
 # ── ACTIVE RECOMMENDATIONS (pinned board — union of still-valid calls) ──────
 
+def _brief_missing_banner() -> str | None:
+    """Unmissable red banner when today's brief hasn't landed by 09:45 on a
+    weekday (2026-07-16 audit: 8 of 10 pipeline days failed silently while
+    the footer showed a small amber dot nobody noticed)."""
+    now = datetime.now(ET)
+    if now.weekday() > 4 or now.strftime("%H:%M") < "09:45":
+        return None
+    today = now.date().isoformat()
+    if (CTX / today / "brief.json").exists():
+        return None
+    reason = "no pipeline heartbeat today"
+    rows = load_jsonl_tail(REPO / "advisor" / "logs" / "pipeline_runs.jsonl", 8)
+    for r in rows:
+        if r.get("ts", "").startswith(today):
+            reason = f"last stage: {r.get('stage')} rc={r.get('rc')} {r.get('note', '')[:60]}"
+            break
+    else:
+        try:
+            for line in reversed((REPO / "advisor" / "logs" / "brief_runs.log")
+                                 .read_text().splitlines()[-8:]):
+                if today[5:] in line or "ABORT" in line:
+                    reason = line.strip()[:110]
+                    break
+        except Exception:
+            pass
+    return (f'<div style="background:#2a0d0d; border:2px solid {RED}; '
+            f'padding:10px 14px; border-radius:3px; margin:4px 0;">'
+            f'<span style="color:{RED}; font-family:Menlo,monospace; '
+            f'font-size:15px; font-weight:800; letter-spacing:2px;">'
+            f'⛔ NO BRIEF TODAY ({today})</span>'
+            f'<span style="color:#e8e6e3; font-size:12px; margin-left:12px; '
+            f'font-family:Menlo,monospace;">{reason}</span>'
+            f'<div style="color:{DIM}; font-size:11px; margin-top:4px;">'
+            f'watchdog self-heals after 09:00 · or hit 🔄 REGEN BRIEF above · '
+            f'root cause: dark-wake TCC denies the 08:15 calendar job '
+            f'(see TUNING_NOTES)</div></div>')
+
+
 @st.fragment(run_every="30s")
 def active_recommendations():
     """The standing set: every call that still carries conviction, from ANY
@@ -356,6 +394,9 @@ def active_recommendations():
     except Exception:
         pass
 
+    banner = _brief_missing_banner()
+    if banner:
+        st.markdown(banner, unsafe_allow_html=True)
     n = len(cards)
     hdr = (f'<span style="color:{AMBER}; font-family:Menlo,monospace; '
            f'font-size:13px; font-weight:700; letter-spacing:2px;">'
