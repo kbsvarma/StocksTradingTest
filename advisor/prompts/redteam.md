@@ -49,6 +49,16 @@ SPECIFIC, sourced grounds.
    kill)? Is the target realistic vs 52w range and recent swings? Is R:R
    still ≥ 2 after any amendment you propose?
 
+4b. **Short-view checks (direction=short only).** (a) SQUEEZE: peek's
+   short %float — >15% unacknowledged = kill; >25% = kill outright.
+   (b) EXPRESSION: defined-risk only — a short expressed as anything but
+   puts/put spreads = kill. (c) vol_check verdict on the puts must be
+   CHEAP/FAIR — buying RICH puts = kill or amend to a spread. (d) UPSIDE
+   CATALYSTS: any scheduled positive catalyst (earnings, analyst day,
+   index add) inside the holding window must be named in the thesis or
+   it's a kill. (e) CHASING-DOWN: >35% off the 52w high without explicit
+   remaining-downside justification = kill.
+
 5. **Crowding/correlation.** Read open calls
    (`python -m advisor.journal --list --open`) and portfolio.json: does this
    view stack the same factor/sector/direction as existing exposure? Flag

@@ -27,7 +27,45 @@ OUT = RESEARCH_DIR / "candidates_latest.json"
 
 CAPS = {"tactical_long": 10, "tactical_short": 5, "pead_fresh": 6,
         "insider_cluster": 5, "revision_leader": 5, "cheap_quality": 5,
-        "new_entrant": 5, "squeeze_flag": 3}
+        "new_entrant": 5, "squeeze_flag": 3, "repeat_kill": 4}
+
+# ── short-side pathway (2026-07-16, user-approved) ──────────────────────────
+# The trial audit showed 17/19 kills were followed by average ~9.5% drops:
+# the kill signal is tradeable information. A name the engine has killed as
+# a LONG >=2 times in the window — with at least one STRETCH-class reason —
+# becomes a SHORT candidate. Synthesis may draft it only defined-risk and it
+# must survive the red-team like anything else (squeeze check mandatory).
+REPEAT_KILL_WINDOW_D = 14
+_STRETCH_PAT = None
+
+
+def repeat_kills() -> list[dict]:
+    import re
+    from collections import defaultdict
+    from datetime import timedelta
+    global _STRETCH_PAT
+    if _STRETCH_PAT is None:
+        _STRETCH_PAT = re.compile(
+            r"extended|overvalu|rich|stretch|reversion|unwind|no valuation|"
+            r"R:R|no-moat|chas|crowded|parabol", re.I)
+    from advisor.research.outcomes import rejected_ideas
+    cutoff = (datetime.now(ET) - timedelta(days=REPEAT_KILL_WINDOW_D)).isoformat()
+    by: dict[str, list] = defaultdict(list)
+    for r in rejected_ideas():
+        if (r.get("ts") or "") < cutoff or not r.get("yf_ticker"):
+            continue
+        by[r["yf_ticker"]].append(r)
+    out = []
+    for t, kills in by.items():
+        if len(kills) < 2:
+            continue
+        if not any(_STRETCH_PAT.search(k.get("killed_by") or "") for k in kills):
+            continue
+        out.append({"ticker": t, "n_kills": len(kills),
+                    "last_kill": max(k.get("ts", "") for k in kills)[:10],
+                    "kill_reasons": [(k.get("killed_by") or "")[:70]
+                                     for k in kills[-2:]]})
+    return sorted(out, key=lambda x: -x["n_kills"])
 
 
 def build() -> dict:
@@ -97,6 +135,15 @@ def build() -> dict:
         for c in cl.get("clusters", [])[:CAPS["insider_cluster"]]:
             add(c["ticker"], "insider_cluster", n_buys=c["n_buys"],
                 insider_net_usd=c["net_value_usd"])
+    except Exception:
+        pass
+
+    # short-side pathway: repeated stretch-class kills = short candidates
+    try:
+        for rk in repeat_kills()[:CAPS["repeat_kill"]]:
+            add(rk["ticker"], "repeat_kill", n_kills=rk["n_kills"],
+                last_kill=rk["last_kill"],
+                kill_reasons="; ".join(rk["kill_reasons"]))
     except Exception:
         pass
 

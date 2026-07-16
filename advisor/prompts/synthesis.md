@@ -78,6 +78,27 @@ driving facts of each thesis you take seriously, market-implied odds for
 event trades, and anything macro.json flagged that touches your candidates.
 Date every fact.
 
+## Step 2b — SHORT-SIDE PATHWAY (repeat-kill candidates)
+
+Slate entries tagged `repeat_kill` are names this engine has killed as LONGS
+≥2 times in 14 days with stretch-class reasons — the trial audit showed such
+kills preceded average ~9.5% declines (17/19 correct). You MAY draft a SHORT
+view on one, under strict conditions:
+- **Defined-risk expression ONLY** (puts / put spreads; never naked). Run
+  `python -m advisor.vol_check --ticker <X>` — the puts must be CHEAP or
+  FAIR vs realized; RICH = the market already paid for your thesis, pass.
+- **Trigger, not prediction**: entry requires a stated technical break
+  (below 20/50-dma, or a lower-high after the kill) — never short intact
+  strength.
+- **Squeeze gate**: `python -m advisor.research.peek --ticker <X>` — short
+  % float >15% needs explicit acknowledgment and reduced size; >25% = pass.
+- **Not already-fallen**: a name >35% off its high has paid the easy leg —
+  requires explicit justification for what remains.
+- Same numeric levels as any view (direction=short: stop ABOVE entry,
+  target BELOW), same sizing rule (premium ≤3% of budget), `source:
+  "repeat_kill"` so attribution can judge whether this pathway earns its
+  keep (untouchable until 10 resolutions, per TUNING_NOTES).
+
 ## Step 3 — Form views. The conviction bar is unchanged.
 
 - Full-market universe; options are NOT the default lens; no legacy

@@ -20,6 +20,15 @@ decided honestly. Each item has a TRIGGER — do not act before it fires.
 - [ ] **stamp-ref honesty window** (currently 2 days) — revisit only if a
       legitimately-published view ever misses its stamp.
 
+## Short-side pathway (approved 2026-07-16)
+- [ ] **repeat_kill generator** — max 1 concurrent short view from this
+      pathway until 5 have resolved; generator weighting untouchable until
+      n≥10 resolved (attribution gates). TRIGGER to widen: hit-rate ≥55%
+      and avg R > 0 at n≥10.
+- [ ] **Stretch-keyword pattern** (candidates.py `_STRETCH_PAT`) — review
+      after 20 kills whether the keyword filter matches the kills that
+      actually predicted declines (post-mortem data will say).
+
 ## Factors (all new factors ship ZERO-WEIGHTED behind the IC gate)
 - [ ] **est_revision factor weight** — prospective only.
       TRIGGER: ≥13 weeks of estimates/dt= snapshots AND ic_monitor shows

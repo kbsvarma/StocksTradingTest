@@ -96,6 +96,18 @@ generators untouchable n<10). The exit watcher records level hits + MAE/MFE
 mechanically; humans (weekly review) write final resolutions with outcome
 tags.
 
+**Short-side pathway (2026-07-16, user-approved).** Kills are information:
+the first trial audit measured 17/19 kills followed by average ~9.5%
+declines. A name killed as a long ≥2× in 14 days with stretch-class reasons
+(extended/overvalued/reversion/crowded) enters the slate as a `repeat_kill`
+SHORT candidate. Constraints, non-negotiable: defined-risk expression only
+(puts/spreads, vol_check CHEAP/FAIR); entry on a stated technical break,
+never intact strength; squeeze gate (short %float >15% acknowledged+small,
+>25% pass); >35%-off-high names need explicit remaining-downside logic;
+red-team applies checks 4b; `source: repeat_kill` so attribution judges the
+pathway (untouchable until 10 resolutions). The kill list stays the primary
+product — this pathway only monetizes its strongest repeats.
+
 ## LESSONS LOG (weekly review appends; never edits prior entries)
 
 - 2026-06-12 (founding session): four-loop process produced IWM 285/275
