@@ -1,0 +1,6 @@
+live: true            # two-key: needs --live AND this true
+contracts: 10
+max_concurrent: 4
+daily_loss_halt_usd: 15
+maker_first: true     # rest bid at ask-1c first (verified +0.7-0.95c/ct)
+maker_wait_secs: 120  # then cancel; taker fallback if band still holds

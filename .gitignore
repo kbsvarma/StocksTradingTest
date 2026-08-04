@@ -41,3 +41,9 @@ webull_bot/__pycache__/
 # ── Advisor runtime data (2026-06-12) ────────────────────────
 advisor/data/
 advisor/logs/
+
+# Kalshi research data (GB-scale, re-pullable from API) + runtime state
+kalshi_sports_2026_08/data/
+kalshi_sports_2026_08/state/
+kalshi_unbroken_bot/state/
+kalshi_unbroken_bot/
