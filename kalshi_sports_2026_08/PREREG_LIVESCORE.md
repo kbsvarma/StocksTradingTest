@@ -85,6 +85,80 @@ and a failure of P1 is NOT rescued by reporting P2/P3 as the headline.
 - Join coverage < 60% of archive matches => result is unreliable;
   report as inconclusive rather than as a pass.
 
+## ADDENDUM 2026-08-05 (same day, still before any collected data)
+
+External prior located AFTER writing the states above, recorded here
+rather than used to rewrite them. Tennis Abstract (Sackmann), ~16,000
+WTA matches since 2011: **players who hold match point win the match
+"a bit more than 97%"** of the time. Single match points convert 80.8%,
+multiple 91.9%. Serving at match point costs ~3% off the normal serve-
+point rate (returning shows no such effect).
+
+Break-even at a 98c entry is ~98.1%. So **P1 as written (any match
+point) is now EXPECTED TO FAIL** — it is a ~-1c/ct trade tour-wide.
+P1 remains the pre-registered primary and will be reported as such;
+this addendum exists so the prior is on the record and a P1 failure
+cannot later be spun as surprising.
+
+The hypothesis survives only in tighter forms, which were already
+listed or are strictly narrower than P1, and which will be reported as
+secondary with their own n:
+  - match point while ALSO up a break in the deciding set
+  - multiple (>=2) simultaneous match points
+  - match point on RETURN (no serving-nerves penalty)
+Note the target group (176 matches that ENDED within 10 minutes) is
+strictly narrower than "reached match point" — many matches reach match
+point and continue for a long time. The state that predicts *imminent
+conclusion* is what is being sought, not the state that predicts
+*eventual victory*, which the price already knows.
+
+## EXTENSION B 2026-08-05 (user-proposed, registered before data)
+
+User: "if the fav or higher-ranked one comes in the 90 range then query
+the API and see if it is getting there — like a set won and leading the
+next." Registered as a SEPARATE hypothesis with its own gates. (User
+said "2 sets won"; WTA is best-of-3, so the equivalent commanding state
+is one set won + leading the second. Recorded so the test matches the
+intent, not the literal wording.)
+
+**Hypothesis B:** in the 90-97c band, score states denoting a commanding
+position beat the price. The band matters because the price is
+compressed there too — 92c covers "set + break in the 2nd", "double
+break in the 3rd", and "won 1st 6-0, on serve in the 2nd" alike.
+
+**Price-only baseline to beat** (measured 2026-08-05, no score, H10,
+event-deduped, day-clustered t):
+
+| band | n | W-L | net/ct | IS | OOS | day-t |
+|---|---|---|---|---|---|---|
+| 90-93 | 222 | 210-12 | +1.73c | +2.44 | +0.31 | 1.21 |
+| 93-95 | 165 | 159-6 | +1.34c | +0.40 | +3.22 | 1.08 |
+| 95-97 | 137 | 135-2 | +1.66c | +2.02 | +0.95 | 1.56 |
+| 97-99 (live lane) | 101 | 101-0 | +1.20c | +1.21 | +1.18 | **7.23** |
+
+All three 90s bands are positive but INDISTINGUISHABLE FROM NOISE. The
+score's job is to lift one from t~1 to t>=2, i.e. to identify the subset
+that carries the positive mean. A score rule that merely reproduces the
+band average has added nothing.
+
+**States (fixed now):**
+- B1: one set won AND up a break in the current set
+- B2: one set won AND up a double break in the current set
+- B3: one set won AND serving for the match
+- B4: one set won AND current set on serve (control — expected WORST;
+  included so a "commanding" claim can be falsified against it)
+
+**Prior working against B:** WTA break-back rates run 35-58% by game
+(tennisratings.co.uk), so a single break lead is materially less secure
+in the women's game than intuition suggests. B1 may therefore be priced
+correctly at ~90-93c. B2/B3 are the likelier survivors.
+
+**Gates:** identical to Extension A (n>=100 per state, both halves
+positive, day-clustered t>=2, worst day <=25% of gross). Higher variance
+is expected here — at 92c a loss costs 92c against a 8c win, so ~9x more
+losers than the 97-99 lane. Sample requirements are therefore LARGER,
+not smaller; n>=100 is a floor, not a target.
+
 ## Explicitly out of scope this pass
 
 - WNBA / any non-tennis family (score semantics differ; fast-approach
