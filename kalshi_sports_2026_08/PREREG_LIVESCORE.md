@@ -159,6 +159,48 @@ is expected here — at 92c a loss costs 92c against a 8c win, so ~9x more
 losers than the 97-99 lane. Sample requirements are therefore LARGER,
 not smaller; n>=100 is a floor, not a target.
 
+## EXTENSION C 2026-08-05 — band widened to 85c (user-directed)
+
+User: "we can do this only if we explore starting from 85 since now we
+can have those exact scores that we can check and then decide."
+Accepted. Price bands under test become: 85-90, 90-93, 93-95, 95-97,
+97-99. (80-85 measured but NOT registered — see below.)
+
+**Price-only baselines, H10, spread<=3c, event-deduped, day-clustered t:**
+
+| band | n | W-L | net/ct | IS | OOS | day-t |
+|---|---|---|---|---|---|---|
+| 80-85 | 414 | 356-58 | +1.44c | +2.45 | -0.56 | 0.93 |
+| 85-90 | 347 | 310-37 | **+0.06c** | -0.15 | +0.49 | **0.04** |
+| 90-93 | 237 | 225-12 | +1.84c | +2.50 | +0.54 | 1.36 |
+| 93-95 | 165 | 159-6 | +1.33c | +0.39 | +3.22 | 1.07 |
+| 95-97 | 142 | 140-2 | +1.69c | +2.03 | +1.02 | 1.65 |
+
+85-90 is a true null on price (t=0.04) — the CLEANEST test of the score
+hypothesis, because any profit found there is attributable to the score
+alone with no price-edge confound. 80-85 is excluded from registration:
+its OOS already sign-flips (-0.56) and a loss costs 82c against a 18c
+win, so the sample needed exceeds anything this program will hold.
+
+**SPREAD GATE IS LOAD-BEARING.** Re-running 97-99 at spread<=3c instead
+of <=2c introduced a loss and cut the cell from +1.20c to +0.24c. Every
+band under test carries its own spread gate; no extension inherits a
+loosened one. Gate per band: <=2c at 95-99, <=3c at 85-95 (wider books
+are normal lower down), reported both ways.
+
+**MULTIPLE-TESTING DISCIPLINE (mandatory, not optional).** The surface is
+now 5 bands x 8 states = 40 cells. At p<0.05 roughly two will look
+significant by chance alone. The July program fabricated six "edges"
+exactly this way. Therefore:
+  1. Benjamini-Hochberg FDR at 10% across the FULL surface — every cell
+     run, none dropped from the family after the fact.
+  2. Chronological IS/OOS 2/3 split within the history.
+  3. **Forward confirmation required**: any cell surviving 1+2 must then
+     hold up on collector data (matches occurring AFTER the history
+     window, incl. the US Open) before a single contract is deployed.
+  4. Cells are reported win or lose, including the full 40-cell table,
+     so the reader can see how much searching produced the survivor.
+
 ## Explicitly out of scope this pass
 
 - WNBA / any non-tennis family (score semantics differ; fast-approach
