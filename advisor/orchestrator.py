@@ -352,7 +352,8 @@ def run_pipeline(date: str, skip_preflight: bool = False,
         try:
             receipt = commit_publication(REPO / "advisor" / "data" / "context" / date)
             _heartbeat("commit", 0, 0,
-                       f"journaled={len(receipt['journal_ids'])} notified=yes")
+                       f"journaled={len(receipt['journal_ids'])} "
+                       f"notification={receipt['notification_status']}")
         except Exception as exc:
             ctx = REPO / "advisor" / "data" / "context" / date
             stamp = datetime.now(ET).strftime("%Y%m%dT%H%M%S")
