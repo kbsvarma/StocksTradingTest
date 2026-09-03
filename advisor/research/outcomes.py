@@ -85,6 +85,14 @@ def p_win_of(e: dict) -> float | None:
     return CONVICTION_P.get((e.get("conviction") or "").lower())
 
 
+def p_win_origin(e: dict) -> str | None:
+    if _num(e.get("p_win")) is not None:
+        return "explicit"
+    if (e.get("conviction") or "").lower() in CONVICTION_P:
+        return "legacy_conviction_map"
+    return None
+
+
 def derive_outcome(e: dict) -> dict:
     """win flag + realized R. Explicit resolve fields win; otherwise a
     level-approximation from ref/stop/target (labeled as such)."""
@@ -114,8 +122,14 @@ def derive_outcome(e: dict) -> dict:
                 r_basis = "level-approximated"
     if realized_r is not None:
         realized_r = round(realized_r, 3)
+    calibration_eligible = bool(e.get("entry_observed") is True
+                                and e.get("entry_observed_ts")
+                                and win is not None)
     return {"win": win, "realized_r": realized_r, "r_basis": r_basis,
-            "p_win_effective": p_win_of(e)}
+            "p_win_effective": p_win_of(e), "p_win_origin": p_win_origin(e),
+            "calibration_eligible": calibration_eligible,
+            "calibration_exclusion": (None if calibration_eligible else
+                                      "entry zone not machine-observed or outcome ambiguous")}
 
 
 def price_path(ticker: str, start_iso: str, end_iso: str | None = None) -> dict:

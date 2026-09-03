@@ -33,7 +33,9 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from advisor.pipeline_status import classify_failure, write_status
+from advisor.pipeline_status import classify_failure, classify_text, write_status
+from advisor.publication_assembly import assemble as assemble_publication
+from advisor.publication_commit import commit as commit_publication
 
 ET = ZoneInfo("America/New_York")
 REPO = Path(__file__).resolve().parent.parent
@@ -51,7 +53,13 @@ _B = f"Bash({PY} -m advisor"
 
 
 def _tools(*mods: str) -> list[str]:
-    return [f"{_B}.{m}:*)" for m in mods]
+    # Current CLI grammar is shell prefix + a space-separated glob. The old
+    # ':*' suffix did not match and non-interactive sessions wasted turns
+    # requesting approvals that nobody could answer.
+    return [f"{_B}.{m} *)" for m in mods]
+
+
+DATE_TOOLS = ["Bash(date)", "Bash(date *)"]
 
 
 STAGES: dict[str, dict] = {
@@ -60,9 +68,9 @@ STAGES: dict[str, dict] = {
         "max_turns": 45,
         "timeout_s": 1200,
         "tools": READ_TOOLS + ["WebSearch", "WebFetch",
-                               "Edit(advisor/data/context/**)",
-                               "Edit(advisor/data/knowledge/narrative/**)"]
-        + _tools("macro_check") + ["Bash(date:*)"],
+                               "Edit(advisor/data/context/{date}/macro.json)",
+                               "Edit(advisor/data/knowledge/narrative/current_themes.md)"]
+        + _tools("macro_check") + DATE_TOOLS,
         "check": lambda ctx: _run_check(
             [PY, "-m", "advisor.macro_check", str(ctx / "macro.json")]),
     },
@@ -70,10 +78,11 @@ STAGES: dict[str, dict] = {
         "prompt": "advisor/prompts/synthesis.md",
         "max_turns": 40,
         "timeout_s": 1800,
-        "tools": READ_TOOLS + ["WebSearch", "WebFetch", "Edit(advisor/data/**)"]
+        "tools": READ_TOOLS + ["WebSearch", "WebFetch",
+                               "Edit(advisor/data/context/{date}/views_draft.json)"]
         + _tools("journal --list", "proposals --list", "vol_check", "quant",
                  "research.fair_value", "research.factors", "research.peek",
-                 "watchlist --list", "brief_check") + ["Bash(date:*)"],
+                 "watchlist --list", "brief_check") + DATE_TOOLS,
         "check": lambda ctx: _run_check(
             [PY, "-m", "advisor.brief_check", "--draft",
              str(ctx / "views_draft.json")]),
@@ -83,22 +92,12 @@ STAGES: dict[str, dict] = {
         "max_turns": 55,
         "timeout_s": 1500,
         "tools": READ_TOOLS + ["WebSearch", "WebFetch",
-                               "Edit(advisor/data/context/**)"]
+                               "Edit(advisor/data/context/{date}/redteam.json)"]
         + _tools("journal --list", "vol_check", "research.fair_value",
-                 "research.peek", "research.redteam_check") + ["Bash(date:*)"],
+                 "research.peek", "research.redteam_check") + DATE_TOOLS,
         "check": lambda ctx: _run_check(
             [PY, "-m", "advisor.research.redteam_check",
              str(ctx / "redteam.json"), str(ctx / "views_draft.json")]),
-    },
-    "publish": {
-        "prompt": "advisor/prompts/publish.md",
-        "max_turns": 30,
-        "timeout_s": 1200,
-        "tools": READ_TOOLS + ["Edit(advisor/data/**)"]
-        + _tools("journal", "proposals", "telegram_io", "watchlist",
-                 "brief_check") + ["Bash(date:*)"],
-        "check": lambda ctx: _run_check(
-            [PY, "-m", "advisor.brief_check", str(ctx / "brief.json")]),
     },
 }
 
@@ -106,7 +105,6 @@ STAGE_OUTPUTS = {
     "macro": ("macro.json",),
     "synthesis": ("views_draft.json",),
     "redteam": ("redteam.json",),
-    "publish": ("brief.json", "brief.md"),
 }
 
 
@@ -162,15 +160,22 @@ def _telegram(msg: str) -> None:
 
 def _claude(stage: str, date: str, dry_run: bool = False) -> int:
     cfg = STAGES[stage]
+    allowed_tools = [rule.format(date=date) for rule in cfg["tools"]]
     ctx = f"advisor/data/context/{date}"
-    prompt = (f"CONTEXT_DIR: {ctx}\nTODAY: {date}\n\n"
+    prompt = (f"CONTEXT_DIR: {ctx}\nTODAY: {date}\n"
+              f"ADVISOR_PYTHON: {PY}\n"
+              f"For every command documented as `python -m advisor...`, use "
+              f"the exact executable `{PY}` instead. It is the allow-listed "
+              f"project runtime. Never request interactive approval; if a tool "
+              f"is denied, report the denial and stop.\n\n"
               + (REPO / cfg["prompt"]).read_text(encoding="utf-8"))
     cmd = [CLAUDE, "-p", prompt, "--max-turns", str(cfg["max_turns"]),
-           "--allowedTools", *cfg["tools"]]
+           "--permission-mode", "dontAsk", "--permission-prompts", "none",
+           "--allowedTools", *allowed_tools]
     if dry_run:
         print(f"[orchestrator] DRY-RUN {stage}: {' '.join(cmd[:1])} "
               f"-p <{cfg['prompt']}> --max-turns {cfg['max_turns']} "
-              f"--allowedTools {len(cfg['tools'])} entries "
+              f"--allowedTools {len(allowed_tools)} entries "
               f"(timeout {cfg['timeout_s']}s)", flush=True)
         return 0
     log = LOGS / f"brief_{date}_{stage}.log"
@@ -187,21 +192,22 @@ def _claude(stage: str, date: str, dry_run: bool = False) -> int:
             return 124
 
 
-def preflight() -> bool:
+def preflight() -> tuple[bool, str]:
     """Cheap auth/liveness ping — catches expired `claude /login` loudly."""
     try:
         r = subprocess.run([CLAUDE, "-p", "Reply with exactly: PONG",
                             "--max-turns", "1"],
                            cwd=REPO, capture_output=True, text=True, timeout=180)
-        ok = r.returncode == 0 and "PONG" in (r.stdout or "")
+        output = r.stdout or r.stderr or ""
+        ok = r.returncode == 0 and "PONG" in output
         if not ok:
-            out = (r.stdout or r.stderr or "")[:300]
+            out = output[:300]
             print(f"[orchestrator] preflight failed rc={r.returncode} out={out!r}",
                   flush=True)
-        return ok
+        return ok, ("none" if ok else classify_text(r.returncode, output))
     except Exception as exc:
         print(f"[orchestrator] preflight exception: {exc}", flush=True)
-        return False
+        return False, "provider_preflight_failure"
 
 
 def run_stage(stage: str, date: str, dry_run: bool = False) -> int:
@@ -255,12 +261,17 @@ def run_pipeline(date: str, skip_preflight: bool = False,
                  started_at=started_at)
 
     if not skip_preflight and not dry_run:
-        if not preflight():
-            _telegram("❌ MORNING PIPELINE ABORTED — claude CLI preflight failed "
-                      "(likely expired `claude /login`). No brief today until fixed.")
-            _heartbeat("pipeline", 78, time.time() - t_start, "preflight failed")
+        preflight_ok, preflight_reason = preflight()
+        if not preflight_ok:
+            operator_hint = ("provider capacity is exhausted; scheduled retry will "
+                             "remain fail-closed" if preflight_reason == "provider_quota"
+                             else "provider credentials or CLI availability need review")
+            _telegram(f"❌ MORNING PIPELINE ABORTED — provider preflight failed: "
+                      f"{preflight_reason}; {operator_hint}.")
+            _heartbeat("pipeline", 78, time.time() - t_start,
+                       f"preflight failed: {preflight_reason}")
             write_status(run_id=run_id, date=date, state="failed", stage="preflight",
-                         returncode=78, reason="provider_auth",
+                         returncode=78, reason=preflight_reason,
                          note="provider preflight failed", started_at=started_at)
             return 78
 
@@ -324,32 +335,37 @@ def run_pipeline(date: str, skip_preflight: bool = False,
 
     write_status(run_id=run_id, date=date, state="running", stage="publish",
                  started_at=started_at)
-    prc = run_stage("publish", date, dry_run)
-    if prc != 0:
-        _heartbeat("publish", prc, 0, "failed — one retry")
-        prc = run_stage("publish", date, dry_run)
-    if prc != 0:
-        _telegram("❌ NO BRIEF TODAY — publish stage failed twice after a good "
-                  f"synthesis. Draft views exist in advisor/data/context/{date}/"
-                  f"views_draft.json; logs: advisor/logs/brief_{date}_publish.log")
-        _heartbeat("pipeline", prc, time.time() - t_start, "publish failed twice")
+    try:
+        assemble_publication(REPO / "advisor" / "data" / "context" / date)
+        _heartbeat("assembly", 0, 0, "deterministic merge validated")
+    except Exception as exc:
+        _telegram("❌ NO BRIEF TODAY — deterministic publication assembly failed "
+                  f"after valid research stages: {type(exc).__name__}.")
+        _heartbeat("pipeline", 70, time.time() - t_start,
+                   f"assembly failed: {type(exc).__name__}: {exc}")
         write_status(run_id=run_id, date=date, state="failed", stage="publish",
-                     returncode=prc,
-                     reason=classify_failure(prc, LOGS / f"brief_{date}_publish.log"),
+                     returncode=70, reason="publication_assembly_failure",
                      note="publication blocked", started_at=started_at)
-        return prc
+        return 70
 
     if not dry_run:
         try:
-            subprocess.run([PY, "-m", "advisor.journal", "--stamp-ref"],
-                           cwd=REPO, timeout=300, check=True)
+            receipt = commit_publication(REPO / "advisor" / "data" / "context" / date)
+            _heartbeat("commit", 0, 0,
+                       f"journaled={len(receipt['journal_ids'])} notified=yes")
         except Exception as exc:
-            _heartbeat("stamp-ref", 1, 0, f"failed: {exc}")
-            _telegram("❌ Published brief could not be armed with reference prices; "
-                      "treat its views as non-actionable until repaired.")
-            write_status(run_id=run_id, date=date, state="failed", stage="stamp-ref",
-                         returncode=69, reason="reference_price_failure",
-                         note="published views are non-actionable", started_at=started_at)
+            ctx = REPO / "advisor" / "data" / "context" / date
+            stamp = datetime.now(ET).strftime("%Y%m%dT%H%M%S")
+            for name in ("brief.pending.json",):
+                path = ctx / name
+                if path.exists():
+                    os.replace(path, path.with_name(f"{path.name}.invalid.{stamp}"))
+            _heartbeat("commit", 1, 0, f"failed: {type(exc).__name__}: {exc}")
+            _telegram("❌ VALIDATED DRAFT NOT PUBLISHED — deterministic commit failed; "
+                      "the prior brief was preserved.")
+            write_status(run_id=run_id, date=date, state="failed", stage="commit",
+                         returncode=69, reason="publication_commit_failure",
+                         note="prior brief preserved", started_at=started_at)
             return 69
 
     _heartbeat("pipeline", 0, time.time() - t_start, "complete")

@@ -60,11 +60,12 @@ the position in the GOOD outcome for the other side, and what that costs.
    leg is the trade after the event confirms.
 4. **Prediction-market odds beat headline vibes.** Headlines said "deal
    this weekend"; Polymarket said 9%. Always look up the number.
-5. **Position size by budget %:** single event trade premium ≤ 3% of
-   advisor budget; total open risk visible in every brief.
+5. **Bound hypothetical risk by policy:** a single event scenario loss is
+   capped by the configured research-risk policy; total tracked exposure is
+   visible in every brief. This is not personalized position sizing.
 6. **Shares with fair-value exits are the default expression.** A
-   single-name recommendation is a valuation/catalyst gap: buy below fair
-   value, exit at fair value (advisor/research/fair_value.py — range with
+   single-name research view tests a valuation/catalyst gap around a stated
+   scenario range (advisor/research/fair_value.py — range with
    methods disclosed, confidence graded). Options are the exception that
    must earn its place via vol_check. Factor rank alone is never a thesis —
    it nominates candidates; the analyst loops must find WHY the gap exists
@@ -96,17 +97,11 @@ generators untouchable n<10). The exit watcher records level hits + MAE/MFE
 mechanically; humans (weekly review) write final resolutions with outcome
 tags.
 
-**Short-side pathway (2026-07-16, user-approved).** Kills are information:
-the first trial audit measured 17/19 kills followed by average ~9.5%
-declines. A name killed as a long ≥2× in 14 days with stretch-class reasons
-(extended/overvalued/reversion/crowded) enters the slate as a `repeat_kill`
-SHORT candidate. Constraints, non-negotiable: defined-risk expression only
-(puts/spreads, vol_check CHEAP/FAIR); entry on a stated technical break,
-never intact strength; squeeze gate (short %float >15% acknowledged+small,
->25% pass); >35%-off-high names need explicit remaining-downside logic;
-red-team applies checks 4b; `source: repeat_kill` so attribution judges the
-pathway (untouchable until 10 resolutions). The kill list stays the primary
-product — this pathway only monetizes its strongest repeats.
+**Reject-history safeguard.** Rejected longs are retained for counterfactual
+scoring, but repeated rejects are not a short signal. The early 17/19
+observation was a tiny selected sample without a registered control. The
+`repeat_kill` candidate pathway is disabled until a prospective study with a
+predeclared benchmark, costs, sample gate, and independent approval supports it.
 
 ## LESSONS LOG (weekly review appends; never edits prior entries)
 

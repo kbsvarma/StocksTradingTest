@@ -1,15 +1,18 @@
-#!/bin/zsh
-# Daily pre-market advisor brief (Tier 0) — launchd: com.stockstest.advisor-brief
+#!/usr/bin/env bash
+# Daily pre-market advisor brief (Tier 0) — launchd or systemd user timer.
 # Fetches deterministic context, then runs a headless Claude research session.
-set -u
-source "$HOME/.webull_env"
-REPO=/Users/varmakammili/Documents/GitHub/StocksTradingTest
-PY=/opt/anaconda3/envs/llms/bin/python3
-CLAUDE=/Users/varmakammili/.nvm/versions/node/v24.14.0/bin/claude
+set -uo pipefail
+REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+PY=${ADVISOR_PYTHON:-"$REPO/.venv/bin/python"}
+[ -x "$PY" ] || PY=$(command -v python3)
+CLAUDE=${CLAUDE_BIN:-$(command -v claude 2>/dev/null || true)}
+[ -n "$CLAUDE" ] || { echo "[run_brief] claude executable not found" >&2; exit 78; }
+ENV_FILE=${ADVISOR_ENV_FILE:-}
+if [ -n "$ENV_FILE" ] && [ -r "$ENV_FILE" ]; then . "$ENV_FILE"; fi
 cd "$REPO"
 export PYTHONPATH="$REPO"
 # claude's shebang is `/usr/bin/env node` — launchd's PATH has no node (exit 127 on 2026-06-12)
-export PATH="/Users/varmakammili/.nvm/versions/node/v24.14.0/bin:$PATH"
+export PATH="$(dirname "$CLAUDE"):$PATH"
 # launchd caps file descriptors at 256 — too low for the conda-env python
 # imports (surfaced as PermissionError during module find_spec) AND the headless
 # `claude` CLI ("Unexpected error, low max file descriptors: 256"). Raise it so

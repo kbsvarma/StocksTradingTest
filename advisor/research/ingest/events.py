@@ -1,7 +1,7 @@
 """Earnings calendar + surprise history.
 
 calendar → earnings_calendar.parquet (full rewrite nightly, as_of column):
-next confirmed earnings date + consensus per ticker — feeds the morning
+provider-estimated next earnings date + consensus per ticker — feeds the morning
 session's earnings-in-N-days awareness and (later) the kill-test checklist.
 
 earnings_dates → earnings_history.parquet (merged, deduped on ticker+date):
@@ -33,7 +33,11 @@ def _one(ticker: str) -> tuple[dict | None, list[dict]]:
             cal_row = {
                 "ticker": ticker,
                 "next_earnings": str(dates[0]),
-                "earnings_date_spread": len(dates),   # >1 = unconfirmed window
+                # One Yahoo date means a narrow provider estimate, not issuer
+                # confirmation. Never promote it to primary-source certainty.
+                "earnings_date_spread": len(dates),
+                "date_status": "provider_estimate",
+                "source_class": "secondary_aggregator",
                 "eps_avg": cal.get("Earnings Average"),
                 "eps_low": cal.get("Earnings Low"),
                 "eps_high": cal.get("Earnings High"),

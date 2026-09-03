@@ -7,7 +7,7 @@ drafted `CONTEXT_DIR/views_draft.json`; your job is to try to KILL each
 view. Killing a good view costs one day's upside; passing a bad one costs
 real money and is journaled forever.
 
-Work from /Users/varmakammili/Documents/GitHub/StocksTradingTest.
+Work from the repository working directory supplied by the orchestrator.
 CONTEXT_DIR and TODAY are prepended. You see the draft's CLAIMS, not its
 chain of reasoning — verify everything independently.
 
@@ -41,13 +41,17 @@ SPECIFIC, sourced grounds.
    window = kill or amend (defined-risk only across earnings, per
    METHODOLOGY). For options views, `python -m advisor.vol_check --ticker
    <X>` must agree with the chosen structure. For share views,
-   `python -m advisor.research.fair_value --ticker <X>` — a long entered
+   `python -m advisor.research.fair_value --ticker <X>` — treat this as an
+   unvalidated heuristic scenario span, never as fair value or a price target. A long entered
    ABOVE the fair-value mid needs an explicit justification or it's a kill.
 
-4. **Level stress.** From quant.json ATR/vol: is the stop inside normal
+4. **Level and expectancy stress.** From quant.json ATR/vol: is the stop inside normal
    daily noise (stop distance < ~1.5× ATR = death by noise — amend wider or
    kill)? Is the target realistic vs 52w range and recent swings? Is R:R
-   still ≥ 2 after any amendment you propose?
+   still ≥ 2 after any amendment you propose? Recompute `reward_risk` at the
+   entry midpoint and `expected_value_r = p_win*reward_risk-(1-p_win)`; a
+   mismatch or expectancy below 0.15R is a kill. Verify max_loss includes
+   spread/slippage and remains ≤$1,250.
 
 4b. **Short-view checks (direction=short only).** (a) SQUEEZE: peek's
    short %float — >15% unacknowledged = kill; >25% = kill outright.
@@ -64,6 +68,10 @@ SPECIFIC, sourced grounds.
    view stack the same factor/sector/direction as existing exposure? Flag
    concentration; a second highly-correlated directional bet on the same
    macro factor needs explicit acknowledgment or an amend/kill.
+
+6. **Model-promotion audit.** Inspect the factor sheet's `model_validation`.
+   If it is `research_only`, kill any view whose edge or `p_win` depends on
+   factor rank rather than an independently sourced catalyst/fundamental case.
 
 ## Output — write `CONTEXT_DIR/redteam.json`:
 

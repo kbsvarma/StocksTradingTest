@@ -6,7 +6,7 @@ form NO views and make NO regime predictions — the panel's finding stands:
 WebSearch macro opinion is consensus everyone already read; your value is
 verified facts, dated, with sources.
 
-Work from /Users/varmakammili/Documents/GitHub/StocksTradingTest.
+Work from the repository working directory supplied by the orchestrator.
 CONTEXT_DIR and TODAY are prepended.
 
 ## Inputs
@@ -32,9 +32,12 @@ CONTEXT_DIR and TODAY are prepended.
 
 ## Output — write `CONTEXT_DIR/macro.json`:
 ```json
-{"as_of": "<iso>",
- "overnight": [{"fact": "...", "url": "https://...", "ts": "..."}],
- "calendar": [{"time_et": "08:30", "event": "NFP June", "consensus": "110k"}],
+{"as_of": "<ISO-8601 timestamp>",
+ "overnight": [{"fact": "...", "url": "https://...", "ts": "<ISO-8601>",
+                 "primary": false}],
+ "calendar": [{"time_et": "08:30", "event": "NFP June", "consensus": "110k",
+                "url": "https://official-source", "retrieved": "<ISO-8601>",
+                "primary": true}],
  "earnings": [{"ticker": "STZ", "when": "post-close", "note": "reported: ..."}],
  "anomalies": [{"asset": "CL=F", "move": "-2.1%", "why": "...", "url": "..."}],
  "themes_updated": true,
@@ -43,6 +46,11 @@ CONTEXT_DIR and TODAY are prepended.
 Validate (must exit 0): `python -m advisor.macro_check CONTEXT_DIR/macro.json`
 Final message: one line — N overnight facts, N calendar items, N anomalies
 explained, themes updated Y/N.
+
+Every overnight fact and anomaly needs an HTTPS source. Every calendar item
+needs its source and retrieval timestamp, and the calendar set must include at
+least one primary source (for example the publishing agency, Federal Reserve,
+Treasury, or issuer). Do not cite search-result pages.
 
 ## Prohibitions
 - No views, no tickers-to-buy, no journaling, no telegram, no proposals.

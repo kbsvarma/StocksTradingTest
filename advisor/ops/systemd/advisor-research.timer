@@ -1,0 +1,10 @@
+[Unit]
+Description=Advisor research build at 06:00 ET, weekdays
+
+[Timer]
+OnCalendar=Mon..Fri 06:00 America/New_York
+Persistent=true
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

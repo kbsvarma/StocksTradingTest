@@ -60,13 +60,17 @@ def build(days: int = 14) -> dict:
                 continue
             rows.append({"date": d, "ticker": t, "event": "earnings",
                          "why": care[t],
-                         "confirmed": getattr(r, "earnings_date_spread", 1) == 1,
+                         "confirmed": False,
+                         "date_status": "provider_estimate",
+                         "date_window_count": int(getattr(r, "earnings_date_spread", 1)),
+                         "source_class": "secondary_aggregator",
                          "eps_avg": None if pd.isna(getattr(r, "eps_avg", None))
                          else round(float(r.eps_avg), 2)})
     rows.sort(key=lambda x: (x["date"], x["why"] != "HELD"))
     return {"as_of": datetime.now(ET).isoformat(), "horizon_days": days,
             "n_names_tracked": len(care), "events": rows,
-            "src": "advisor PIT earnings calendar (yfinance-derived, nightly)"}
+            "src": "advisor PIT earnings calendar (Yahoo/yfinance-derived, nightly; "
+                   "provider estimates, not issuer-confirmed dates)"}
 
 
 def main() -> int:

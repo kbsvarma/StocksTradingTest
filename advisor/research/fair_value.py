@@ -1,4 +1,4 @@
-"""Fair-value snapshot for a single name — methods disclosed, confidence labeled.
+"""Heuristic valuation scenarios for a single name — research context only.
 
 Three independent estimates, each shown with its inputs (never a black box):
 
@@ -10,8 +10,9 @@ Three independent estimates, each shown with its inputs (never a black box):
   C. FCF yield reversion: price at which FCF yield would equal the larger
      of 4.5% or 10y+1% — a cash-flow floor estimate for mature names
 
-Verdict: fair-value RANGE (min/max of available methods), upside from spot,
-and a confidence grade (A/B/C count + analyst breadth + data completeness).
+Output: a scenario span (min/max of available methods), not an intrinsic-value
+estimate or price target.  Method count is reported as completeness and must
+never be presented as statistical confidence.
 
 Free-data caveat (stated, per doctrine): yfinance fundamentals are
 point-in-time-now, occasionally stale or missing — every output names which
@@ -48,6 +49,8 @@ def estimate(ticker: str) -> dict:
     spot = _g(info, "currentPrice") or _g(info, "regularMarketPrice")
     out = {"ticker": ticker, "as_of": datetime.now(ET).isoformat(),
            "spot": spot, "source": "yfinance fundamentals (point-in-time, free feed)",
+           "methodology_status": "heuristic_unvalidated",
+           "use_policy": "research_context_only_not_a_price_target",
            "methods": {}, "missing": []}
     if not spot:
         out["missing"].append("spot price — aborting")
@@ -97,12 +100,12 @@ def estimate(ticker: str) -> dict:
 
     fvs = [v["fv"] for v in m.values() if v.get("fv")]
     if fvs:
-        out["fair_value_range"] = [round(min(fvs), 2), round(max(fvs), 2)]
+        out["scenario_span"] = [round(min(fvs), 2), round(max(fvs), 2)]
         mid = sum(fvs) / len(fvs)
         out["fv_mid"] = round(mid, 2)
         out["upside_to_mid_pct"] = round((mid / spot - 1) * 100, 1)
     grade = "A" if (len(fvs) == 3 and n_an >= 12) else ("B" if len(fvs) >= 2 else "C")
-    out["confidence"] = grade
+    out["method_completeness"] = grade
     # quick context
     out["context"] = {k: _g(info, k) for k in
                       ("trailingPE", "forwardPE", "enterpriseToEbitda", "priceToBook",
@@ -112,13 +115,14 @@ def estimate(ticker: str) -> dict:
 
 
 def render(e: dict) -> str:
-    L = [f"FAIR VALUE — {e['ticker']}  spot={e.get('spot')}  "
-         f"({e['as_of'][:16]})  confidence={e.get('confidence','?')}"]
+    L = [f"HEURISTIC VALUATION SCENARIOS — {e['ticker']}  spot={e.get('spot')}  "
+         f"({e['as_of'][:16]})  completeness={e.get('method_completeness','?')}",
+         "  RESEARCH CONTEXT ONLY — UNVALIDATED; NOT A PRICE TARGET OR FAIR VALUE"]
     for k, v in e.get("methods", {}).items():
         L.append(f"  {k}: fv={v.get('fv')}  " +
                  "  ".join(f"{a}={b}" for a, b in v.items() if a != "fv" and b not in (None, "")))
-    if "fair_value_range" in e:
-        L.append(f"  RANGE {e['fair_value_range'][0]} – {e['fair_value_range'][1]}"
+    if "scenario_span" in e:
+        L.append(f"  SCENARIO SPAN {e['scenario_span'][0]} – {e['scenario_span'][1]}"
                  f"   mid {e['fv_mid']}   upside to mid {e['upside_to_mid_pct']:+.1f}%")
     if e.get("missing"):
         L.append(f"  missing: {'; '.join(e['missing'])}")

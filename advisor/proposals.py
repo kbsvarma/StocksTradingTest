@@ -122,8 +122,19 @@ def load_all() -> list[Proposal]:
     return out
 
 
-def created_today(statuses: set[str] | None = None) -> list[Proposal]:
-    today = _now().date().isoformat()
+def created_today(statuses: set[str] | None = None,
+                  as_of: date | datetime | None = None) -> list[Proposal]:
+    """Return proposals created on *as_of* in ET.
+
+    Callers that freeze or inject a clock must pass it here.  Using a second
+    wall clock for a daily risk cap can make the cap disappear around midnight
+    and made the executor's refusal surface nondeterministic in tests.
+    """
+    if isinstance(as_of, datetime):
+        day = as_of.astimezone(ET).date()
+    else:
+        day = as_of or _now().date()
+    today = day.isoformat()
     return [p for p in load_all()
             if p.created_ts[:10] == today
             and (statuses is None or p.status in statuses)]

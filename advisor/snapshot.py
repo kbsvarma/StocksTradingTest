@@ -137,18 +137,39 @@ def read_performance(cfg: dict) -> dict:
 
 
 def build_snapshot() -> dict:
-    cfg = _load_webull_cfg()
+    try:
+        cfg = _load_webull_cfg()
+    except Exception as exc:
+        return {
+            "schema_version": 2,
+            "as_of": datetime.now(ET).isoformat(),
+            "availability": "unavailable",
+            "personalization_allowed": False,
+            "reason": f"broker portfolio source unavailable: {type(exc).__name__}",
+            "account_book": None,
+            "state": {"source": "unavailable", "error": "not configured"},
+            "broker": {"source": "unavailable", "positions": [],
+                       "error": "not configured"},
+            "performance": {"source": "unavailable", "error": "not configured"},
+        }
+    state, broker, performance = read_state(cfg), read_broker(cfg), read_performance(cfg)
+    verified = not state.get("error") and not broker.get("error")
     return {
+        "schema_version": 2,
         "as_of": datetime.now(ET).isoformat(),
+        "availability": "verified" if verified else "degraded",
+        "personalization_allowed": verified,
         "account_book": "SPX 0DTE BPS (Webull live, Mac)",
-        "state": read_state(cfg),
-        "broker": read_broker(cfg),
-        "performance": read_performance(cfg),
+        "state": state,
+        "broker": broker,
+        "performance": performance,
     }
 
 
 def render(s: dict) -> str:
     lines = [f"PORTFOLIO SNAPSHOT  {s['as_of']}", "=" * 56]
+    lines.append(f"availability: {s.get('availability', 'legacy')} · "
+                 f"personalization_allowed={s.get('personalization_allowed', False)}")
     st = s["state"]
     lines.append(f"[bot state — {st['source']}]")
     if st.get("error"):

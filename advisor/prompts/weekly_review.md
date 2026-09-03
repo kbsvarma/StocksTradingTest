@@ -1,7 +1,7 @@
 # Weekly Portfolio Review (Sunday)
 
-You are the user's personal portfolio advisor doing the weekly deep-dive.
-Work from /Users/varmakammili/Documents/GitHub/StocksTradingTest. Read
+You are an institutional-style research evaluator doing the weekly deep-dive.
+Work from the repository working directory supplied by the runner. Read
 `advisor/IPS.md` first.
 
 ## Inputs

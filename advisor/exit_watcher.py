@@ -33,6 +33,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from advisor import telegram_io
+from advisor.actionability import is_actionable
 from advisor.journal import append_raw, effective
 
 ET = ZoneInfo("America/New_York")
@@ -203,9 +204,21 @@ def _journal_hit(eid: str, level: str, px: float, src: str) -> None:
               flush=True)
 
 
+def _journal_entry(eid: str, px: float, src: str) -> None:
+    """Machine-stamp entry-zone observation for unbiased outcome eligibility."""
+    try:
+        now = datetime.now(ET).isoformat()
+        append_raw({"id": eid, "ts": now, "type": "entry_observed",
+                    "entry_observed_px": px, "entry_observed_ts": now,
+                    "entry_observed_src": src})
+    except Exception as exc:
+        print(f"[watcher] entry_observed append failed for {eid}: {exc}", flush=True)
+
+
 def check_call(e: dict, px: float, src: str, alerted: dict) -> list[str]:
     """Return alert messages for newly-crossed levels of one call."""
     eid = e["id"]
+    actionable = is_actionable(e)
     long_ = (e.get("direction", "long") or "long").lower() != "short"
     st = alerted.setdefault(eid, {})
     msgs = []
@@ -219,20 +232,20 @@ def check_call(e: dict, px: float, src: str, alerted: dict) -> list[str]:
         st["stop"] = datetime.now(ET).isoformat()
         _journal_hit(eid, "stop", px, src)
         msgs.append(
-            f"🛑 EXIT SIGNAL — STOP HIT  [{eid}]\n"
+            f"🛑 RESEARCH VIEW INVALIDATED — STOP LEVEL HIT  [{eid}]\n"
             f"{e.get('instrument', tick)} {'long' if long_ else 'short'} — "
             f"price {px} crossed stop {stop}\n"
-            f"Recommendation: EXIT NOW. Thesis invalidated per the original call.\n"
+            f"{'Actionable-idea risk level reached; review any independently held position.' if actionable else 'Hypothetical research view only; no position or execution is assumed.'}\n"
             f"({src})"
         )
     if tgt_hit and not st.get("target"):
         st["target"] = datetime.now(ET).isoformat()
         _journal_hit(eid, "target", px, src)
         msgs.append(
-            f"🎯 EXIT SIGNAL — TARGET HIT  [{eid}]\n"
+            f"🎯 RESEARCH VIEW — TARGET LEVEL HIT  [{eid}]\n"
             f"{e.get('instrument', tick)} {'long' if long_ else 'short'} — "
             f"price {px} reached target {target}\n"
-            f"Recommendation: take profit (or trail stop if momentum strong).\n"
+            f"{'Actionable-idea target reached; review any independently held position.' if actionable else 'Hypothetical research view only; no position or execution is assumed.'}\n"
             f"({src})"
         )
     lo, hi = e.get("entry_px_low"), e.get("entry_px_high")
@@ -240,11 +253,12 @@ def check_call(e: dict, px: float, src: str, alerted: dict) -> list[str]:
             and lo <= px <= hi and not st.get("entry") \
             and not st.get("stop") and not st.get("target"):
         st["entry"] = datetime.now(ET).isoformat()
+        _journal_entry(eid, px, src)
         msgs.append(
-            f"🟢 BUY ZONE TOUCHED  [{eid}]\n"
+            f"🟢 {'ACTIONABLE IDEA' if actionable else 'RESEARCH'} ENTRY ZONE OBSERVED  [{eid}]\n"
             f"{e.get('instrument', tick)} — price {px} inside entry zone {lo}-{hi}\n"
-            f"Per the call: {'enter long' if long_ else 'enter short'}, "
-            f"stop {stop}, target {target}\n"
+            f"{'Review the validated idea and your own suitability before any decision.' if actionable else 'Not a buy/sell signal; tracked for hypothetical outcome research.'} "
+            f"Plan levels: stop {stop}, target {target}\n"
             f"({src})"
         )
     return msgs

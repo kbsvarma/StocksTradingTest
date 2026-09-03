@@ -171,6 +171,7 @@ def run(fwd: int = FWD) -> dict:
     period_ics: list[dict] = []
     ls_returns: dict[str, list] = {}
     prev_top: dict[str, set] = {}
+    prev_bottom: dict[str, set] = {}
     turnover: dict[str, list] = {}
     wf_returns, wf_spy = [], []
 
@@ -202,15 +203,21 @@ def run(fwd: int = FWD) -> dict:
             top = set(xs.nlargest(max(20, len(xs) // 10)).index)
             bot = set(xs.nsmallest(max(20, len(xs) // 10)).index)
             gross = fwd_ret[list(top)].mean() - fwd_ret[list(bot)].mean()
-            held = prev_top.get(col, set())
-            churn = 1.0 if not held else len(top - held) / max(len(top), 1)
+            held_top = prev_top.get(col, set())
+            held_bot = prev_bottom.get(col, set())
+            top_churn = 1.0 if not held_top else len(top - held_top) / max(len(top), 1)
+            bot_churn = 1.0 if not held_bot else len(bot - held_bot) / max(len(bot), 1)
             prev_top[col] = top
-            side_cost = float(cost.reindex(list(top | bot)).mean() or 0.002)
-            net = gross - churn * side_cost * 2
+            prev_bottom[col] = bot
+            top_cost = float(cost.reindex(list(top)).mean() or 0.002)
+            bot_cost = float(cost.reindex(list(bot)).mean() or 0.002)
+            # A rebalance turns over both the exiting and entering names.
+            # top_cost/bot_cost are explicitly per-side, so charge 2x churn.
+            net = gross - 2 * top_churn * top_cost - 2 * bot_churn * bot_cost
             ls_returns.setdefault(col, []).append(
                 {"as_of": row["as_of"], "oos": oos,
                  "gross": round(float(gross), 5), "net": round(float(net), 5)})
-            turnover.setdefault(col, []).append(churn)
+            turnover.setdefault(col, []).append((top_churn + bot_churn) / 2)
 
         # walk-forward top-20 composite (regime weights), net of costs
         w = WEIGHTS[regime["name"]]
@@ -224,7 +231,7 @@ def run(fwd: int = FWD) -> dict:
             prev_top["__wf__"] = set(top20)
             wf_returns.append({"as_of": row["as_of"], "oos": oos,
                                "net": round(float(fwd_ret[top20].mean()
-                                                  - churn * side_cost), 5)})
+                                                  - 2 * churn * side_cost), 5)})
             if "SPY" in close.columns:
                 wf_spy.append(float(close["SPY"].iloc[k + fwd]
                                     / close["SPY"].iloc[k] - 1))
@@ -286,6 +293,8 @@ def run(fwd: int = FWD) -> dict:
             "oos_net_mean_per_period_pct": round(float(np.mean(wf_oos)) * 100, 3)
             if wf_oos else None,
             "deflated_sharpe": _deflated_sharpe(wf_net, max(n_trials, 10)),
+            "deflated_sharpe_oos": _deflated_sharpe(wf_oos, max(n_trials, 10)),
+            "oos_n_periods": len(wf_oos),
         },
         "caveats": [
             "SURVIVORSHIP: current-constituent universe; yfinance cannot price "

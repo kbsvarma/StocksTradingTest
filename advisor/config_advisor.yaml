@@ -9,6 +9,19 @@ approval:
   ttl_minutes_max: 240           # hard cap on any proposal TTL
   poll_timeout_seconds: 50       # Telegram getUpdates long-poll
 
+execution:
+  # Two-key enablement: this must be true AND the service must receive
+  # ADVISOR_EXECUTION_ENABLED=1.  The research terminal never sets it.
+  enabled: false
+
+research_risk:
+  # Explicit profile policy used by the deterministic brief validator. This
+  # remains a single-operator profile; commercial multi-user suitability is a
+  # separate launch gate, not something inferred by the model.
+  budget_usd: 25000
+  max_view_loss_fraction: 0.05
+  max_new_views_per_brief: 3
+
 limits:
   # Tier 1 auto-execution is deliberately caged to what the proven
   # execution layer supports (SPX-family combo spreads on Webull).

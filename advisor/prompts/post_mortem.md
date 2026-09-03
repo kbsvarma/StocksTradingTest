@@ -8,7 +8,7 @@ lesson that attributes the outcome to the PROCESS STAGE that earned it.
 Process attribution is the whole point (2026-05-20 doctrine: strategy vs
 execution — was the *stage* wrong, or just the outcome?).
 
-Work from /Users/varmakammili/Documents/GitHub/StocksTradingTest.
+Work from the repository working directory supplied by the runner.
 
 ## Gather the facts (deterministic tools, no vibes)
 1. Price path over the call's life:

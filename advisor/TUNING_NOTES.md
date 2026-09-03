@@ -5,9 +5,10 @@ decided honestly. Each item has a TRIGGER — do not act before it fires.
 (Companion to INTELLIGENCE_PLAN.md; started 2026-07-02 during the full build.)
 
 ## Contract strictness
-- [ ] **Promote brief_check v2 warnings → errors** (`source`, `p_win`,
-      `thesis_tags`, `time_stop`, `yf_ticker`, `sizing`).
-      TRIGGER: first 5 consecutive pipeline runs with zero v2 warnings.
+- [x] **Production schema v3 is fail-closed** (2026-07-16 hardening): numeric
+      entry/stop/target coherence, sizing and loss cap, catalyst, two
+      disconfirmers, ≥2 evidence domains with ≥1 primary source, R:R and
+      expectancy are validator-enforced. New actionable views cannot use v2.
 
 ## Learning loop (hard gates already printed by the tools)
 - [ ] **Calibration conclusions** — none before n≥15 resolved;
@@ -20,11 +21,10 @@ decided honestly. Each item has a TRIGGER — do not act before it fires.
 - [ ] **stamp-ref honesty window** (currently 2 days) — revisit only if a
       legitimately-published view ever misses its stamp.
 
-## Short-side pathway (approved 2026-07-16)
-- [ ] **repeat_kill generator** — max 1 concurrent short view from this
-      pathway until 5 have resolved; generator weighting untouchable until
-      n≥10 resolved (attribution gates). TRIGGER to widen: hit-rate ≥55%
-      and avg R > 0 at n≥10.
+## Disabled short-side experiment
+- [ ] **repeat_kill generator** — disabled. Do not re-enable from retrospective
+      hit rate. Requires a preregistered prospective sample, explicit control,
+      trading costs, at least 30 independent resolutions, and model approval.
 - [ ] **Stretch-keyword pattern** (candidates.py `_STRETCH_PAT`) — review
       after 20 kills whether the keyword filter matches the kills that
       actually predicted declines (post-mortem data will say).
@@ -54,7 +54,9 @@ decided honestly. Each item has a TRIGGER — do not act before it fires.
 - [x] **Full-universe estimates/events pulls burned the account into a
       401-crumb penalty box on day 1.** Standing scope: estimates/events =
       ACTIVE SET daily (~50-150 names), full universe Saturdays only; info =
-      full daily (1 req/ticker); pace ≤10 req/s aggregate. err_samples in
+      active names plus a rotating 400-name shard, aggregated into a seven-day
+      latest-per-ticker PIT panel. Candidate-specific endpoints run first. Same-day
+      retries merge successes instead of replacing them. err_samples in
       the ingest manifest are the diagnostic — check them FIRST on any
       0-row night.
 - [ ] **Widen daily estimates scope** only if attribution shows the
@@ -85,12 +87,13 @@ decided honestly. Each item has a TRIGGER — do not act before it fires.
 - [ ] **IBKR read-only mode** — KEEP ON permanently (advisor is data-only).
 
 ## Validation
-- [x] **validate2 first run (2026-07-02, config 107 periods/36 tests):**
+- [x] **validate2 reproduced on Linux 2026-09-03 (config 107 periods/36 tests):**
       NO factor survives FDR-10% all-sample; momentum family suggestive only
       in 2024+ OOS (t≈1.8, same regime the weights were tuned in); rev_1m
       significantly NEGATIVE oos (t=-2.56 — vindicates zeroing it in
-      risk_on); walk-forward net 786.9% vs SPY 248% but deflated Sharpe 0.79
-      < 0.95 = NOT PROVEN. STANDING CONCLUSION: price-factor tilts are
+      risk_on); current-harness walk-forward net 474.4% vs SPY 248%, but
+      out-of-sample deflated-Sharpe confidence is 0.746 < 0.95 and no OOS
+      factor survives FDR-10% = NOT PROVEN. STANDING CONCLUSION: price-factor tilts are
       candidate generators, never cite them as proven alpha. Re-run monthly
       (panel refresh) — a factor earns weight discussion only if it survives
       FDR on the growing OOS window.
@@ -102,9 +105,9 @@ decided honestly. Each item has a TRIGGER — do not act before it fires.
       backtest numbers without the label.
 
 ## Portal
-- [ ] **Auth posture** — token gate ships OFF (set ADVISOR_PORTAL_TOKEN in
-      the terminal plist env to arm it); decide LAN-open vs
-      localhost+Tailscale after user tries phone access.
+- [x] **Prototype auth posture** — LAN token gate is enabled and compared in
+      constant time. This remains demo-only; commercial launch requires TLS,
+      per-user identity/authorization, session controls, rotation and audit.
 - [ ] **Calibration dashboard** renders "insufficient data" until n≥15 —
       by design, not a bug.
 - [ ] **Terminal CPU** — re-measure idle % after tape moves to quote store;

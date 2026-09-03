@@ -1,0 +1,10 @@
+[Unit]
+Description=Advisor daily brief at 08:15 ET, weekdays
+
+[Timer]
+OnCalendar=Mon..Fri 08:15 America/New_York
+Persistent=true
+RandomizedDelaySec=30
+
+[Install]
+WantedBy=timers.target

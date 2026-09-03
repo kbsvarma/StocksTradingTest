@@ -101,6 +101,19 @@ def execute(pid: str, run_monitor: bool = True) -> int:
         print(f"[executor] unknown proposal {pid}")
         return 1
 
+    # Live trading is a separately authorized product capability, never an
+    # implied consequence of running the research terminal.  Both config and
+    # environment must opt in, so a copied config or inherited environment is
+    # insufficient on its own.
+    acfg = P.load_advisor_cfg()
+    execution_cfg = acfg.get("execution", {})
+    execution_enabled = (
+        execution_cfg.get("enabled") is True
+        and os.environ.get("ADVISOR_EXECUTION_ENABLED") == "1"
+    )
+    if not execution_enabled:
+        return _fail(p, "live execution is disabled; research-only mode", notify=False)
+
     # ── Gate 1: status + TTL ─────────────────────────────────────────────
     if p.status != "APPROVED":
         return _fail(p, f"status is {p.status}, not APPROVED — refusing "
@@ -112,7 +125,6 @@ def execute(pid: str, run_monitor: bool = True) -> int:
             pass
         return _fail(p, f"approval expired at {p.expires_ts} — propose again if still valid")
 
-    acfg = P.load_advisor_cfg()
     lim = acfg["limits"]
 
     # ── Gate 2: clock ────────────────────────────────────────────────────
@@ -121,16 +133,10 @@ def execute(pid: str, run_monitor: bool = True) -> int:
         return _fail(p, why)
 
     # ── Gate 3: daily caps ───────────────────────────────────────────────
-    executed_today = P.created_today({"EXECUTED", "EXECUTING"})
+    executed_today = P.created_today({"EXECUTED", "EXECUTING"}, as_of=_now())
     if len(executed_today) >= lim["max_executions_per_day"]:
         return _fail(p, f"daily execution cap reached "
                         f"({len(executed_today)}/{lim['max_executions_per_day']})")
-
-    webull_cfg = yaml.safe_load((REPO_ROOT / acfg["paths"]["webull_bot_config"]).read_text())
-    realized = _realized_today_usd(webull_cfg)
-    if realized <= -lim["daily_realized_loss_cap_usd"]:
-        return _fail(p, f"daily loss cap hit (realized today ${realized:.0f}, "
-                        f"cap -${lim['daily_realized_loss_cap_usd']}) — no new entries")
 
     # ── Gate 4: re-validate rails (config may have tightened since creation)
     errs = P.validate(p.symbol, p.expiry, p.short_strike, p.long_strike,
@@ -139,7 +145,22 @@ def execute(pid: str, run_monitor: bool = True) -> int:
     if errs:
         return _fail(p, "rail re-check failed: " + "; ".join(errs))
 
-    # ── Broker setup (imports deferred so Tier 0 paths never load these) ─
+    # Broker configuration is an external capability. Missing configuration
+    # is a clean refusal, never an exception and never a partial transition.
+    webull_cfg_path = REPO_ROOT / acfg["paths"]["webull_bot_config"]
+    if not webull_cfg_path.is_file():
+        return _fail(p, "broker execution capability is not installed", notify=False)
+    try:
+        webull_cfg = yaml.safe_load(webull_cfg_path.read_text())
+    except Exception as exc:
+        return _fail(p, f"broker configuration unreadable: {type(exc).__name__}",
+                     notify=False)
+    realized = _realized_today_usd(webull_cfg)
+    if realized <= -lim["daily_realized_loss_cap_usd"]:
+        return _fail(p, f"daily loss cap hit (realized today ${realized:.0f}, "
+                        f"cap -${lim['daily_realized_loss_cap_usd']}) — no new entries")
+
+    # ── Gate 5: broker setup (imports deferred so Tier 0 never loads these) ─
     from webull_bot.client import build_trade_client
     from webull_bot.execution import ExecutionEngine
     from webull_bot.logger import BotLogger
@@ -148,7 +169,7 @@ def execute(pid: str, run_monitor: bool = True) -> int:
     trade_client = build_trade_client()
     execution = ExecutionEngine(trade_client, webull_cfg["account_id"])
 
-    # ── Gate 5: existing position / open order guard (unconditional) ─────
+    # ── Gate 6: existing position / open order guard (unconditional) ─────
     blocked, reason = execution.has_live_position_or_order()
     if blocked:
         return _fail(p, f"existing position/order guard: {reason}")

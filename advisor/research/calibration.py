@@ -11,6 +11,7 @@ Writes advisor/data/research/calibration_latest.json as a side effect.
 from __future__ import annotations
 
 import json
+import hashlib
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -21,6 +22,7 @@ from advisor.research.outcomes import resolved_views
 ET = ZoneInfo("America/New_York")
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 OUT = REPO_ROOT / "advisor" / "data" / "research" / "calibration_latest.json"
+APPROVAL = REPO_ROOT / "advisor" / "data" / "research" / "calibration_approval.json"
 
 MIN_N_REPORT = 15
 MIN_N_ACT = 30
@@ -28,10 +30,11 @@ MIN_N_ACT = 30
 
 def compute() -> dict:
     rows = resolved_views()
-    scored = [r for r in rows
-              if r.get("win") is not None and r.get("p_win_effective") is not None]
+    scored = [r for r in rows if r.get("calibration_eligible") is True
+              and r.get("win") is not None and r.get("p_win_effective") is not None]
     excluded = len(rows) - len(scored)
     n = len(scored)
+    explicit = [r for r in scored if r.get("p_win_origin") == "explicit"]
 
     brier = reliability = None
     if n:
@@ -45,11 +48,19 @@ def compute() -> dict:
         reliability = {k: {**v, "realized_hit_rate": round(v["wins"] / v["n"], 3)}
                        for k, v in sorted(buckets.items())}
 
-    return {
+    explicit_brier = (round(sum((r["p_win_effective"] - r["win"]) ** 2
+                                for r in explicit) / len(explicit), 4)
+                      if explicit else None)
+    core = {
+        "schema_version": 2,
+        "method_version": "advisor-binary-outcome-v1",
         "as_of": datetime.now(ET).isoformat(),
         "n_resolved_scored": n,
+        "n_explicit_scored": len(explicit),
+        "n_legacy_mapped_scored": n - len(explicit),
         "n_excluded_ambiguous": excluded,
         "brier": brier,
+        "explicit_brier": explicit_brier,
         "brier_baseline_always_50": 0.25,
         "reliability_by_stated_p": reliability,
         "sample_gate": ("LOW-N: no conclusions" if n < MIN_N_REPORT else
@@ -60,6 +71,26 @@ def compute() -> dict:
                   "high=0.70 medium=0.55; win=hit_target(1)/stopped(0), "
                   "time_stop/closed by realized sign when present else excluded",
     }
+    identity = {k: core[k] for k in ("schema_version", "method_version",
+                                      "n_explicit_scored", "explicit_brier",
+                                      "reliability_by_stated_p")}
+    calibration_id = hashlib.sha256(
+        json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    approval = {}
+    try:
+        approval = json.loads(APPROVAL.read_text())
+    except (OSError, json.JSONDecodeError):
+        pass
+    objective_gate = (len(explicit) >= MIN_N_ACT and explicit_brier is not None
+                      and explicit_brier < 0.25)
+    approved = (approval.get("calibration_id") == calibration_id
+                and isinstance(approval.get("approved_by"), str)
+                and bool(approval.get("approved_by").strip())
+                and isinstance(approval.get("approved_at"), str))
+    return {**core, "calibration_id": calibration_id,
+            "objective_actionability_gate": objective_gate,
+            "approval_status": "approved" if approved else "missing_or_mismatch",
+            "actionable_probability_allowed": objective_gate and approved}
 
 
 def main() -> int:

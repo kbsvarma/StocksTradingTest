@@ -21,6 +21,7 @@ Writes advisor/data/research/fundamental_latest.json
 from __future__ import annotations
 
 import json
+import os
 import sys
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -29,6 +30,17 @@ from advisor.research.datastore import RESEARCH_DIR
 
 ET = ZoneInfo("America/New_York")
 OUT = RESEARCH_DIR / "fundamental_latest.json"
+
+
+def write_result(result: dict) -> None:
+    """Atomically publish JSON; normalize library scalar types first."""
+    def default(value):
+        if hasattr(value, "item"):
+            return value.item()
+        raise TypeError(f"not JSON serializable: {type(value).__name__}")
+    tmp = OUT.with_suffix(f".json.tmp.{os.getpid()}")
+    tmp.write_text(json.dumps(result, indent=2, default=default) + "\n")
+    os.replace(tmp, OUT)
 
 
 def _z(s):
@@ -46,14 +58,41 @@ def compute_scores():
     import numpy as np
     import pandas as pd
 
-    meta = {"as_of": datetime.now(ET).isoformat(), "inputs": {}}
+    meta = {"as_of": datetime.now(ET).isoformat(), "inputs": {},
+            "input_quality": {}, "scope": {}}
     f = pd.DataFrame()
 
-    info_p = _latest(RESEARCH_DIR / "snapshots" / "info")
+    info_coverage_p = RESEARCH_DIR / "snapshots" / "info" / "latest_coverage.parquet"
+    info_p = info_coverage_p if info_coverage_p.exists() else _latest(
+        RESEARCH_DIR / "snapshots" / "info")
     est_p = _latest(RESEARCH_DIR / "estimates")
     hist_p = RESEARCH_DIR / "events" / "earnings_history.parquet"
 
-    if info_p is not None:
+    try:
+        manifest = json.loads((RESEARCH_DIR / "_meta" / "ingest_manifest.json").read_text())
+    except Exception:
+        manifest = {}
+    datasets = manifest.get("datasets") or {}
+    universe_n = int(manifest.get("n_tickers") or 0)
+    info_state = datasets.get("info") or {}
+    info_coverage = ((int(info_state.get("coverage_rows")
+                          or info_state.get("rows") or 0) / universe_n)
+                     if universe_n else 0.0)
+    info_usable = bool(info_state.get("ok")) and info_coverage >= 0.80
+    estimates_usable = bool((datasets.get("estimates") or {}).get("ok"))
+    meta["input_quality"]["info"] = {
+        "usable": info_usable, "coverage": round(info_coverage, 4),
+        "reason": None if info_usable else "broad snapshot below 80% coverage",
+    }
+    meta["input_quality"]["estimates"] = {"usable": estimates_usable}
+    meta["scope"] = {
+        "reference_universe_n": universe_n,
+        "estimate_event_fetch_scope": (manifest.get("scope") or {}).get(
+            "estimates_events", "unknown"),
+        "market_wide_rank": False,
+    }
+
+    if info_p is not None and info_usable:
         info = pd.read_parquet(info_p).set_index("ticker")
         meta["inputs"]["info"] = info_p.stem
         f = pd.DataFrame(index=info.index)
@@ -67,9 +106,11 @@ def compute_scores():
                         + _z(info.earningsGrowth.where(info.earningsGrowth.abs() < 3))) / 3
         f["short_pct_float"] = info.shortPercentOfFloat * 100
 
-    if est_p is not None and len(f):
+    if est_p is not None and estimates_usable:
         est = pd.read_parquet(est_p).set_index("ticker")
         meta["inputs"]["estimates"] = est_p.stem
+        if not len(f):
+            f = pd.DataFrame(index=est.index)
         up = est.get("epsrev_0y_upLast30days", pd.Series(dtype=float)).reindex(f.index)
         dn = est.get("epsrev_0y_downLast30days", pd.Series(dtype=float)).reindex(f.index)
         breadth = (up.fillna(0) - dn.fillna(0)) / (up.fillna(0) + dn.fillna(0)).replace(0, np.nan)
@@ -107,14 +148,21 @@ def compute_scores():
         f["pead"] = pd.Series(pead).reindex(f.index)
         f["days_since_report"] = pd.Series(days_since).reindex(f.index)
 
+    meta["scope"]["n_ranked"] = len(f)
+    meta["scope"]["ranking_scope"] = (
+        f"fundamental_snapshot({len(f)})" if info_usable
+        else f"active_estimate_set({len(f)})")
     return f, meta
 
 
 def render_top(f, meta, top: int = 15) -> dict:
     import pandas as pd
     out = {"as_of": meta["as_of"], "inputs": meta["inputs"],
+           "input_quality": meta.get("input_quality", {}),
+           "scope": meta.get("scope", {}),
            "gate": "PROSPECTIVE — zero composite weight until IC gate passes "
-                   "(TUNING_NOTES); candidate nomination only"}
+                   "(TUNING_NOTES); candidate nomination only; ranks are within "
+                   "the labeled snapshot/active set, never market-wide"}
     if not len(f):
         out["status"] = "stores not built yet — first nights accrue"
         return out
@@ -129,7 +177,8 @@ def render_top(f, meta, top: int = 15) -> dict:
             for e in extra:
                 ev = f.loc[t].get(e)
                 if ev is not None and pd.notna(ev):
-                    row[e] = round(float(ev), 2) if isinstance(ev, float) else ev
+                    scalar = ev.item() if hasattr(ev, "item") else ev
+                    row[e] = round(scalar, 2) if isinstance(scalar, float) else scalar
             rows.append(row)
         return rows
 
@@ -161,7 +210,7 @@ def main() -> int:
     top = int(sys.argv[sys.argv.index("--top") + 1]) if "--top" in sys.argv else 15
     f, meta = compute_scores()
     res = render_top(f, meta, top)
-    OUT.write_text(json.dumps(res, indent=2))
+    write_result(res)
     print(json.dumps({k: (v if not isinstance(v, list) else f"{len(v)} rows")
                       for k, v in res.items()}, indent=2))
     print(f"→ {OUT}")

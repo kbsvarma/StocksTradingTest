@@ -24,9 +24,11 @@ ET = ZoneInfo("America/New_York")
 MANIFEST = RESEARCH_DIR / "_meta" / "ingest_manifest.json"
 
 DATASETS = {
-    "info": (snapshots.build, RESEARCH_DIR / "snapshots" / "info"),
+    # Candidate-specific, time-sensitive endpoints run before broad profile
+    # fetches so a Yahoo throttle cannot starve the highest-value inputs.
     "estimates": (estimates.build, RESEARCH_DIR / "estimates"),
     "events": (events.build, RESEARCH_DIR / "events"),
+    "info": (snapshots.build, RESEARCH_DIR / "snapshots" / "info"),
 }
 # IV runs ONLY when explicitly requested (--datasets iv): overnight Yahoo
 # serves placeholder IVs (~1.56%) that fail the sanity floor — the snapshot
@@ -35,6 +37,46 @@ EXPLICIT_DATASETS = {
     "iv": (iv_surface.build, RESEARCH_DIR / "options" / "iv"),
 }
 RETAIN_DAYS = 730   # prune dt= partitions older than ~2y (matches OHLCV panels)
+INFO_DAILY_BUDGET = 400
+INFO_COVERAGE_DAYS = 7
+
+
+def _apply_quality(name: str, res: dict, requested: int) -> dict:
+    errors = int(res.get("errors") or 0)
+    fetch_ratio = ((requested - errors) / requested) if requested else 0.0
+    if name == "info" and int(res.get("coverage_universe") or 0):
+        success_ratio = (int(res.get("coverage_rows") or 0)
+                         / int(res["coverage_universe"]))
+        res["fetch_success_ratio"] = round(fetch_ratio, 4)
+    else:
+        success_ratio = fetch_ratio
+    res["requested"] = requested
+    res["success_ratio"] = round(success_ratio, 4)
+    res["ok"] = name == "iv" or success_ratio >= 0.80
+    if not res["ok"]:
+        res["quality_error"] = f"coverage {success_ratio:.1%} below 80% minimum"
+    return res
+
+
+def _rotating_info_set(tickers: list[str], active: list[str],
+                       *, day_ordinal: int | None = None,
+                       budget: int = INFO_DAILY_BUDGET) -> list[str]:
+    """Prioritize active names, then rotate deterministically through universe."""
+    if len(tickers) <= budget:
+        return list(tickers)
+    valid = set(tickers)
+    priority = [ticker for ticker in active if ticker in valid]
+    priority = list(dict.fromkeys(priority))[:budget]
+    remaining_n = budget - len(priority)
+    if remaining_n <= 0:
+        return sorted(priority)
+    ordinal = day_ordinal if day_ordinal is not None else datetime.now(ET).date().toordinal()
+    start = (ordinal * remaining_n) % len(tickers)
+    rotated = tickers[start:] + tickers[:start]
+    priority_set = set(priority)
+    selected = priority + [ticker for ticker in rotated
+                           if ticker not in priority_set][:remaining_n]
+    return sorted(selected)
 
 
 def _prune(out_dir) -> int:
@@ -89,12 +131,15 @@ def run_all(subset: int | None = None, only: list[str] | None = None) -> dict:
     # are ~5 requests/ticker → ACTIVE SET on weekdays, full universe only on
     # Saturday's quiet sweep. info is 1 request/ticker → full daily is fine.
     is_saturday = datetime.now(ET).weekday() == 5
-    scoped = tickers if (is_saturday or subset) else \
-        [t for t in _active_set() if t in set(tickers)] or tickers[:150]
-    scope_by_dataset = {"info": tickers, "estimates": scoped, "events": scoped}
+    active = [t for t in _active_set() if t in set(tickers)]
+    scoped = tickers if (is_saturday or subset) else active or tickers[:150]
+    info_scope = tickers if (is_saturday or subset) else _rotating_info_set(tickers, active)
+    scope_by_dataset = {"info": info_scope, "estimates": scoped, "events": scoped}
     manifest = {"as_of": datetime.now(ET).isoformat(), "n_tickers": len(tickers),
                 "scope": {"estimates_events": ("full(saturday)" if is_saturday
-                                               else f"active_set({len(scoped)})")},
+                                               else f"active_set({len(scoped)})"),
+                          "info": ("full(saturday)" if is_saturday or subset
+                                   else f"active_plus_rotating_shard({len(info_scope)})")},
                 "datasets": {}}
     # carry forward prior results for datasets not run tonight
     try:
@@ -112,7 +157,13 @@ def run_all(subset: int | None = None, only: list[str] | None = None) -> dict:
         print(f"[ingest] {name}: {len(scope)} tickers …", flush=True)
         try:
             res = fn(scope, out_dir)
-            res["ok"] = True
+            if name == "info":
+                res.update(snapshots.build_coverage(
+                    tickers, out_dir, max_age_days=INFO_COVERAGE_DAYS))
+            # A syntactically completed fetch is not a valid cross-section.
+            # For IV, thin chains are deliberately dropped and do not indicate
+            # transport failure; all other snapshots require >=80% success.
+            _apply_quality(name, res, len(scope))
             res["pruned"] = _prune(out_dir)
         except Exception as exc:
             res = {"ok": False, "error": f"{type(exc).__name__}: {exc}",

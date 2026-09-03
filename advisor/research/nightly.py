@@ -16,6 +16,7 @@ rebuild in run_brief.sh uses --no-ingest.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import sys
 import time
@@ -35,7 +36,9 @@ def run(subset: int | None = None, ingest: bool = True) -> int:
     print(f"[nightly] start {datetime.now(ET).isoformat()}", flush=True)
     u = load_universe()
     print(f"[nightly] universe: {u['n_stocks']} stocks", flush=True)
-    build(subset=subset)
+    panel_meta = build(subset=subset)
+    print(f"[nightly] panel {panel_meta.get('build_id', 'legacy')} quality gate passed; "
+          f"quarantined={panel_meta.get('quality', {}).get('n_quarantined', 0)}")
     s = compute(top=20, score_snapshot_dir=RESEARCH_DIR / "factor_history")
     RESEARCH_DIR.mkdir(parents=True, exist_ok=True)
     day = datetime.now(ET).date().isoformat()
@@ -52,9 +55,15 @@ def run(subset: int | None = None, ingest: bool = True) -> int:
         print(f"[nightly] new long-sheet entrants vs prior run: {n_new}")
     except Exception as exc:
         print(f"[nightly] new-entrant diff failed (non-fatal): {exc}")
-    (RESEARCH_DIR / "signals_latest.json").write_text(json.dumps(s, indent=2))
+    # Latest artifacts are consumed concurrently by the morning pipeline.  A
+    # temp+replace prevents it from observing truncated JSON/text mid-write.
+    json_tmp = RESEARCH_DIR / f".signals_latest.{os.getpid()}.json.tmp"
+    json_tmp.write_text(json.dumps(s, indent=2) + "\n")
+    os.replace(json_tmp, RESEARCH_DIR / "signals_latest.json")
     txt = render(s)
-    (RESEARCH_DIR / "signals_latest.txt").write_text(txt)
+    txt_tmp = RESEARCH_DIR / f".signals_latest.{os.getpid()}.txt.tmp"
+    txt_tmp.write_text(txt)
+    os.replace(txt_tmp, RESEARCH_DIR / "signals_latest.txt")
     shutil.copy(RESEARCH_DIR / "signals_latest.json", RESEARCH_DIR / f"signals_{day}.json")
     print(txt)
 
@@ -81,9 +90,10 @@ def run(subset: int | None = None, ingest: bool = True) -> int:
         try:
             from advisor.research.factors_fundamental import (OUT as FOUT,
                                                               compute_scores,
-                                                              render_top)
+                                                              render_top,
+                                                              write_result)
             f, meta = compute_scores()
-            FOUT.write_text(json.dumps(render_top(f, meta), indent=2))
+            write_result(render_top(f, meta))
             print(f"[nightly] fundamental scores → {FOUT.name}")
         except Exception as exc:
             print(f"[nightly] fundamental scores failed (non-fatal): {exc}")

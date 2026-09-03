@@ -1,14 +1,14 @@
 # Investment Policy Statement — DRAFT v1 (2026-06-12)
 
-Owner: Varma. Advisor: Claude (Tier 0 research + Tier 1 propose/approve).
+Owner: Varma. System role: non-personalized research side tool.
 This document governs every advisor session. The user edits it; the advisor
 proposes changes but never applies them unilaterally.
 
 ## Phase (current): HUMAN-IN-THE-LOOP VALIDATION — first few weeks
 - **No trade enters by itself. Including SPX.** The legacy bot's auto-entry
   is disabled (`run_days: []`); its monitoring/watchdog services stay up.
-- Every trade idea arrives as a research report; SPX-family spreads may
-  additionally arrive as Tier 1 proposals requiring YES <ID> approval.
+- Every idea arrives as a research report. The model pipeline has no proposal
+  or execution permission; live execution is independently disabled.
 - Exit criteria for this phase: decision journal shows a measured edge
   (hit rate + vs-SPY benchmark over a fair sample, reviewed weekly).
   Then we discuss what earns back automation.
@@ -19,8 +19,8 @@ proposes changes but never applies them unilaterally.
 - **No legacy priors**: past repo/memory research conclusions have no
   standing weight in recommendations. Ideas must stand on current data;
   old names need fresh, shown evidence.
-- **Conviction bar**: a publishable view requires specific entry, target,
-  invalidation price, catalyst, and size. 0 ideas is a valid day and must
+- **Conviction bar**: a publishable research view requires scenario entry,
+  target, invalidation, catalyst, and bounded hypothetical risk. 0 ideas is a valid day and must
   be stated explicitly. Max 1-3 views per brief.
 - **Options are never the default lens** (user rule, 2026-06-12): views are
   expressed in stocks/ETFs/assets first; an options structure appears only
@@ -29,22 +29,23 @@ proposes changes but never applies them unilaterally.
 - **Exit strategy is mandatory**: every recommendation carries numeric
   target_px and stop_px (plus time stop). The exit watcher
   (advisor/exit_watcher.py) monitors these levels live during RTH and
-  alerts when to buy (entry zone touched) and when to exit (target or stop
-  hit). A rec the watcher can't watch is incomplete.
+  records entry-zone, target, and stop observations. Research-only views are
+  never worded as buy/sell/exit instructions; an actionable-idea label still
+  requires canonical calibration and verified portfolio context. A view the
+  watcher cannot observe is incomplete and excluded from calibration.
 - **Carve-outs**: (1) actual holdings are always monitored and reported —
   coverage is duty, not bias; (2) engineering invariants never expire
   (tick alignment, no combo MARKET, SL-within-2s, symbol whitelist).
 
 ## Risk budget (user-confirmed 2026-06-12)
-- **TOTAL ADVISOR BUDGET: $25,000** — max combined capital deployed across
-  ALL open advisor recommendations at any time (manual + Tier 1 executed).
-  Every rec's SIZE line must state the $ it consumes and the running total;
-  no new rec may push the total past $25k — say "budget full" instead.
+- **RESEARCH SCENARIO BUDGET: $25,000** — maximum combined hypothetical
+  capital across tracked research views. This is a research constraint, not
+  personalized sizing or authorization to deploy capital.
 - Max loss per advisor-executed trade: $5,000 (rail-enforced).
 - Daily realized loss cap: $600 — no new advisor executions past it.
 - Max 1 advisor execution/day, 1 contract, 3 proposals/day (rail-enforced).
-- Manual-execution recommendations (outside Tier 1 rails) must state the
-  suggested $ risk; user sizes and executes at their broker.
+- Research views state modeled risk; any real allocation remains outside this
+  system and requires the user's independent suitability and broker decision.
 - Concentration: weekly review must flag when >80% of active risk is the
   same factor (short-vol / long-equity-beta).
 

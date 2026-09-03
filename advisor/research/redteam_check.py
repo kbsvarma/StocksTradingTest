@@ -11,7 +11,8 @@ from pathlib import Path
 
 VERDICTS = ("survive", "kill", "amend")
 AMENDABLE = ("stop_px", "target_px", "entry_px_low", "entry_px_high",
-             "entry", "target", "stop", "time_stop", "sizing", "p_win")
+             "entry", "target", "stop", "time_stop", "sizing", "p_win",
+             "reward_risk", "expected_value_r")
 
 
 def validate(redteam_path: Path, draft_path: Path) -> tuple[list[str], list[str]]:
@@ -37,6 +38,8 @@ def validate(redteam_path: Path, draft_path: Path) -> tuple[list[str], list[str]
         if not inst:
             errs.append(f"{tag}: missing instrument")
             continue
+        if inst in seen:
+            errs.append(f"{tag}: duplicate verdict for '{inst}'")
         seen.add(inst)
         if inst not in drafted:
             warns.append(f"{tag}: instrument not in views_draft (stale name?)")

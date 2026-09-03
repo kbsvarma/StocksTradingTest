@@ -28,8 +28,13 @@ from zoneinfo import ZoneInfo
 
 ET = ZoneInfo("America/New_York")
 REPO = Path(__file__).resolve().parent.parent
-HOST, PORT, CLIENT_ID = "127.0.0.1", 4001, 93
+HOST = os.environ.get("ADVISOR_IB_HOST", "127.0.0.1")
+PORT = int(os.environ.get("ADVISOR_IB_PORT", "4001"))
+CLIENT_ID = int(os.environ.get("ADVISOR_IB_CLIENT_ID", "93"))
 RTH_INTERVAL, OFF_INTERVAL = 2.0, 30.0
+IB_UPDATE_FRESH_S = 120
+YF_OPEN_MAX_AGE_S = 30 * 60
+YF_CLOSED_MAX_AGE_S = 96 * 60 * 60
 LOCKFILE = "/tmp/advisor-quoted.lock"
 
 # always-on tape rows (terminal) — yf symbol keys
@@ -48,6 +53,20 @@ def _data() -> Path:
 def market_open(now: datetime | None = None) -> bool:
     now = now or datetime.now(ET)
     return now.weekday() <= 4 and "09:25" <= now.strftime("%H:%M") <= "16:05"
+
+
+def yf_quote_fresh(row: dict, now: datetime | None = None) -> bool:
+    """Judge Yahoo data by its market-event time, never retrieval time."""
+    now = now or datetime.now(ET)
+    try:
+        event = datetime.fromisoformat(row["market_ts"])
+        if event.tzinfo is None:
+            event = event.replace(tzinfo=ET)
+        age = (now - event.astimezone(ET)).total_seconds()
+        limit = YF_OPEN_MAX_AGE_S if market_open(now) else YF_CLOSED_MAX_AGE_S
+        return 0 <= age <= limit
+    except (KeyError, TypeError, ValueError):
+        return False
 
 
 def watch_symbols() -> list[str]:
@@ -124,6 +143,8 @@ class Daemon:
     def __init__(self) -> None:
         self.ib = None
         self.tickers: dict[str, object] = {}
+        self.last_update_mono: dict[str, float] = {}
+        self.last_update_ts: dict[str, str] = {}
         self.yf_cache: dict[str, dict] = {}
         self.yf_last = 0.0
 
@@ -153,9 +174,18 @@ class Daemon:
                 continue
             try:
                 self.ib.qualifyContracts(c)
-                self.tickers[s] = self.ib.reqMktData(c, "", False, False)
+                ticker = self.ib.reqMktData(c, "", False, False)
+                self.tickers[s] = ticker
+                def _mark_update(*_args, symbol=s):
+                    self.last_update_mono[symbol] = time.monotonic()
+                    self.last_update_ts[symbol] = datetime.now(ET).isoformat()
+                ticker.updateEvent += _mark_update
             except Exception:
                 continue
+
+    def ib_quote_fresh(self, symbol: str) -> bool:
+        last = self.last_update_mono.get(symbol)
+        return last is not None and time.monotonic() - last <= IB_UPDATE_FRESH_S
 
     def yf_fill(self, syms: list[str]) -> None:
         """Fallback quotes for symbols IBKR can't serve (throttled to 60s)."""
@@ -166,17 +196,36 @@ class Daemon:
             import yfinance as yf
             for s in syms:
                 try:
-                    fi = yf.Ticker(s).fast_info
-                    self.yf_cache[s] = {
-                        "px": round(float(fi.last_price), 4),
-                        "prev_close": round(float(fi.previous_close), 4)
-                        if fi.previous_close else None,
-                        "day_low": getattr(fi, "day_low", None),
-                        "day_high": getattr(fi, "day_high", None),
-                        "ts": datetime.now(ET).isoformat(),
+                    # Intraday bars carry an exchange timestamp.  fast_info's
+                    # last_price does not, so stamping it at retrieval time can
+                    # make a stale quote look current.
+                    hist = yf.Ticker(s).history(period="5d", interval="1m",
+                                                prepost=True, auto_adjust=True)
+                    closes = hist["Close"].dropna()
+                    if closes.empty:
+                        raise ValueError("no timestamped intraday bars")
+                    event = closes.index[-1].to_pydatetime()
+                    if event.tzinfo is None:
+                        event = event.replace(tzinfo=ET)
+                    event = event.astimezone(ET)
+                    session = hist.loc[hist.index.date == event.date()]
+                    prior = hist.loc[hist.index.date < event.date(), "Close"].dropna()
+                    row = {
+                        "px": round(float(closes.iloc[-1]), 4),
+                        "prev_close": round(float(prior.iloc[-1]), 4) if len(prior) else None,
+                        "day_low": round(float(session["Low"].min()), 4),
+                        "day_high": round(float(session["High"].max()), 4),
+                        "market_ts": event.isoformat(),
+                        "ts": event.isoformat(),
+                        "retrieved_at": datetime.now(ET).isoformat(),
                         "kind": "last", "type": "delayed",
-                        "src": "yfinance ~15min"}
+                        "src": "yfinance timestamped intraday bar"}
+                    if not yf_quote_fresh(row):
+                        self.yf_cache.pop(s, None)
+                        continue
+                    self.yf_cache[s] = row
                 except Exception:
+                    self.yf_cache.pop(s, None)
                     continue
         except Exception as exc:
             print(f"[quoted] yf fill failed: {exc}", flush=True)
@@ -186,7 +235,7 @@ class Daemon:
         ib_alive = bool(self.ib and self.ib.isConnected())
         for s in syms:
             t = self.tickers.get(s)
-            if ib_alive and t is not None:
+            if ib_alive and t is not None and self.ib_quote_fresh(s):
                 px, kind = _tick_px(t)
                 if px is not None:
                     mdt = getattr(t, "marketDataType", 3)
@@ -196,12 +245,14 @@ class Daemon:
                         "ask": round(float(t.ask), 4) if t.ask and t.ask > 0 else None,
                         "prev_close": round(float(t.close), 4)
                         if t.close and t.close > 0 else None,
-                        "ts": datetime.now(ET).isoformat(),
+                        "ts": self.last_update_ts[s],
+                        "received_age_s": round(
+                            time.monotonic() - self.last_update_mono[s], 1),
                         "kind": kind,
                         "type": "live" if mdt == 1 else "delayed",
                         "src": f"IBKR {'live' if mdt == 1 else 'delayed ~15min'}"}
                     continue
-            if s in self.yf_cache:
+            if s in self.yf_cache and yf_quote_fresh(self.yf_cache[s]):
                 quotes[s] = self.yf_cache[s]
         return {"as_of": datetime.now(ET).isoformat(),
                 "ib_connected": ib_alive,
@@ -232,6 +283,8 @@ class Daemon:
                 if self.ib and not self.ib.isConnected():
                     print("[quoted] IBKR dropped — reconnecting", flush=True)
                     self.tickers.clear()
+                    self.last_update_mono.clear()
+                    self.last_update_ts.clear()
                     self.connect()
                 if not self.ib:
                     time.sleep(15)
@@ -243,11 +296,12 @@ class Daemon:
                     if syms != last_syms:
                         last_syms = syms
                         self.subscribe(syms)
-                ib_served = {s for s in last_syms if s in self.tickers} \
-                    if (self.ib and self.ib.isConnected()) else set()
-                self.yf_fill([s for s in last_syms if s not in ib_served])
                 if self.ib and self.ib.isConnected():
                     self.ib.sleep(0.5)       # let ticks flow
+                ib_served = {s for s in last_syms if s in self.tickers
+                             and self.ib_quote_fresh(s)} \
+                    if (self.ib and self.ib.isConnected()) else set()
+                self.yf_fill([s for s in last_syms if s not in ib_served])
                 snap = self.snapshot(last_syms)
                 self.write(snap)
                 if once:

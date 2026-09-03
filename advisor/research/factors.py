@@ -8,8 +8,8 @@ Computes for every liquid name in the cached panel:
   prox_52w   proximity to 52-week high                (George-Hwang 2004)
   lowvol     negative 60d realized vol                (Ang et al 2006 low-vol anomaly)
   turn_anom  20d/120d volume ratio (abnormal attention/turnover)
-  shock      recent outsized move flag (|1d| > 2.5σ in last 10d) — VALIDATED
-             as 21d REVERSION candidates (pass-9: drift -1.41%/21d, t=-1.74)
+  shock      recent outsized move flag (|1d| > 2.5σ in last 10d) — exploratory
+             candidate flag only; it is not a validated standalone signal
 
 Method: winsorized (±3) z-scores computed WITHIN GICS sector (sector-neutral),
 combined with REGIME-CONDITIONED weights — momentum is de-weighted and
@@ -35,9 +35,10 @@ warnings.filterwarnings("ignore")
 ET = ZoneInfo("America/New_York")
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
-# Weights re-tuned 2026-06-12 from IC validation (advisor/research/validate.py,
-# 11 non-overlapping 21d periods, mostly risk_on tape):
-#   validated: mom_12_1 (t 1.88), resid_mom (t 1.84), prox_52w (t 1.84)
+# Exploratory discovery weights informed by a small 2026-06-12 IC study
+# (advisor/research/validate.py, 11 non-overlapping periods, mostly risk-on).
+# They are not production weights; validation_status() enforces the promotion gate.
+#   positive in sample: mom_12_1 (t 1.88), resid_mom (t 1.84), prox_52w (t 1.84)
 #   wrong-way IN RISK_ON sample: rev_1m (t -1.74), lowvol (t -1.85) → zeroed
 #     in risk_on ONLY; kept in neutral/stress where the literature prior
 #     (reversal/low-vol shine in turmoil) is untested by this bull-period sample.
@@ -50,6 +51,57 @@ WEIGHTS = {
     "stress":  {"mom_12_1": .08, "resid_mom": .07, "prox_52w": .05,
                 "rev_1m": .30, "lowvol": .30, "turn_anom": .00},
 }
+
+
+def validation_status() -> dict:
+    """Machine-readable promotion gate for the factor ranker."""
+    data = REPO_ROOT / "advisor" / "data" / "research"
+    reasons, survivors = [], []
+    dsr, validation_as_of, live_n, live_independent = None, None, 0, 0
+    config_hash, approved_hash, oos_n = None, None, 0
+    try:
+        v = json.loads((data / "validation2_latest.json").read_text())
+        validation_as_of = v.get("as_of")
+        wf = v.get("walk_forward_top20") or {}
+        dsr = (wf.get("deflated_sharpe_oos") or {}).get("dsr")
+        oos_n = int(wf.get("oos_n_periods") or 0)
+        config_hash = v.get("config_hash")
+        survivors = [k for k, row in (v.get("tests") or {}).items()
+                     if k.endswith("|oos") and row.get("fdr10_survives")]
+    except Exception:
+        reasons.append("validation2 artifact unavailable")
+    try:
+        live = json.loads((data / "ic_live.json").read_text())
+        live_n = int(live.get("n_matured") or 0)
+        live_independent = max(
+            (int(row.get("n_independent") or 0)
+             for row in (live.get("factors") or {}).values()), default=0)
+    except Exception:
+        reasons.append("live IC artifact unavailable")
+    try:
+        approval = json.loads((data / "model_approval.json").read_text())
+        approved_hash = approval.get("config_hash") if approval.get("approved") is True else None
+    except Exception:
+        reasons.append("no explicit model approval artifact")
+    if dsr is None or dsr < 0.95:
+        reasons.append(f"out-of-sample deflated Sharpe confidence {dsr} < 0.95")
+    if oos_n < 24:
+        reasons.append(f"only {oos_n} non-overlapping OOS periods; require 24")
+    if not survivors:
+        reasons.append("no out-of-sample factor test survives 10% FDR")
+    if live_independent < 12:
+        reasons.append(f"only {live_independent} independent live-IC windows; require 12")
+    if not config_hash or approved_hash != config_hash:
+        reasons.append("model approval missing or does not match validation config hash")
+    eligible = not reasons
+    return {"status": "production_eligible" if eligible else "research_only",
+            "role": "ranking" if eligible else "discovery_only",
+            "reasons": reasons, "deflated_sharpe_confidence": dsr,
+            "fdr10_survivors": survivors, "live_ic_matured": live_n,
+            "live_ic_independent": live_independent,
+            "oos_n_periods": oos_n, "config_hash": config_hash,
+            "approved_config_hash": approved_hash,
+            "validation_as_of": validation_as_of}
 
 
 def detect_regime(close) -> dict:
@@ -161,18 +213,44 @@ def raw_factors(close, volume, rets, u: dict):
     sec_series = pd.Series({t: sectors.get(t, "?") for t in f.index})
     z = pd.DataFrame(index=f.index)
     for col in f.columns:
-        z[col] = (f[col].groupby(sec_series)
-                  .transform(lambda s: ((s - s.mean()) / (s.std() or 1)).clip(-3, 3)))
+        def _winsorized_z(s):
+            valid = s.dropna()
+            if len(valid) < 2:
+                return s * np.nan
+            lo, hi = valid.quantile([0.01, 0.99])
+            clipped = s.clip(lo, hi)
+            sd = clipped.std()
+            if pd.isna(sd) or sd == 0:
+                return clipped * 0.0
+            return ((clipped - clipped.mean()) / sd).clip(-3, 3)
+        z[col] = f[col].groupby(sec_series).transform(_winsorized_z)
     return f, z, liquid, dollar_vol, px, shock_mask, shock_dir
 
 
 def compute(top: int = 20, score_snapshot_dir: Path | None = None) -> dict:
     import pandas as pd
-    from advisor.research.datastore import load_panel, panel_age_hours
+    from advisor.research.datastore import current_meta, load_panel, panel_age_hours
     from advisor.research.universe import load as load_universe
 
     age = panel_age_hours()
     u = load_universe()
+    panel_meta = current_meta()
+    if not (panel_meta.get("quality") or {}).get("ok"):
+        # Legacy caches predate the atomic quality gate. Audit them at use time
+        # and refuse to rank a partial universe rather than grandfathering it.
+        from advisor.research.data_quality import assess
+        audit = assess({"Close": load_panel("close"), "High": load_panel("high"),
+                        "Low": load_panel("low"), "Volume": load_panel("volume")},
+                       requested=int(panel_meta.get("n_tickers_requested") or 1))
+        if not audit["ok"]:
+            raise RuntimeError("current price panel is not production-safe: " +
+                               " | ".join(audit["errors"]))
+        panel_meta = {**panel_meta, "quality": audit}
+    quarantined = set((panel_meta.get("quality") or {}).get("quarantine") or {})
+    if quarantined:
+        u = dict(u)
+        u["stocks"] = {t: sector for t, sector in u["stocks"].items()
+                       if t not in quarantined}
     sectors = u["stocks"]
     close, volume = load_panel("close"), load_panel("volume")
     rets = close.pct_change()
@@ -225,6 +303,10 @@ def compute(top: int = 20, score_snapshot_dir: Path | None = None) -> dict:
             print(f"[factors] score snapshot failed (non-fatal): {exc}")
     return {
         "as_of": datetime.now(ET).isoformat(),
+        "panel_build_id": panel_meta.get("build_id", "legacy"),
+        "data_quality": panel_meta.get("quality", {}),
+        "quarantined_tickers": sorted(quarantined),
+        "model_validation": validation_status(),
         "panel_age_hours": round(age, 1),
         "n_universe": len(stock_cols), "n_liquid": len(liquid),
         "regime": regime,
@@ -242,7 +324,9 @@ def render(s: dict) -> str:
          f"HYG21d {s['regime']['hyg_21d_pct']}%)",
          f"universe {s['n_universe']} → liquid {s['n_liquid']}   "
          f"panel age {s['panel_age_hours']}h",
-         f"method: {s['method']}", ""]
+         f"method: {s['method']}",
+         f"MODEL STATUS: {s.get('model_validation', {}).get('status', 'unknown').upper()} "
+         f"— {s.get('model_validation', {}).get('role', 'unknown')}", ""]
     for label, rowsk in (("LONG CANDIDATES", "longs"), ("SHORT CANDIDATES", "shorts"),
                          ("SHOCK CANDIDATES — 21d evidence says REVERSION, not drift", "shock_candidates")):
         L.append(f"== {label} ==")

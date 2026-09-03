@@ -16,7 +16,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import shutil
 import subprocess
 from datetime import datetime, date
 from pathlib import Path
@@ -26,8 +25,13 @@ import pandas as pd
 import streamlit as st
 
 from advisor.render_safety import http_url as safe_http_url
+from advisor.render_safety import secret_equal
 from advisor.render_safety import text as esc
 from advisor.research.datastore import current_meta as current_panel_meta
+from advisor.production_status import assess as production_assess
+from advisor.brief_control import arm_remaining_s, request_generation
+from advisor.brief_control import status as brief_control_status
+from advisor.actionability import is_actionable
 
 ET = ZoneInfo("America/New_York")
 REPO = Path(__file__).resolve().parent.parent
@@ -47,7 +51,7 @@ st.set_page_config(page_title="ADVISOR TERMINAL", layout="wide",
 # optional token gate (TUNING_NOTES: posture decision) — set
 # ADVISOR_PORTAL_TOKEN in the service env to require ?token=... in the URL
 _TOKEN = os.environ.get("ADVISOR_PORTAL_TOKEN", "")
-if _TOKEN and st.query_params.get("token") != _TOKEN:
+if _TOKEN and not secret_equal(st.query_params.get("token"), _TOKEN):
     st.markdown("<h3 style='color:#ff9f0a;font-family:Menlo,monospace;'>"
                 "ADVISOR TERMINAL — locked</h3>"
                 "<p style='color:#8a8f98;font-family:Menlo,monospace;'>append "
@@ -102,8 +106,8 @@ def panel_header(title: str, sub: str = "") -> None:
     st.markdown(
         f'<div style="border-bottom:1px solid #2a2f36; margin:4px 0 10px 0;">'
         f'<span style="color:{AMBER}; font-family:Menlo,monospace; font-size:15px; '
-        f'font-weight:700; letter-spacing:2px;">{title}</span>'
-        f'<span style="color:{DIM}; font-size:11px; margin-left:12px;">{sub}</span></div>',
+        f'font-weight:700; letter-spacing:2px;">{esc(title)}</span>'
+        f'<span style="color:{DIM}; font-size:11px; margin-left:12px;">{esc(sub)}</span></div>',
         unsafe_allow_html=True)
 
 
@@ -125,6 +129,19 @@ def load_jsonl_tail(p: Path, n: int = 20) -> list[dict]:
         return rows[::-1]
     except Exception:
         return []
+
+
+def safe_markdown(text: str) -> str:
+    """Remove model-control comments and prevent dollar math mangling."""
+    text = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
+    return text.replace("$", r"\$").strip()
+
+
+def manual_reload() -> None:
+    """Clear caches and force a full app rerun, even from inside a fragment."""
+    st.cache_data.clear()
+    st.session_state["advisor_last_manual_reload"] = datetime.now(ET).isoformat()
+    st.rerun(scope="app")
 
 
 def journal_effective() -> dict:
@@ -251,7 +268,7 @@ def tape():
                 f'<td style="padding:1px 16px 1px 0; white-space:nowrap; '
                 f'border-right:1px solid #161b22;">'
                 f'<span style="color:{AMBER}; font-weight:700;">'
-                f'{t.replace("=X", "").replace("=F", "")}</span>{dot} '
+                f'{esc(t.replace("=X", "").replace("=F", ""))}</span>{dot} '
                 f'<span style="color:#e8e6e3;">{px:,.2f}</span> '
                 f'<span style="color:{col}; font-size:11px;">{arrow}{abs(chg):.2f}%</span>'
                 f'{_range_bar(px, q.get("day_low"), q.get("day_high"))}</td>')
@@ -302,9 +319,9 @@ def _brief_missing_banner() -> str | None:
             f'font-size:15px; font-weight:800; letter-spacing:2px;">'
             f'⛔ NO BRIEF TODAY ({today})</span>'
             f'<span style="color:#e8e6e3; font-size:12px; margin-left:12px; '
-            f'font-family:Menlo,monospace;">{reason}</span>'
+            f'font-family:Menlo,monospace;">{esc(reason)}</span>'
             f'<div style="color:{DIM}; font-size:11px; margin-top:4px;">'
-            f'watchdog self-heals after 09:00 · or hit 🔄 REGEN BRIEF above · '
+            f'watchdog self-heals after 09:00 · or use GENERATE NEW BRIEF above · '
             f'root cause: dark-wake TCC denies the 08:15 calendar job '
             f'(see TUNING_NOTES)</div></div>')
 
@@ -313,8 +330,8 @@ def _brief_missing_banner() -> str | None:
 def active_recommendations():
     """The standing set: every call that still carries conviction, from ANY
     brief. A card leaves the board the moment its call stops being a
-    suggestion: time-stop passed (hidden), level hit (shows as an explicit
-    EXIT instruction until resolved), withdrawn/resolved (gone)."""
+    suggestion: time-stop passed (hidden), level hit (shows as an observed
+    research outcome until resolved), withdrawn/resolved (gone)."""
     today = datetime.now(ET).date().isoformat()
     cards = []
     open_views = {k: v for k, v in journal_effective().items()
@@ -332,14 +349,17 @@ def active_recommendations():
         px = q.get("px")
         long_ = (e.get("direction") or "long").lower() != "short"
         conv = (e.get("conviction") or "?").upper()
+        actionable = is_actionable(e)
 
         if e.get("resolve_pending"):
             hit = e.get("hit_level")
             color = RED if hit == "stop" else GREEN
-            state = ("🛑 EXIT NOW — stop hit" if hit == "stop"
-                     else "🎯 TAKE PROFIT — target hit")
+            state = (("🛑 ACTIONABLE-IDEA STOP REACHED" if hit == "stop"
+                      else "🎯 ACTIONABLE-IDEA TARGET REACHED") if actionable else
+                     ("🛑 RESEARCH VIEW INVALIDATED — stop observed" if hit == "stop"
+                      else "🎯 RESEARCH TARGET OBSERVED"))
             detail = (f'hit {e.get("hit_px")} at {str(e.get("hit_ts"))[:16]} — '
-                      f'no longer a recommendation, an instruction')
+                      f'no position or execution is inferred')
         else:
             color = GREEN if conv == "HIGH" else AMBER
             lo, hi = e.get("entry_px_low"), e.get("entry_px_high")
@@ -351,7 +371,9 @@ def active_recommendations():
                 detail = f"px {px:,.2f} ({q.get('src', 'no quote')})"
             elif isinstance(px, (int, float)) and isinstance(lo, (int, float)) \
                     and isinstance(hi, (int, float)) and lo <= px <= hi:
-                state = f"🟢 ACTIONABLE — in the entry zone {lo}–{hi}"
+                state = (f"🟢 ACTIONABLE IDEA — in entry zone {lo}–{hi}"
+                         if actionable else
+                         f"🟡 RESEARCH ENTRY ZONE — not a buy/sell signal · {lo}–{hi}")
                 detail = f"px {px:,.2f} ({q.get('src', '')})"
             elif all(isinstance(x, (int, float)) for x in (px, sp, tp)) and sp != tp:
                 prog = max(0.0, min(1.0, (px - sp) / (tp - sp)))
@@ -388,10 +410,10 @@ def active_recommendations():
                     f'{AMBER}; background:#11151a; padding:8px 12px; '
                     f'margin-bottom:5px; border-radius:3px;">'
                     f'<span style="color:{AMBER}; font-weight:700;">{esc(t)} — '
-                    f'⚡ RE-ENTRY TRIGGERED</span> '
+                    f'⚡ RESEARCH REVISIT TRIGGERED</span> '
                     f'<span style="color:#e8e6e3; font-size:12px;">crossed '
-                    f'{trg.get("dir")} {trg.get("px")} at '
-                    f'{str(w["triggered"].get("ts"))[:16]}</span><br>'
+                    f'{esc(trg.get("dir"))} {esc(trg.get("px"))} at '
+                    f'{esc(str(w["triggered"].get("ts"))[:16])}</span><br>'
                     f'<span style="color:#c9c7c2; font-size:12px;">'
                     f'{esc(w.get("note", "")[:150])} — parked by an earlier brief; '
                     f'the morning session re-underwrites it before any action.'
@@ -405,14 +427,13 @@ def active_recommendations():
     n = len(cards)
     hdr = (f'<span style="color:{AMBER}; font-family:Menlo,monospace; '
            f'font-size:13px; font-weight:700; letter-spacing:2px;">'
-           f'ACTIVE RECOMMENDATIONS ({n})</span>'
+           f'ACTIVE RESEARCH VIEWS ({n})</span>'
            f'<span style="color:{DIM}; font-size:10px; margin-left:10px;">'
            f'union of still-valid calls from all briefs · auto-clears when a '
            f'call stops being suggested · 30s refresh</span>')
     if not cards:
         body = (f'<div style="color:{DIM}; font-size:12px; padding:6px 2px;">'
-                f'none — flat is the position. (0 standing calls; the high '
-                f'bar held.)</div>')
+                f'none — no standing research views; no position is inferred.</div>')
     else:
         body = "".join(cards)
     st.markdown(
@@ -472,7 +493,7 @@ def research_feed():
                     f'{body}</div>', unsafe_allow_html=True)
     if themes_p.exists():
         with st.expander("CURRENT THEMES (rolling market memory — macro stage maintains)"):
-            st.markdown(themes_p.read_text())
+            st.markdown(safe_markdown(themes_p.read_text()))
 
 
 def _view_card(v: dict):
@@ -490,7 +511,11 @@ def _view_card(v: dict):
                  f'• {esc(ev.get("claim", ""))}{link} {ts}</div>')
     meta = ""
     if pw:
-        meta += chip(f"p_win {pw}", cc)
+        calibrated = bool((v.get("probability_basis") or {}).get("calibrated"))
+        meta += chip(f"p_win {pw} {'CAL' if calibrated else 'UNCAL'}",
+                     cc if calibrated else AMBER)
+    meta += chip(str(v.get("recommendation_class", "LEGACY")).upper(),
+                 GREEN if v.get("recommendation_class") == "actionable_idea" else AMBER)
     if src:
         meta += chip(f"src {src}", DIM)
     if v.get("sizing"):
@@ -590,7 +615,7 @@ def open_calls_and_charts():
                 fig.update_xaxes(showspikes=True, spikecolor=DIM, spikemode="across",
                                  spikethickness=1, spikedash="dot")
                 fig.update_yaxes(title_text="RSI", row=3, col=1, range=[0, 100])
-                st.plotly_chart(fig, use_container_width=True,
+                st.plotly_chart(fig, width="stretch",
                                 key=f"chart_{eid}")
             except Exception as exc:
                 st.warning(f"{tkr}: chart unavailable ({exc})")
@@ -611,6 +636,11 @@ def ideas_tab():
                   + (", ".join(slate["confluence"]) or "none"))
                  if slate else "nightly generators haven't run yet")
     if slate:
+        fscope = (slate.get("generator_scope") or {}).get("revision_leader") or {}
+        st.markdown(chip(
+            f"RANK SCOPE {fscope.get('ranking_scope', 'mixed labeled subsets')} · "
+            "candidate discovery, not market-wide coverage", RED),
+            unsafe_allow_html=True)
         rows = []
         for e in slate["slate"]:
             bchips = "".join(chip(b, BUCKET_COLORS.get(b, DIM)) for b in e["buckets"])
@@ -619,11 +649,11 @@ def ideas_tab():
             rows.append(
                 f'<tr style="border-bottom:1px solid #161b22;">'
                 f'<td style="padding:3px 10px; color:{AMBER}; font-weight:700;">'
-                f'{e["ticker"]}{" ★" if len(e["buckets"]) >= 2 else ""}</td>'
+                f'{esc(e["ticker"])}{" ★" if len(e["buckets"]) >= 2 else ""}</td>'
                 f'<td style="padding:3px 6px;">{bchips}</td>'
-                f'<td style="padding:3px 10px; color:{DIM}; font-size:11px;">{det}</td>'
+                f'<td style="padding:3px 10px; color:{DIM}; font-size:11px;">{esc(det)}</td>'
                 f'<td style="padding:3px 10px; color:{"#e8e6e3" if d.get("next_earnings") else DIM}; '
-                f'font-size:11px;">{d.get("next_earnings", "—")}</td>'
+                f'font-size:11px;">{esc(d.get("next_earnings", "—"))}</td>'
                 f'<td style="padding:3px 10px; text-align:center;">'
                 f'{"📁" if e.get("has_dossier") else ""}</td></tr>')
         st.markdown(
@@ -634,7 +664,7 @@ def ideas_tab():
             f'<thead><tr>' + "".join(
                 f'<th style="padding:3px 10px; color:{AMBER}; text-align:left; '
                 f'border-bottom:1px solid {PANEL_BORDER};">{h}</th>'
-                for h in ("TKR", "GENERATORS", "DETAIL", "NEXT EPS", "DOSSIER"))
+                for h in ("TKR", "GENERATORS", "DETAIL", "NEXT EPS (PROVIDER EST)", "DOSSIER"))
             + f'</tr></thead><tbody>{"".join(rows)}</tbody></table></div>',
             unsafe_allow_html=True)
 
@@ -660,13 +690,13 @@ def ideas_tab():
             fired = e.get("triggered")
             rows.append(
                 f'<tr style="border-bottom:1px solid #161b22;">'
-                f'<td style="padding:3px 10px; color:{AMBER}; font-weight:700;">{t}</td>'
+                f'<td style="padding:3px 10px; color:{AMBER}; font-weight:700;">{esc(t)}</td>'
                 f'<td style="padding:3px 10px;">{chip(e.get("state", "?"), state_col.get(e.get("state"), DIM))}</td>'
-                f'<td style="padding:3px 10px; color:#e8e6e3; font-size:11px;">{trg_s}</td>'
+                f'<td style="padding:3px 10px; color:#e8e6e3; font-size:11px;">{esc(trg_s)}</td>'
                 f'<td style="padding:3px 10px; color:{RED}; font-size:11px;">'
-                f'{"⚡ " + str(fired.get("px")) + " @ " + str(fired.get("ts"))[:16] if fired else ""}</td>'
-                f'<td style="padding:3px 10px; color:{DIM}; font-size:11px;">exp {e.get("expires", "—")}</td>'
-                f'<td style="padding:3px 10px; color:{DIM}; font-size:11px;">{e.get("note", "")[:60]}</td></tr>')
+                f'{esc("⚡ " + str(fired.get("px")) + " @ " + str(fired.get("ts"))[:16]) if fired else ""}</td>'
+                f'<td style="padding:3px 10px; color:{DIM}; font-size:11px;">exp {esc(e.get("expires", "—"))}</td>'
+                f'<td style="padding:3px 10px; color:{DIM}; font-size:11px;">{esc(e.get("note", "")[:60])}</td></tr>')
         st.markdown(
             f'<div style="background:{PANEL_BG}; border:1px solid {PANEL_BORDER}; '
             f'border-radius:2px; padding:4px;">'
@@ -723,7 +753,7 @@ def dossier_tab():
             for col, (name, d) in zip(cols, secs):
                 with col:
                     body = "".join(f'<div style="color:#c9c7c2; font-size:11px;">'
-                                   f'{k}: <span style="color:#e8e6e3;">{v}</span></div>'
+                                   f'{esc(k)}: <span style="color:#e8e6e3;">{esc(v)}</span></div>'
                                    for k, v in (d or {}).items()) or \
                         f'<div style="color:{DIM}; font-size:11px;">no data yet</div>'
                     st.markdown(
@@ -766,8 +796,8 @@ def dossier_tab():
         with kc1:
             kn = facts.get("key_numbers", {})
             pos = facts.get("positioning", {})
-            body = "".join(f'<div style="color:#c9c7c2; font-size:11px;">{k}: '
-                           f'<span style="color:#e8e6e3;">{v}</span></div>'
+            body = "".join(f'<div style="color:#c9c7c2; font-size:11px;">{esc(k)}: '
+                           f'<span style="color:#e8e6e3;">{esc(v)}</span></div>'
                            for k, v in list(kn.items())[:12] if v is not None)
             ins = pos.get("insiders_90d") or {}
             if ins:
@@ -778,7 +808,7 @@ def dossier_tab():
                 f'<div style="background:{PANEL_BG}; border:1px solid {PANEL_BORDER}; '
                 f'padding:10px; border-radius:2px;">'
                 f'<div style="color:{AMBER}; font-size:10px; letter-spacing:1px;">'
-                f'FACTS ({facts.get("as_of", "?")[:10]})</div>{body}</div>',
+                f'FACTS ({esc(str(facts.get("as_of", "?"))[:10])})</div>{body}</div>',
                 unsafe_allow_html=True)
         with kc2:
             narrative = d / "narrative.md"
@@ -820,16 +850,16 @@ def calendar_tab():
         weekday = datetime.fromisoformat(d).strftime("%a")
         rows = "".join(
             f'<span style="margin-right:14px;">'
-            f'<span style="color:{AMBER}; font-weight:700;">{e["ticker"]}</span> '
-            f'<span style="color:#c9c7c2; font-size:11px;">{e["event"]}'
-            f'{" ✓" if e.get("confirmed") else " (est)"}</span> '
+            f'<span style="color:{AMBER}; font-weight:700;">{esc(e["ticker"])}</span> '
+            f'<span style="color:#c9c7c2; font-size:11px;">{esc(e["event"])}'
+            f'{" ✓ issuer-confirmed" if e.get("confirmed") else " (provider est; verify)"}</span> '
             f'{chip(e["why"], GREEN if e["why"] == "HELD" else DIM)}</span>'
             for e in evs)
         st.markdown(
             f'<div style="background:{PANEL_BG}; border:1px solid {PANEL_BORDER}; '
             f'border-left:3px solid {AMBER}; padding:6px 12px; margin-bottom:4px; '
             f'border-radius:2px;"><span style="color:{AMBER}; font-size:12px; '
-            f'font-weight:700;">{d} {weekday}</span>&nbsp;&nbsp;{rows}</div>',
+            f'font-weight:700;">{esc(d)} {esc(weekday)}</span>&nbsp;&nbsp;{rows}</div>',
             unsafe_allow_html=True)
 
 
@@ -871,6 +901,9 @@ def factor_sheets():
                 st.markdown(_heat_table(items), unsafe_allow_html=True)
     with tabs[3]:
         rows = (fund or {}).get("revision_leaders", [])
+        scope = (fund or {}).get("scope") or {}
+        st.markdown(chip(f"WITHIN {scope.get('ranking_scope', 'UNKNOWN SCOPE')} · "
+                         "NOT MARKET-WIDE", RED), unsafe_allow_html=True)
         if rows:
             st.markdown("".join(
                 chip(r["ticker"], AMBER) + chip(f"rev {r.get('est_revision')}", GREEN)
@@ -881,6 +914,9 @@ def factor_sheets():
             st.info("Revision sheet builds from tonight's estimate snapshots.")
     with tabs[4]:
         rows = (fund or {}).get("cheap_quality", [])
+        scope = (fund or {}).get("scope") or {}
+        st.markdown(chip(f"WITHIN {scope.get('ranking_scope', 'UNKNOWN SCOPE')} · "
+                         "NOT MARKET-WIDE", RED), unsafe_allow_html=True)
         if rows:
             st.markdown("".join(
                 chip(r["ticker"], AMBER) + chip(f"value {r.get('value')}", GREEN)
@@ -919,10 +955,10 @@ def _heat_table(items: list[dict]) -> str:
                       f'<span style="display:inline-block; width:{bar_w}px; height:8px; '
                       f'background:{bar_col}; opacity:0.7; vertical-align:middle;"></span></td>')
         cells = (
-            f'<td style="padding:2px 8px; color:{AMBER}; font-weight:700;">{x["ticker"]}</td>'
+            f'<td style="padding:2px 8px; color:{AMBER}; font-weight:700;">{esc(x["ticker"])}</td>'
             f'<td style="padding:2px 8px; text-align:right;">{x["px"]:,.2f}</td>'
             f'{score_cell}'
-            f'<td style="padding:2px 8px; color:{DIM}; font-size:11px;">{x["sector"][:18]}</td>'
+            f'<td style="padding:2px 8px; color:{DIM}; font-size:11px;">{esc(x["sector"][:18])}</td>'
             f'<td style="padding:2px 8px; text-align:right;">{x["raw"]["mom_12_1_pct"]:+.1f}</td>'
             f'<td style="padding:2px 8px; text-align:right;">{x["raw"]["ret_1m_pct"]:+.1f}</td>'
             f'<td style="padding:2px 8px; text-align:right;">{x["raw"]["pct_of_52w_high"]:.0f}</td>'
@@ -985,7 +1021,7 @@ def portfolio_risk():
     if watcher:
         st.markdown(f'<div style="color:{DIM}; font-size:12px; margin-top:6px;">'
                     f'watcher level-hits: '
-                    + ", ".join(f"{k} ({','.join(v.keys())})" for k, v in watcher.items())
+                    + esc(", ".join(f"{k} ({','.join(v.keys())})" for k, v in watcher.items()))
                     + '</div>', unsafe_allow_html=True)
 
 
@@ -1019,15 +1055,15 @@ def _levels_board(open_calls: dict) -> str:
                 f'<span style="color:#e8e6e3;">px {px:,.2f}</span> '
                 f'<span style="color:{t_col}; font-size:10px;">{toward}</span> '
                 f'<span style="color:{DIM}; font-size:10px;">'
-                f'({"long" if long_ else "short"} · {pos*100:.0f}% · {src})</span>')
+                f'({"long" if long_ else "short"} · {pos*100:.0f}% · {esc(src)})</span>')
         rows.append(
             f'<tr style="border-bottom:1px solid #161b22;">'
             f'<td style="padding:4px 10px; color:{AMBER}; font-weight:700; '
-            f'white-space:nowrap;">{v.get("instrument", "?")[:34]}</td>'
-            f'<td style="padding:4px 10px; color:{DIM}; font-size:10px;">{k}</td>'
+            f'white-space:nowrap;">{esc(v.get("instrument", "?")[:34])}</td>'
+            f'<td style="padding:4px 10px; color:{DIM}; font-size:10px;">{esc(k)}</td>'
             f'<td style="padding:4px 10px; white-space:nowrap;">{bar}</td>'
             f'<td style="padding:4px 10px; color:{DIM}; font-size:10px; '
-            f'white-space:nowrap;">t-stop {v.get("time_stop", "—")}</td></tr>')
+            f'white-space:nowrap;">t-stop {esc(v.get("time_stop", "—"))}</td></tr>')
     return (f'<div style="background:{PANEL_BG}; border:1px solid {PANEL_BORDER}; '
             f'border-radius:2px; padding:4px; margin-top:6px;">'
             f'<table style="font-family:Menlo,monospace; font-size:12px; '
@@ -1059,7 +1095,7 @@ def scorecard_doctrine():
         c4.metric("REJECTED TRACKED",
                   int((df.type == "rejected").sum()) if "type" in df else 0,
                   "counterfactual-scored")
-        st.dataframe(df, use_container_width=True, hide_index=True, height=240)
+        st.dataframe(df, width="stretch", hide_index=True, height=240)
 
     cal = load_json(RESEARCH / "calibration_latest.json")
     att = load_json(RESEARCH / "attribution_latest.json")
@@ -1068,12 +1104,14 @@ def scorecard_doctrine():
         body = f'<div style="color:{DIM}; font-size:12px;">not computed yet</div>'
         if cal:
             rel = "".join(
-                f'<div style="color:#c9c7c2; font-size:11px;">stated {p}: '
+                f'<div style="color:#c9c7c2; font-size:11px;">stated {esc(p)}: '
                 f'n={r["n"]} realized {r["realized_hit_rate"]}</div>'
                 for p, r in (cal.get("reliability_by_stated_p") or {}).items())
             body = (f'<div style="color:#e8e6e3; font-size:13px;">Brier '
                     f'{cal.get("brier", "—")} vs 0.25 baseline · '
-                    f'n={cal.get("n_resolved_scored")}</div>'
+                    f'n={cal.get("n_resolved_scored")} '
+                    f'(explicit {cal.get("n_explicit_scored", "—")}; '
+                    f'legacy-map {cal.get("n_legacy_mapped_scored", "—")})</div>'
                     f'{chip(cal.get("sample_gate", ""), AMBER)}{rel}')
         st.markdown(
             f'<div style="border:1px solid #2a2f36; background:#11151a; padding:10px; '
@@ -1084,7 +1122,7 @@ def scorecard_doctrine():
         if att:
             body = "".join(
                 f'<div style="color:#c9c7c2; font-size:11px;">'
-                f'<span style="color:{AMBER};">{src}</span> n={t["n"]} '
+                f'<span style="color:{AMBER};">{esc(src)}</span> n={t["n"]} '
                 f'hit={t["hit_rate"]} avgR={t["avg_realized_r"]} '
                 f'<span style="color:{DIM};">[{t["sample_gate"]}]</span></div>'
                 for src, t in (att.get("by_source") or {}).items()) or body
@@ -1103,9 +1141,9 @@ def scorecard_doctrine():
     v2 = load_json(RESEARCH / "validation2_latest.json")
     if v2:
         wf = v2.get("walk_forward_top20", {})
-        dsr = (wf.get("deflated_sharpe") or {}).get("dsr")
+        dsr = (wf.get("deflated_sharpe_oos") or {}).get("dsr")
         survivors = [k for k, t in v2.get("tests", {}).items()
-                     if t.get("fdr10_survives")]
+                     if k.endswith("|oos") and t.get("fdr10_survives")]
         st.markdown(
             f'<div style="border:1px solid #2a2f36; border-left:3px solid {RED}; '
             f'background:#11151a; padding:10px; border-radius:4px; margin:8px 0;">'
@@ -1113,15 +1151,15 @@ def scorecard_doctrine():
             + chip(f"as of {v2.get('as_of', '')[:16]}", DIM)
             + chip(f"config {v2.get('config_hash')}", DIM)
             + f'<div style="color:#c9c7c2; font-size:12px; margin-top:6px;">'
-            f'{v2.get("n_periods")} non-overlapping 21d periods over ~10y · '
-            f'{v2.get("n_tests_in_grid")} tests · FDR-10% survivors: '
-            f'<span style="color:{RED};">{", ".join(survivors) or "NONE"}</span><br>'
+            f'{wf.get("oos_n_periods", 0)} non-overlapping OOS 21d periods · '
+            f'{v2.get("n_tests_in_grid")} total tests · OOS FDR-10% survivors: '
+            f'<span style="color:{RED};">{esc(", ".join(survivors) or "NONE")}</span><br>'
             f'walk-forward net {wf.get("net_total_return_pct")}% vs SPY '
-            f'{wf.get("spy_total_pct")}% · deflated Sharpe '
+            f'{wf.get("spy_total_pct")}% (all periods; context only) · OOS deflated Sharpe '
             f'<span style="color:{RED if (dsr or 0) < 0.95 else GREEN};">{dsr}</span> '
             f'(&lt;0.95 = not proven)</div>'
             f'<div style="color:{DIM}; font-size:10px; margin-top:4px;">'
-            + " · ".join(v2.get("caveats", [])[:2]) + '</div></div>',
+            + esc(" · ".join(v2.get("caveats", [])[:2])) + '</div></div>',
             unsafe_allow_html=True)
 
     ic = load_json(RESEARCH / "ic_live.json")
@@ -1146,8 +1184,8 @@ def scorecard_doctrine():
     if lessons:
         body = "".join(
             f'<div style="color:#c9c7c2; font-size:11px;">'
-            f'{le.get("ts", "")[:10]} <span style="color:{AMBER};">{le.get("call_id")}</span> '
-            f'{le.get("outcome_tag", "")} — {le.get("proposed_lesson") or "no lesson"}</div>'
+            f'{esc(le.get("ts", "")[:10])} <span style="color:{AMBER};">{esc(le.get("call_id"))}</span> '
+            f'{esc(le.get("outcome_tag", ""))} — {esc(le.get("proposed_lesson") or "no lesson")}</div>'
             for le in lessons)
         st.markdown(
             f'<div style="border:1px solid #2a2f36; background:#11151a; padding:10px; '
@@ -1176,8 +1214,9 @@ def _regime_chip() -> str:
     name = (reg.get("name") or "?").upper()
     col = {"RISK_ON": GREEN, "NEUTRAL": AMBER, "STRESS": RED}.get(name, DIM)
     return (f'<span style="color:{col}; border:1px solid {col}; padding:1px 8px; '
-            f'border-radius:2px; font-size:11px; font-weight:700;">REGIME {name}'
-            f' · VIX {reg.get("vix", "?")} · TERM {reg.get("vix_term", "?")}</span>')
+            f'border-radius:2px; font-size:11px; font-weight:700;">REGIME {esc(name)}'
+            f' · VIX {esc(reg.get("vix", "?"))} · '
+            f'TERM {esc(reg.get("vix_term", "?"))}</span>')
 
 
 st.markdown(
@@ -1191,43 +1230,92 @@ st.markdown(
     f'{_regime_chip()}</div>',
     unsafe_allow_html=True)
 
-# ── manual brief regen + hard refresh ────────────────────────────────────────
-_bc1, _bc2, _bc3 = st.columns([1, 1, 6])
-with _bc1:
-    if st.button("🔄 REGEN BRIEF", use_container_width=True,
-                 help="Run the full morning pipeline now (macro → synthesis → "
-                      "red-team → publish). Single-flight locked."):
-        already = subprocess.run(["pgrep", "-f", "run_brief.sh|advisor.orchestrator"],
-                                 capture_output=True, text=True).stdout.strip()
-        if already:
-            st.toast("A brief pipeline is already running — not starting a second.",
-                     icon="🔒")
-        else:
+st.markdown(
+    f'<div style="background:#151109; border:1px solid {AMBER}; padding:4px 10px; '
+    f'color:#d7d2c8; font-size:10px; letter-spacing:.4px;">'
+    f'<b style="color:{AMBER};">RESEARCH IDEAS — NOT PERSONALIZED ADVICE.</b> '
+    f'Projected probabilities and outcomes are hypothetical, may change with each run, '
+    f'do not reflect actual client results, and are not guarantees. Uncalibrated estimates '
+    f'are labeled UNCAL. Verify source evidence, suitability, liquidity, tax, and loss risk '
+    f'before acting.</div>', unsafe_allow_html=True)
+with st.expander("METHODOLOGY · UNIVERSE · LIMITATIONS · CONFLICTS"):
+    st.markdown(
+        "**Selection.** A broad U.S. equity/ETF research universe is filtered for "
+        "liquidity, ranked using sector-neutral technical/fundamental signals, then "
+        "subjected to catalyst, primary-evidence, valuation, risk/reward, and independent "
+        "red-team gates. Other securities may have similar or superior characteristics.\n\n"
+        "**Limitations.** Factor ranks are discovery-only until their machine-readable "
+        "validation gate passes. `p_win` is analyst judgment unless explicitly marked CAL. "
+        "Delayed feeds, source errors, regime changes, slippage, gaps, and corporate events "
+        "can invalidate a view. A missing verified portfolio makes all sizing illustrative.\n\n"
+        "**Conflicts and data rights.** The prototype has no issuer compensation or market-"
+        "making relationship recorded. Commercial redistribution is disabled pending "
+        "licensed market-data contracts and a formal conflict-disclosure process."
+    )
+
+# ── controlled on-demand generation + data reload ───────────────────────────
+@st.fragment(run_every="5s")
+def brief_controls() -> None:
+    _bc1, _bc2, _bc3, _bc4 = st.columns([1.1, 1.45, 1, 4.45])
+    allow = os.environ.get("ADVISOR_ALLOW_UI_REGEN") == "1"
+    state = brief_control_status()
+    running = state["state"] in {"starting", "running"}
+    now_ts = datetime.now(ET).timestamp()
+    arm_deadline = st.session_state.get("regen_arm_deadline", 0)
+    arm_remaining = arm_remaining_s(arm_deadline, now_ts=now_ts)
+    armed = allow and not running and arm_remaining > 0
+    with _bc1:
+        if st.button("1 · ARM 60s", width="stretch", disabled=running or not allow,
+                     help="Temporarily arm one research run. Arming expires after "
+                          "60 seconds and never places an order."):
+            arm_deadline = now_ts + 60
+            st.session_state["regen_arm_deadline"] = arm_deadline
+            arm_remaining = arm_remaining_s(arm_deadline, now_ts=now_ts)
+            armed = True
+        if armed:
+            st.caption(f"ARMED · {arm_remaining}s")
+    with _bc2:
+        if st.button("⟳ GENERATE NEW BRIEF", width="stretch",
+                     disabled=running or not allow or not armed,
+                     help="Queue macro → synthesis → red-team → publish through "
+                          "the credential-isolated system service."):
+            # Every click consumes the arm, even when the service refuses the request.
+            st.session_state["regen_arm_deadline"] = 0
+            result = request_generation()
+            if result["outcome"] == "accepted":
+                st.toast("New brief queued. Progress will appear here automatically.",
+                         icon="⟳")
+            elif result["reason"] == "cooldown":
+                st.toast(f"Cooldown active — retry in {result['retry_after_s']}s.",
+                         icon="⏱️")
+            elif result["reason"] == "already_running":
+                st.toast("A brief pipeline is already running.", icon="🔒")
+            else:
+                st.toast("Brief request failed safely; inspect the operator audit.",
+                         icon="⚠️")
+    with _bc3:
+        st.button("↻ RELOAD DATA", width="stretch", on_click=manual_reload,
+                  help="Re-read published artifacts. This does not generate a brief.")
+        _reloaded = st.session_state.get("advisor_last_manual_reload")
+        if _reloaded:
             try:
-                # /bin/zsh is a macOS assumption — the Linux host has bash only.
-                _sh = shutil.which("zsh") or shutil.which("bash") or "/bin/sh"
-                _log = REPO / "advisor" / "logs" / "manual_brief.log"
-                _log.parent.mkdir(parents=True, exist_ok=True)
-                # run_brief.sh is self-contained (sources its own env, sets
-                # CLAUDE_BIN/PATH), but the systemd service environment this
-                # button inherits has neither node on PATH nor Telegram creds —
-                # so pass a login-ish env explicitly rather than relying on it.
-                _env = {**os.environ,
-                        "PYTHONPATH": str(REPO),
-                        "HOME": os.path.expanduser("~")}
-                with _log.open("a") as _lf:
-                    subprocess.Popen([_sh, str(REPO / "advisor" / "run_brief.sh")],
-                                     stdout=_lf, stderr=subprocess.STDOUT,
-                                     cwd=REPO, env=_env, start_new_session=True)
-                st.toast("Pipeline started (~15-30 min for the full chain). "
-                         "Watch the footer; hit REFRESH when publish lands.", icon="🔄")
-            except Exception as _e:
-                st.toast(f"regen failed: {_e}", icon="⚠️")
-with _bc2:
-    if st.button("🔃 REFRESH", use_container_width=True,
-                 help="Clear caches and reload every panel from disk."):
-        st.cache_data.clear()
-        st.rerun()
+                _reload_time = datetime.fromisoformat(_reloaded).strftime("%H:%M:%S ET")
+                st.caption(f"DATA RELOADED {_reload_time}")
+            except ValueError:
+                pass
+    with _bc4:
+        if running:
+            st.info(f"BRIEF RUNNING · {str(state['stage']).upper()} · status updates every 5s")
+        elif state["state"] == "complete":
+            st.success(f"LATEST BRIEF COMPLETE · {state.get('date') or '—'}")
+        elif state["state"] == "failed":
+            st.warning(f"LAST RUN FAILED CLOSED · {str(state['stage']).upper()} · "
+                       f"{state.get('reason') or 'unknown'} · prior brief preserved")
+        elif not allow:
+            st.caption("ON-DEMAND GENERATION DISABLED BY OPERATOR POLICY")
+
+
+brief_controls()
 tape()
 active_recommendations()
 
@@ -1262,28 +1350,59 @@ SERVICES = (("advisor-quoted", "QUOTED"), ("advisor-approvals", "APPROVALS"),
             ("advisor-librarian", "LIBRARIAN"), ("advisor-ivsnap", "IVSNAP"))
 
 
+# Linux units differ from the mac launchd set: no approvals/events/ivsnap
+# (Tier-1 execution and the IV snapshot are mac-side), plus timers.
+SERVICES_SYSTEMD = (("advisor-terminal.service", "TERMINAL"),
+                    ("advisor-quoted.service", "QUOTED"),
+                    ("advisor-exitwatch.service", "EXITWATCH"),
+                    ("advisor-watchdog.timer", "WATCHDOG"),
+                    ("advisor-research.timer", "RSCH"),
+                    ("advisor-brief.timer", "BRIEF"),
+                    ("advisor-librarian.timer", "LIBRARIAN"))
+
+
 @st.cache_data(ttl=60)
 def _service_status() -> list[tuple]:
-    out = []
-    try:
-        listing = subprocess.run(["launchctl", "list"], capture_output=True,
-                                 text=True, timeout=5).stdout
-        for svc, label in SERVICES:
-            line = [l for l in listing.splitlines() if svc in l]
-            if not line:
-                out.append((label, "MISSING", RED))
-                continue
-            pid, status = line[0].split()[0], line[0].split()[1]
-            if pid != "-":
-                out.append((label, "LIVE", GREEN))
-            elif status == "0":
-                out.append((label, "OK", AMBER))       # scheduled, last run clean
-            elif status == "-15":
-                out.append((label, "RESTART", AMBER))  # we SIGTERMed it
-            else:
-                out.append((label, f"ERR({status})", RED))   # THE fix: exit codes visible
-    except Exception:
-        out.append(("LAUNCHCTL", "ERR", RED))
+    """Health row. launchd on macOS, systemd --user on the Linux host —
+    the mac-only path used to render a single red LAUNCHCTL ERR there."""
+    import sys as _sys
+    out: list[tuple] = []
+    if _sys.platform == "darwin":
+        try:
+            listing = subprocess.run(["launchctl", "list"], capture_output=True,
+                                     text=True, timeout=5).stdout
+            for svc, label in SERVICES:
+                line = [l for l in listing.splitlines() if svc in l]
+                if not line:
+                    out.append((label, "MISSING", RED))
+                    continue
+                pid, status = line[0].split()[0], line[0].split()[1]
+                if pid != "-":
+                    out.append((label, "LIVE", GREEN))
+                elif status == "0":
+                    out.append((label, "OK", AMBER))   # scheduled, last run clean
+                elif status == "-15":
+                    out.append((label, "RESTART", AMBER))
+                else:
+                    out.append((label, f"ERR({status})", RED))
+        except Exception:
+            out.append(("LAUNCHCTL", "ERR", RED))
+        return out
+    for unit, label in SERVICES_SYSTEMD:
+        try:
+            state = subprocess.run(["systemctl", "--user", "is-active", unit],
+                                   capture_output=True, text=True,
+                                   timeout=5).stdout.strip()
+        except Exception:
+            out.append((label, "ERR", RED))
+            continue
+        if state == "active":
+            out.append((label, "LIVE" if unit.endswith(".service") else "ARMED",
+                        GREEN))
+        elif state in ("activating", "reloading"):
+            out.append((label, "START", AMBER))
+        else:
+            out.append((label, state.upper() or "DEAD", RED))
     return out
 
 
@@ -1317,12 +1436,21 @@ def status_footer():
     ages += f' · {_last_pipeline_note()}'
     n_open = sum(1 for e in journal_effective().values()
                  if e.get("status") == "open" and e.get("type") == "view")
+    try:
+        trust = production_assess()
+        verdict = trust["verdict"].upper()
+        vcol = {"READY": GREEN, "DEGRADED": AMBER, "BLOCKED": RED}[verdict]
+        release = load_json(DATA / "deployment_manifest.json") or {}
+        trust_html = (f'<span style="color:{vcol}; font-weight:700;">'
+                      f'TRUST {verdict}</span> · REL {esc(release.get("release_id", "—"))}')
+    except Exception:
+        trust_html = f'<span style="color:{RED};">TRUST ERROR</span>'
     st.markdown(
         f'<div style="background:{PANEL_BG}; border:1px solid {PANEL_BORDER}; '
         f'padding:3px 12px; border-radius:2px; margin-top:6px; font-size:10px; '
         f'font-family:Menlo,monospace; display:flex; justify-content:space-between;">'
         f'<span>{cells}</span>'
-        f'<span style="color:{DIM};">{ages} · OPEN {n_open} · '
+        f'<span style="color:{DIM};">{trust_html} · {ages} · OPEN {n_open} · '
         f'{datetime.now(ET).strftime("%a %H:%M ET")}</span></div>',
         unsafe_allow_html=True)
 

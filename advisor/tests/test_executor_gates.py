@@ -9,6 +9,7 @@ import json
 import os
 import sys
 import tempfile
+from copy import deepcopy
 from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -21,10 +22,22 @@ sys.path.insert(0, str(REPO))
 
 from advisor import executor, proposals as P  # noqa: E402
 
+import pytest  # noqa: E402
+
 ET = ZoneInfo("America/New_York")
 WED_10AM = datetime(2026, 6, 10, 10, 0, tzinfo=ET)     # weekday, in window
 SAT_10AM = datetime(2026, 6, 13, 10, 0, tzinfo=ET)     # weekend
 WED_8AM = datetime(2026, 6, 10, 8, 0, tzinfo=ET)       # before window
+
+
+@pytest.fixture(autouse=True)
+def _explicit_test_execution_enable(monkeypatch):
+    """Gate tests opt in explicitly; production configuration stays off."""
+    cfg = P.load_advisor_cfg()
+    cfg = deepcopy(cfg)
+    cfg.setdefault("execution", {})["enabled"] = True
+    monkeypatch.setattr(P, "load_advisor_cfg", lambda: cfg)
+    monkeypatch.setenv("ADVISOR_EXECUTION_ENABLED", "1")
 
 
 def _fresh():
@@ -61,6 +74,14 @@ def _mk(status="APPROVED", **kw):
 def test_unknown_proposal_refused():
     _fresh(); _clock(WED_10AM)
     assert executor.execute("ZZZZ", run_monitor=False) == 1
+
+
+def test_live_execution_is_disabled_by_default(monkeypatch):
+    _fresh(); _clock(WED_10AM)
+    p = _mk()
+    monkeypatch.delenv("ADVISOR_EXECUTION_ENABLED")
+    assert executor.execute(p.id, run_monitor=False) == 1
+    assert P.load(p.id).status == "APPROVED"
 
 
 def test_not_approved_refused_and_state_preserved():
