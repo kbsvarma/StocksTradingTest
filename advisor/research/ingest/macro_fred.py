@@ -5,6 +5,7 @@ import csv
 import io
 import json
 import os
+import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
@@ -32,32 +33,65 @@ def _download(series_id: str, opener=urlopen) -> str:
         return response.read().decode("utf-8")
 
 
-def _latest(text: str) -> tuple[str, float]:
+def _latest(text: str, series_id: str | None = None) -> tuple[str, float]:
     rows = list(csv.DictReader(io.StringIO(text)))
     for row in reversed(rows):
-        raw = next((v for k, v in row.items() if k != "observation_date"), "")
+        raw = (row.get(series_id, "") if series_id else
+               next((v for k, v in row.items() if k != "observation_date"), ""))
         if raw not in ("", ".", None):
             return row["observation_date"], float(raw)
     raise ValueError("no numeric observations")
 
 
-def build(*, now: datetime | None = None, fetcher=_download) -> dict:
+def _download_bulk(opener=urlopen) -> dict[str, str]:
+    """Fetch FRED's multi-series ZIP once and return series CSV payloads."""
+    ids = ",".join(SERIES)
+    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={ids}"
+    request = Request(url, headers={"User-Agent": "AdvisorTerminal/1.0 research-contact"})
+    with opener(request, timeout=30) as response:
+        payload = response.read()
+    out: dict[str, str] = {}
+    with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+        for name in archive.namelist():
+            if not name.endswith(".csv"):
+                continue
+            text = archive.read(name).decode("utf-8")
+            header = next(csv.reader(io.StringIO(text)), [])
+            for series_id in header[1:]:
+                out[series_id] = text
+    return out
+
+
+def build(*, now: datetime | None = None, fetcher=None) -> dict:
     now = now or datetime.now(ET)
     observations, errors = {}, {}
-    def one(series_id):
-        date, value = _latest(fetcher(series_id))
-        return series_id, date, value
-
-    # A provider outage should cost one timeout window, not N serial windows.
-    with ThreadPoolExecutor(max_workers=len(SERIES)) as pool:
-        futures = {pool.submit(one, series_id): series_id for series_id in SERIES}
-        completed = []
-        for future in as_completed(futures):
-            series_id = futures[future]
-            try:
-                completed.append(future.result())
-            except Exception as exc:
-                errors[series_id] = f"{type(exc).__name__}: {exc}"
+    completed = []
+    if fetcher is None:
+        try:
+            payloads = _download_bulk()
+            for series_id in SERIES:
+                try:
+                    date, value = _latest(payloads[series_id], series_id)
+                    completed.append((series_id, date, value))
+                except Exception as exc:
+                    errors[series_id] = f"{type(exc).__name__}: {exc}"
+        except Exception as exc:
+            for series_id in SERIES:
+                errors[series_id] = f"bulk {type(exc).__name__}: {exc}"
+    else:
+        def one(series_id):
+            date, value = _latest(fetcher(series_id), series_id)
+            return series_id, date, value
+        # Test/custom fetchers may still be parallelized; production uses one
+        # official bulk request to respect the provider and bound latency.
+        with ThreadPoolExecutor(max_workers=len(SERIES)) as pool:
+            futures = {pool.submit(one, series_id): series_id for series_id in SERIES}
+            for future in as_completed(futures):
+                series_id = futures[future]
+                try:
+                    completed.append(future.result())
+                except Exception as exc:
+                    errors[series_id] = f"{type(exc).__name__}: {exc}"
     for series_id, date, value in completed:
         meta = SERIES[series_id]
         try:
