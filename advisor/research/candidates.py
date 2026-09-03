@@ -180,6 +180,22 @@ def build() -> dict:
     for t, e in entries.items():
         e["has_dossier"] = (dossiers / t / "facts.json").exists()
 
+    # Attach the complete technical state to every candidate without sending
+    # the 1MB full-universe profile through the model context.
+    try:
+        profiles_doc = json.loads((RESEARCH_DIR / "technical_profiles_latest.json").read_text())
+        profiles = {row["ticker"]: row for row in profiles_doc.get("profiles", [])}
+        fields = ("setup", "state_confidence", "rsi14", "adx14", "atr14_pct",
+                  "macd_hist_pct", "bollinger_z", "donchian55", "trend_stack",
+                  "rs_spy_63d_pct", "volume_ratio_20_120", "downside_vol60_ann_pct",
+                  "drawdown126_pct")
+        for ticker, entry in entries.items():
+            if ticker in profiles:
+                entry["detail"]["technical"] = {
+                    key: profiles[ticker].get(key) for key in fields}
+    except Exception:
+        pass
+
     slate = sorted(entries.values(),
                    key=lambda e: (-len(e["buckets"]),
                                   -abs(e["detail"].get("score", 0))))

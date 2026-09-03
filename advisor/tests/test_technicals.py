@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from advisor.research.technicals import compute_frame
+from advisor.research.technicals import compute_frame, write
 
 
 def test_technical_frame_computes_bounded_interpretable_state():
@@ -31,3 +31,15 @@ def test_technical_frame_requires_sufficient_history():
     frame = compute_frame(close, close * 1.01, close * .99, volume,
                           {"stocks": {"AAA": "Tech"}})
     assert frame.empty
+
+
+def test_write_separates_compact_model_context_from_full_profiles(tmp_path, monkeypatch):
+    from advisor.research import technicals
+    monkeypatch.setattr(technicals, "OUT", tmp_path / "technical_latest.json")
+    monkeypatch.setattr(technicals, "PROFILES_OUT", tmp_path / "profiles.json")
+    write({"schema_version": 1, "as_of": "now", "panel_build_id": "b1",
+           "gate": "research", "setups": [{"ticker": "AAA"}],
+           "profiles": [{"ticker": "AAA"}, {"ticker": "BBB"}]})
+    import json
+    assert "profiles" not in json.loads(technicals.OUT.read_text())
+    assert len(json.loads(technicals.PROFILES_OUT.read_text())["profiles"]) == 2

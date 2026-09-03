@@ -18,6 +18,7 @@ from advisor.research.datastore import RESEARCH_DIR, current_meta, load_panel
 
 ET = ZoneInfo("America/New_York")
 OUT = RESEARCH_DIR / "technical_latest.json"
+PROFILES_OUT = RESEARCH_DIR / "technical_profiles_latest.json"
 
 
 def _last(frame):
@@ -166,8 +167,17 @@ def build(top: int = 25) -> dict:
 
 def write(result: dict) -> None:
     OUT.parent.mkdir(parents=True, exist_ok=True)
+    profiles = result.get("profiles", [])
+    profile_doc = {"schema_version": result.get("schema_version", 1),
+                   "as_of": result.get("as_of"),
+                   "panel_build_id": result.get("panel_build_id"),
+                   "gate": result.get("gate"), "profiles": profiles}
+    profiles_tmp = PROFILES_OUT.with_suffix(f".json.tmp.{os.getpid()}")
+    profiles_tmp.write_text(json.dumps(profile_doc, indent=2, default=str) + "\n")
+    os.replace(profiles_tmp, PROFILES_OUT)
+    compact = {k: v for k, v in result.items() if k != "profiles"}
     tmp = OUT.with_suffix(f".json.tmp.{os.getpid()}")
-    tmp.write_text(json.dumps(result, indent=2, default=str) + "\n")
+    tmp.write_text(json.dumps(compact, indent=2, default=str) + "\n")
     os.replace(tmp, OUT)
 
 
