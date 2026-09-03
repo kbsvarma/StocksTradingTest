@@ -1339,7 +1339,7 @@ def brief_controls() -> None:
             result = request_generation()
             if result["outcome"] == "accepted":
                 st.toast("New brief queued. Progress will appear here automatically.",
-                         icon="⟳")
+                         icon="🔄")
             elif result["reason"] == "cooldown":
                 st.toast(f"Cooldown active — retry in {result['retry_after_s']}s.",
                          icon="⏱️")
