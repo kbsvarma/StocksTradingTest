@@ -131,6 +131,9 @@ def build(subset: int | None = None) -> dict:
             hashes[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
         meta = {"schema_version": 2, "build_id": build_id,
                 "built_unix": built_unix, "n_tickers_requested": len(set(tickers)),
+                "provider": "Yahoo Finance via yfinance",
+                "price_adjustment": "auto_adjust=True (split/dividend adjusted OHLC)",
+                "intended_use": "research fallback; not licensed for commercial redistribution",
                 "failed_batches_tickers": failed,
                 "n_tickers_survived": len(common_cols),
                 "shapes": {k: list(v) for k, v in stats.items()},

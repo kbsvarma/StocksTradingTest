@@ -25,6 +25,7 @@ from advisor.brief_check import validate as validate_brief
 from advisor.research.datastore import current_build_dir, current_meta
 from advisor.release_integrity import tree_digest
 from advisor.actionability import is_actionable
+from advisor.source_health import assess as assess_sources
 
 ET = ZoneInfo("America/New_York")
 REPO = Path(__file__).resolve().parent.parent
@@ -140,6 +141,23 @@ def assess(now: datetime | None = None) -> dict:
         level, detail = "block", "signals timestamp missing or invalid"
     checks["signals"] = {"level": level, "detail": detail}
 
+    technical = _json(DATA / "research" / "technical_latest.json")
+    if technical.get("n_profiled", 0) >= 500 and technical.get("panel_build_id") == signals.get("panel_build_id"):
+        level, detail = "pass", (f"technical state covers {technical['n_profiled']} names "
+                                  "on the current panel")
+    else:
+        level, detail = "warn", "technical state is missing, thin, or not aligned to current panel"
+    checks["technical_state"] = {"level": level, "detail": detail}
+
+    try:
+        source_report = assess_sources(now)
+        level = "pass" if source_report["ok"] else "warn"
+        detail = (f"{source_report['healthy_critical']}/{source_report['critical_count']} "
+                  "critical research sources healthy; provenance inventory available")
+    except Exception as exc:
+        level, detail = "warn", f"source-health inventory unavailable: {type(exc).__name__}"
+    checks["data_sources"] = {"level": level, "detail": detail}
+
     ingest = _json(DATA / "research" / "_meta" / "ingest_manifest.json")
     info = (ingest.get("datasets") or {}).get("info") or {}
     universe_n = int(ingest.get("n_tickers") or 0)
@@ -229,7 +247,7 @@ def assess(now: datetime | None = None) -> dict:
         "complete investment-adviser/broker-dealer regulatory and counsel review",
     ]
     actionable_required = ("dependencies", "runtime_services", "execution_isolation",
-                           "market_data", "signals", "publication",
+                           "market_data", "signals", "technical_state", "data_sources", "publication",
                            "decision_journal", "release")
     actionable_blockers = [name for name in actionable_required
                            if checks[name]["level"] != "pass"]

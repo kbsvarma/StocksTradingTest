@@ -6,8 +6,8 @@ attribution — generators must earn their keep). Multi-bucket confluence
 ranks first. The IPS 1-3-view ceiling is untouched: this widens the
 funnel's mouth, not its exit.
 
-Buckets: tactical_long/short (price composite) · pead_fresh · insider_cluster
-· revision_leader · cheap_quality · new_entrant · squeeze_flag
+Buckets: tactical_long/short (price composite) · technical_setup · pead_fresh
+· insider_cluster · revision_leader · cheap_quality · new_entrant · squeeze_flag
 
 CLI: python -m advisor.research.candidates
 Writes advisor/data/research/candidates_latest.json (+ dated copy).
@@ -28,7 +28,8 @@ OUT = RESEARCH_DIR / "candidates_latest.json"
 
 CAPS = {"tactical_long": 10, "tactical_short": 5, "pead_fresh": 6,
         "insider_cluster": 5, "revision_leader": 5, "cheap_quality": 5,
-        "new_entrant": 5, "squeeze_flag": 3}
+        "new_entrant": 5, "squeeze_flag": 3, "technical_setup": 10,
+        "edgar_quality_growth": 5}
 
 # Exploratory diagnostic only. Repeated rejects are retained for retrospective
 # attribution, but are NOT injected into the candidate slate: the original
@@ -98,6 +99,35 @@ def build() -> dict:
                 add(x["ticker"], "new_entrant", px=x["px"], score=x["score"])
                 n_new += 1
 
+    # Multi-dimensional technical confirmation. This is descriptive and
+    # research-only; it enriches/stratifies candidates but never adds a model
+    # weight or actionability by itself.
+    try:
+        technical = json.loads((RESEARCH_DIR / "technical_latest.json").read_text())
+        for row in technical.get("setups", [])[:CAPS["technical_setup"]]:
+            add(row["ticker"], "technical_setup", setup=row.get("setup"),
+                rsi14=row.get("rsi14"), adx14=row.get("adx14"),
+                atr14_pct=row.get("atr14_pct"),
+                rs_spy_63d_pct=row.get("rs_spy_63d_pct"),
+                volume_ratio=row.get("volume_ratio_20_120"),
+                drawdown126_pct=row.get("drawdown126_pct"),
+                technical_state_confidence=row.get("state_confidence"))
+    except Exception:
+        technical = {}
+
+    # Independent filing-derived fundamentals. These do not depend on Yahoo
+    # profile data and carry the latest SEC filing date into research.
+    try:
+        edgar_factors = json.loads((RESEARCH_DIR / "edgar_fundamental_latest.json").read_text())
+        for row in edgar_factors.get("leaders", [])[:CAPS["edgar_quality_growth"]]:
+            add(row["ticker"], "edgar_quality_growth",
+                edgar_quality_growth=row.get("edgar_quality_growth"),
+                edgar_growth=row.get("edgar_growth"),
+                edgar_quality=row.get("edgar_quality"),
+                latest_sec_filing=row.get("latest_filed"))
+    except Exception:
+        edgar_factors = {}
+
     # fundamental/event generators
     f, fundamental_meta = compute_scores()
     if len(f):
@@ -165,6 +195,12 @@ def build() -> dict:
             "generator_scope": {
                 "tactical_long": signal_scope, "tactical_short": signal_scope,
                 "new_entrant": signal_scope,
+                "technical_setup": {"kind": "OHLCV_technical_state",
+                                    "market_wide": False,
+                                    "gate": technical.get("gate", "unavailable")},
+                "edgar_quality_growth": {"kind": "SEC_as_filed_fundamentals",
+                                         "market_wide": False,
+                                         "gate": edgar_factors.get("gate", "unavailable")},
                 "pead_fresh": fundamental_scope,
                 "revision_leader": fundamental_scope,
                 "cheap_quality": fundamental_scope,
@@ -188,7 +224,6 @@ def main() -> int:
     print(f"[candidates] {res['n']} names, "
           f"{len(res['confluence'])} multi-bucket: {res['confluence']}")
     print(f"→ {OUT}")
-    return 0
     return 0
 
 

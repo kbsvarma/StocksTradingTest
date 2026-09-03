@@ -21,6 +21,15 @@ hostile second reader.
 In CONTEXT_DIR: `portfolio.json/txt`, `market.json/txt`, `quant.json/txt`,
 `factor_sheet.json/txt` (full-market cross-section — YOU MUST review LONG,
 SHORT and SHOCK sheets), and **`candidates.json` — the stratified slate.
+Also read `technical.json` when present. It contains deterministic RSI, MACD,
+ADX, ATR, Bollinger, Donchian, trend-stack, relative-strength, volume,
+downside-volatility and drawdown state. Use it to confirm or contradict a
+thesis and to design levels; never cite its descriptive setup/confidence as a
+win probability or proven edge. Read `fred_macro.json` when present and prefer
+its dated official observations to unsourced macro numbers.
+`edgar_fundamental.json`, when present, is an independent as-filed SEC
+growth/quality screen. Prefer it for corroboration, retain its filing date,
+and respect its discovery-only gate.
 TRIAGE THE SLATE FIRST**: ~50 names from every generator (tactical
 long/short, PEAD-fresh, insider clusters, revision leaders, cheap-quality,
 new entrants, squeeze flags), each tagged with WHY it's there plus

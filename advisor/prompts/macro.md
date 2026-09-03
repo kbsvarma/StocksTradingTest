@@ -11,6 +11,10 @@ CONTEXT_DIR and TODAY are prepended.
 
 ## Inputs
 - CONTEXT_DIR/market.json + quant.json (deterministic EOD scan, already fetched)
+- CONTEXT_DIR/fred_macro.json when present — dated official Treasury yields,
+  breakevens, high-yield OAS, 2s10s curve and financial-conditions readings.
+  Prefer these observations to unsourced macro numbers, state observation
+  dates, and never silently replace a stale/failed series.
 - `advisor/data/knowledge/narrative/current_themes.md` — the standing themes
 
 ## Work

@@ -892,8 +892,11 @@ def factor_sheets():
     if model.get("reasons"):
         st.caption("Promotion blockers: " + " · ".join(str(x) for x in model["reasons"]))
     fund = load_json(RESEARCH / "fundamental_latest.json")
+    technical = load_json(RESEARCH / "technical_latest.json")
+    edgar_fund = load_json(RESEARCH / "edgar_fundamental_latest.json")
     tabs = st.tabs(["LONGS", "SHORTS", "SHOCK (REVERSION CANDIDATES)",
-                    "REVISIONS", "CHEAP-QUALITY"])
+                    "REVISIONS", "CHEAP-QUALITY", "SEC FUNDAMENTALS",
+                    "TECHNICAL STATE", "DATA SOURCES"])
     for tab, key in zip(tabs[:3], ("longs", "shorts", "shock_candidates")):
         with tab:
             items = s.get(key, [])
@@ -924,6 +927,58 @@ def factor_sheets():
                 unsafe_allow_html=True)
         else:
             st.info("Cheap-quality joint screen builds as snapshots accrue.")
+    with tabs[5]:
+        if edgar_fund:
+            st.markdown(chip(edgar_fund.get("gate", "DISCOVERY-ONLY"), RED)
+                        + chip(edgar_fund.get("source", "SEC EDGAR"), GREEN)
+                        + chip(f"{edgar_fund.get('n_eligible', 0)} eligible", DIM),
+                        unsafe_allow_html=True)
+            rows = [{"ticker": r.get("ticker"), "combined": r.get("edgar_quality_growth"),
+                     "growth z": r.get("edgar_growth"), "quality z": r.get("edgar_quality"),
+                     "revenue growth": r.get("revenue_growth"),
+                     "op margin": r.get("operating_margin"), "ROE": r.get("roe"),
+                     "FCF margin": r.get("fcf_margin"), "debt/CFO": r.get("debt_to_cfo"),
+                     "latest filed": r.get("latest_filed")}
+                    for r in edgar_fund.get("leaders", [])]
+            st.dataframe(rows, width="stretch", hide_index=True)
+        else:
+            st.info("SEC fundamental factors build after the next EDGAR sweep.")
+    with tabs[6]:
+        if technical:
+            st.markdown(chip(technical.get("gate", "RESEARCH-ONLY"), RED)
+                        + chip(technical.get("method", ""), DIM),
+                        unsafe_allow_html=True)
+            rows = [{"ticker": r.get("ticker"), "setup": r.get("setup"),
+                     "confidence": r.get("state_confidence"), "RSI14": r.get("rsi14"),
+                     "ADX14": r.get("adx14"), "ATR%": r.get("atr14_pct"),
+                     "MACD%": r.get("macd_hist_pct"), "BollZ": r.get("bollinger_z"),
+                     "RS vs SPY 63d%": r.get("rs_spy_63d_pct"),
+                     "Vol 20/120": r.get("volume_ratio_20_120"),
+                     "DD126%": r.get("drawdown126_pct")}
+                    for r in technical.get("setups", [])]
+            if rows:
+                st.dataframe(rows, width="stretch", hide_index=True)
+            else:
+                st.info("No technically coherent setup cleared the descriptive screen.")
+        else:
+            st.info("Technical state builds with the next research run.")
+    with tabs[7]:
+        try:
+            from advisor.source_health import assess as assess_source_health
+            health = assess_source_health()
+            st.markdown(chip(f"CRITICAL {health['healthy_critical']}/{health['critical_count']}",
+                             GREEN if health.get("ok") else RED)
+                        + chip("COMMERCIAL RIGHTS CLEAR" if health.get("commercially_clear")
+                               else "COMMERCIAL DATA RIGHTS NOT CLEAR", RED),
+                        unsafe_allow_html=True)
+            rows = [{"source": name, "provider": item.get("provider"),
+                     "healthy": item.get("healthy"), "role": item.get("role"),
+                     "redistribution": item.get("commercial_redistribution"),
+                     "detail": item.get("detail")}
+                    for name, item in health.get("sources", {}).items()]
+            st.dataframe(rows, width="stretch", hide_index=True)
+        except Exception as exc:
+            st.warning(f"Source-health inventory unavailable: {type(exc).__name__}")
 
 
 def _heat_cell(v) -> str:

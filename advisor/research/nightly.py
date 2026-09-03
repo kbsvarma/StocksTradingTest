@@ -78,7 +78,26 @@ def run(subset: int | None = None, ingest: bool = True) -> int:
 
     print(f"[nightly] signals done in {time.time()-t0:.0f}s", flush=True)
 
+    # Rich technical state is deterministic and intentionally separate from
+    # the validated factor composite.  It describes confirmation/risk for the
+    # research agents without silently changing production weights.
+    try:
+        from advisor.research.technicals import build as build_technicals, write as write_technicals
+        technical = build_technicals()
+        write_technicals(technical)
+        print(f"[nightly] technical state: {technical['n_profiled']} names, "
+              f"{len(technical['setups'])} setups")
+    except Exception as exc:
+        print(f"[nightly] technical state failed (non-fatal): {exc}")
+
     if ingest:
+        try:
+            from advisor.research.ingest.macro_fred import build as build_fred, write as write_fred
+            fred = build_fred()
+            write_fred(fred)
+            print(f"[nightly] FRED macro: {fred['fresh_series']}/{fred['required_series']} fresh")
+        except Exception as exc:
+            print(f"[nightly] FRED macro failed (non-fatal): {exc}")
         try:
             from advisor.research.ingest.runner import run_all
             run_all(subset=subset)
@@ -97,6 +116,13 @@ def run(subset: int | None = None, ingest: bool = True) -> int:
             print(f"[nightly] fundamental scores → {FOUT.name}")
         except Exception as exc:
             print(f"[nightly] fundamental scores failed (non-fatal): {exc}")
+        try:
+            from advisor.research.factors_edgar import build as build_edgar_factors, write as write_edgar_factors
+            edgar_factors = build_edgar_factors()
+            write_edgar_factors(edgar_factors)
+            print(f"[nightly] EDGAR factors: {edgar_factors['n_eligible']} eligible")
+        except Exception as exc:
+            print(f"[nightly] EDGAR factors failed (non-fatal): {exc}")
         try:
             from advisor.research.candidates import main as candidates_main
             candidates_main()

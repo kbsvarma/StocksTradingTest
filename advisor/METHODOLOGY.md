@@ -105,6 +105,27 @@ predeclared benchmark, costs, sample gate, and independent approval supports it.
 
 ## LESSONS LOG (weekly review appends; never edits prior entries)
 
+## Technical-state and source doctrine (2026-09-03)
+
+`technical.json` is a deterministic confirmation/risk layer built from the
+same immutable OHLCV release as the factor sheet. It covers RSI14,
+MACD(12,26,9), ADX14, ATR14, Bollinger position, Donchian55, the 20/50/200
+trend stack, 63-day SPY-relative strength, volume confirmation, downside
+volatility and 126-day drawdown. A technical setup can nominate or veto a
+research candidate and can anchor volatility-aware levels. Its
+`state_confidence` measures indicator completeness/alignment—not probability
+of profit—and carries zero model weight until prospective validation passes.
+
+Fundamental corroboration should prefer `edgar_fundamental.json` where
+available. It derives growth, operating margin, ROE, FCF margin and debt/CFO
+from SEC Company Facts and retains the latest filing date. Vendor profile and
+estimate snapshots remain secondary, prospective-only observations.
+
+Macro numbers should prefer `fred_macro.json` for Treasury yields,
+breakevens, high-yield spreads, the 2s10s curve and financial conditions. The
+source-health inventory is a publication input: missing/stale critical feeds
+must degrade trust and cannot be papered over by an LLM web search.
+
 - 2026-06-12 (founding session): four-loop process produced IWM 285/275
   put spread (cheap-vol FOMC expression) and killed USO calls (rich vol).
   Outcome pending — scorecard will judge.

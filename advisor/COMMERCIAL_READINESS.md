@@ -50,3 +50,12 @@ ready to sell.
   locks, credential-isolated service execution, and an append-only control log.
 - Actionability remains false until current publication attestation, runtime,
   release, data, journal, portfolio, and empirical-calibration gates all pass.
+- A machine-readable provider inventory reports freshness, purpose and
+  redistribution status. Critical price, SEC, FRED and quote sources must be
+  healthy before a view can be classified as actionable.
+- The technical-state layer computes 15 independent trend, momentum,
+  volatility, participation and risk diagnostics over the full liquid panel;
+  it is explicitly descriptive until prospective evidence promotes it.
+- SEC-filed growth/quality diagnostics provide an independent fundamental
+  cross-check that does not rely on Yahoo profile fields and retains filing
+  dates for point-in-time auditability.
