@@ -1261,6 +1261,127 @@ def scorecard_doctrine():
             st.markdown(p.read_text())
 
 
+
+# ── DAILY PICKS + TRACK RECORD ───────────────────────────────────────────────
+
+def picks_tab():
+    picks = load_json(RESEARCH / "picks_latest.json")
+    if not picks or not picks.get("picks"):
+        st.info("No picks yet — run `python -m advisor.research.picks`.")
+        return
+    src = picks.get("source", "live")
+    panel_header("DAILY RANKED PICKS",
+                 f"{picks['as_of'][:16]} · bar {picks.get('price_bar')} · "
+                 f"top {picks['n_picks']} of {picks['n_slate']} slate · "
+                 f"horizon {picks.get('horizon_trading_days')}td · {src}")
+    st.markdown(chip(picks.get("class", "research_idea"), AMBER)
+                + chip("levels: deterministic ATR — no model-authored numbers", DIM),
+                unsafe_allow_html=True)
+
+    # The record panel is not decoration: it is the honest health of this lane.
+    rec = load_json(RESEARCH / "pick_record.json") or {}
+    if rec.get("resolved"):
+        edge = rec.get("vs_spy_pp")
+        col = RED if (edge is not None and edge < 0) else GREEN
+        st.markdown(
+            f'<div style="border:1px solid {col}; background:#11151a; padding:8px 12px; '
+            f'border-radius:3px; margin:6px 0;">'
+            f'<span style="color:{col}; font-weight:700;">LANE PERFORMANCE — '
+            f'{rec["resolved"]} resolved picks</span> '
+            f'<span style="color:#c9c7c2; font-size:12px;">hit {rec.get("hit_rate")} · '
+            f'avg {rec.get("avg_r")}R · vs SPY {edge:+.1f}pp over {rec.get("horizon_td")}td'
+            f'</span><br><span style="color:{DIM}; font-size:11px;">'
+            f'{rec.get("verdict","")}</span></div>', unsafe_allow_html=True)
+
+    rows = []
+    for i, p in enumerate(picks["picks"], 1):
+        conf = (f'{p["confidence_pct"]}%' if p.get("confidence_pct") is not None
+                else f'{p["score"]:.2f} <span style="color:{DIM};">uncal</span>')
+        dcol = GREEN if p["direction"] == "long" else RED
+        gens = "".join(chip(g, BUCKET_COLORS.get(g, DIM)) for g in p.get("generators", [])[:3])
+        rows.append(
+            f'<tr style="border-bottom:1px solid #161b22;">'
+            f'<td style="padding:3px 8px; color:{DIM};">{i}</td>'
+            f'<td style="padding:3px 8px; color:{AMBER}; font-weight:700;">{p["ticker"]}</td>'
+            f'<td style="padding:3px 8px; color:{dcol}; font-weight:700;">{p["direction"].upper()}</td>'
+            f'<td style="padding:3px 8px; color:#e8e6e3;">{conf}</td>'
+            f'<td style="padding:3px 8px;">{p["entry_low"]}–{p["entry_high"]}</td>'
+            f'<td style="padding:3px 8px; color:{RED};">{p["stop"]}</td>'
+            f'<td style="padding:3px 8px; color:{GREEN};">{p["target"]}</td>'
+            f'<td style="padding:3px 8px; color:{DIM};">{p.get("atr20")}</td>'
+            f'<td style="padding:3px 8px;">{gens}</td>'
+            f'<td style="padding:3px 8px; color:{DIM}; font-size:11px;">'
+            f'{p.get("next_earnings") or "—"}</td></tr>')
+    head = "".join(f'<th style="padding:4px 8px; color:{AMBER}; text-align:left; '
+                   f'border-bottom:1px solid {PANEL_BORDER};">{h}</th>'
+                   for h in ("#", "TKR", "DIR", "CONF", "ENTRY", "STOP", "TARGET",
+                             "ATR20", "GENERATORS", "NEXT EPS"))
+    st.markdown(
+        f'<div style="background:{PANEL_BG}; border:1px solid {PANEL_BORDER}; '
+        f'border-radius:2px; padding:4px; overflow-x:auto;">'
+        f'<table style="font-size:12px; font-family:Menlo,monospace; color:#e8e6e3; '
+        f'border-collapse:collapse; width:100%;"><thead><tr>{head}</tr></thead>'
+        f'<tbody>{"".join(rows)}</tbody></table></div>', unsafe_allow_html=True)
+    st.markdown(chip(picks.get("score_method", ""), DIM)
+                + chip(picks.get("disclaimer", ""), DIM), unsafe_allow_html=True)
+
+
+def record_tab():
+    rec = load_json(RESEARCH / "pick_record.json") or {}
+    cal = load_json(RESEARCH / "pick_calibration.json") or {}
+    panel_header("TRACK RECORD · AUTO-CALIBRATION",
+                 f"every pick followed to conclusion · {rec.get('as_of','')[:16]}")
+    if not rec.get("resolved"):
+        st.info("No resolved picks yet — run `pick_tracker --resolve`.")
+        return
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("PICKS", rec.get("total_picks"))
+    c2.metric("RESOLVED", rec.get("resolved"))
+    c3.metric("HIT RATE", f'{(rec.get("hit_rate") or 0)*100:.1f}%')
+    c4.metric("AVG R", rec.get("avg_r"))
+    edge = rec.get("vs_spy_pp")
+    c5.metric("VS SPY", f'{edge:+.1f}pp' if edge is not None else "—",
+              "underperforms" if (edge or 0) < 0 else "outperforms")
+
+    st.markdown(
+        f'<div style="border:1px solid {RED}; background:#11151a; padding:10px; '
+        f'border-radius:4px; margin:8px 0;"><span style="color:{RED}; '
+        f'font-weight:700;">HONEST VERDICT</span><br>'
+        f'<span style="color:#c9c7c2; font-size:12.5px;">{rec.get("verdict","")}</span>'
+        f'</div>', unsafe_allow_html=True)
+
+    by = rec.get("by_outcome") or {}
+    st.markdown("".join(
+        chip(f"{k}: {v}", {"target": GREEN, "stop": RED}.get(k, DIM))
+        for k, v in sorted(by.items(), key=lambda kv: -kv[1])),
+        unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    panel_header("CALIBRATION", cal.get("gate", ""))
+    buckets = cal.get("buckets") or []
+    if buckets:
+        rows = []
+        for b in buckets:
+            width = int(b["hit_rate"] * 220)
+            rows.append(
+                f'<tr><td style="padding:3px 10px; color:#e8e6e3;">'
+                f'score {b["lo"]:.2f}–{b["hi"]:.2f}</td>'
+                f'<td style="padding:3px 10px; color:{AMBER}; font-weight:700;">'
+                f'{b["hit_rate"]*100:.1f}%</td>'
+                f'<td style="padding:3px 10px; color:{DIM};">n={b["n"]}</td>'
+                f'<td style="padding:3px 10px;"><span style="display:inline-block; '
+                f'width:{width}px; height:9px; background:{AMBER}; opacity:.65;"></span></td></tr>')
+        st.markdown(
+            f'<div style="background:{PANEL_BG}; border:1px solid {PANEL_BORDER}; '
+            f'padding:6px; border-radius:2px;"><table style="font-size:12px; '
+            f'font-family:Menlo,monospace; border-collapse:collapse; width:100%;">'
+            f'{"".join(rows)}</table></div>', unsafe_allow_html=True)
+        st.markdown(chip(f"method: {cal.get('method','')}", DIM)
+                    + chip(f"fitted {cal.get('fitted_at','')[:16]} · "
+                           f"id {str(cal.get('calibration_id',''))[:8]}", DIM),
+                    unsafe_allow_html=True)
+
+
 # ── LAYOUT ───────────────────────────────────────────────────────────────────
 
 def _regime_chip() -> str:
@@ -1374,10 +1495,15 @@ brief_controls()
 tape()
 active_recommendations()
 
-t1, t2, t3, t4, t5, t6, t7, t8 = st.tabs(
-    ["RSCH ▸ RESEARCH", "CALL ▸ OPEN CALLS", "IDEA ▸ SLATE·WATCH",
+t0, t9, t1, t2, t3, t4, t5, t6, t7, t8 = st.tabs(
+    ["PICK ▸ DAILY PICKS", "REC ▸ TRACK RECORD",
+     "RSCH ▸ RESEARCH", "CALL ▸ OPEN CALLS", "IDEA ▸ SLATE·WATCH",
      "FCTR ▸ FACTORS", "DOSR ▸ DOSSIERS", "CAL ▸ CALENDAR",
      "PORT ▸ PORTFOLIO", "SCOR ▸ SCORECARD"])
+with t0:
+    picks_tab()
+with t9:
+    record_tab()
 with t1:
     research_feed()
 with t2:
