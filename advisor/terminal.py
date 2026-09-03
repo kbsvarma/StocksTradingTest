@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 from datetime import datetime, date
 from pathlib import Path
@@ -23,6 +24,10 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 import streamlit as st
+
+from advisor.render_safety import http_url as safe_http_url
+from advisor.render_safety import text as esc
+from advisor.research.datastore import current_meta as current_panel_meta
 
 ET = ZoneInfo("America/New_York")
 REPO = Path(__file__).resolve().parent.parent
@@ -87,7 +92,7 @@ PANEL_BORDER = "#21262d"
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 def chip(text: str, color: str = DIM) -> str:
-    text = str(text).replace("$", "&#36;")   # avoid Streamlit LaTeX interpretation
+    text = esc(text)
     return (f'<span style="border:1px solid {color}; color:{color}; '
             f'border-radius:3px; padding:0px 6px; font-size:11px; '
             f'font-family:Menlo,monospace; margin-right:6px;">{text}</span>')
@@ -359,12 +364,12 @@ def active_recommendations():
             f'<div style="border:1px solid #2a2f36; border-left:4px solid {color}; '
             f'background:#11151a; padding:8px 12px; margin-bottom:5px; border-radius:3px;">'
             f'<span style="color:{color}; font-weight:700;">'
-            f'{e.get("instrument", "?")} — {"LONG" if long_ else "SHORT"} — {conv}'
-            f'{" · p" + str(e.get("p_win")) if e.get("p_win") else ""}</span> '
-            f'<span style="color:#e8e6e3; font-size:12px; margin-left:8px;">{state}</span> '
-            f'<span style="color:{DIM}; font-size:11px;">{detail}</span><br>'
+            f'{esc(e.get("instrument", "?"))} — {"LONG" if long_ else "SHORT"} — {esc(conv)}'
+            f'{" · p" + esc(e.get("p_win")) if e.get("p_win") else ""}</span> '
+            f'<span style="color:#e8e6e3; font-size:12px; margin-left:8px;">{esc(state)}</span> '
+            f'<span style="color:{DIM}; font-size:11px;">{esc(detail)}</span><br>'
             f'<span style="color:#c9c7c2; font-size:12px;">'
-            f'{(e.get("thesis") or "")[:150]}</span><br>'
+            f'{esc((e.get("thesis") or "")[:150])}</span><br>'
             f'{chip("ENTRY " + str(e.get("entry", "—")), "#e8e6e3")}'
             f'{chip("TGT " + str(e.get("target", "—")), GREEN)}'
             f'{chip("STOP " + str(e.get("stop", "—")), RED)}'
@@ -382,13 +387,13 @@ def active_recommendations():
                     f'<div style="border:1px solid #2a2f36; border-left:4px solid '
                     f'{AMBER}; background:#11151a; padding:8px 12px; '
                     f'margin-bottom:5px; border-radius:3px;">'
-                    f'<span style="color:{AMBER}; font-weight:700;">{t} — '
+                    f'<span style="color:{AMBER}; font-weight:700;">{esc(t)} — '
                     f'⚡ RE-ENTRY TRIGGERED</span> '
                     f'<span style="color:#e8e6e3; font-size:12px;">crossed '
                     f'{trg.get("dir")} {trg.get("px")} at '
                     f'{str(w["triggered"].get("ts"))[:16]}</span><br>'
                     f'<span style="color:#c9c7c2; font-size:12px;">'
-                    f'{w.get("note", "")[:150]} — parked by an earlier brief; '
+                    f'{esc(w.get("note", "")[:150])} — parked by an earlier brief; '
                     f'the morning session re-underwrites it before any action.'
                     f'</span></div>')
     except Exception:
@@ -444,8 +449,8 @@ def research_feed():
     if bj and bj.get("rejected"):
         rows = "".join(
             f'<div style="color:#c9c7c2; font-size:12px; margin:2px 0;">'
-            f'✕ <span style="color:{RED};">{r.get("idea", "?")}</span> — '
-            f'{r.get("killed_by", "")}</div>' for r in bj["rejected"])
+            f'✕ <span style="color:{RED};">{esc(r.get("idea", "?"))}</span> — '
+            f'{esc(r.get("killed_by", ""))}</div>' for r in bj["rejected"])
         st.markdown(
             f'<div style="border:1px solid #2a2f36; border-left:3px solid {RED}; '
             f'background:#11151a; padding:10px; margin-bottom:10px; border-radius:4px;">'
@@ -477,11 +482,12 @@ def _view_card(v: dict):
     src = v.get("source")
     rows = ""
     for ev in v.get("evidence", []):
-        link = (f' <a href="{ev["url"]}" target="_self" style="color:{AMBER};">[src]</a>'
-                if ev.get("url") else "")
+        url = safe_http_url(ev.get("url"))
+        link = (f' <a href="{url}" target="_self" rel="noopener noreferrer" '
+                f'style="color:{AMBER};">[src]</a>' if url else "")
         ts = chip(ev.get("retrieved", ""), DIM) if ev.get("retrieved") else ""
         rows += (f'<div style="color:#c9c7c2; font-size:12px; margin:2px 0;">'
-                 f'• {ev.get("claim", "")}{link} {ts}</div>')
+                 f'• {esc(ev.get("claim", ""))}{link} {ts}</div>')
     meta = ""
     if pw:
         meta += chip(f"p_win {pw}", cc)
@@ -492,9 +498,9 @@ def _view_card(v: dict):
     st.markdown(
         f'<div style="border:1px solid #2a2f36; border-left:3px solid {cc}; '
         f'background:#11151a; padding:12px; margin-bottom:10px; border-radius:4px;">'
-        f'<span style="color:{cc}; font-weight:700;">{v.get("instrument", "?")} — '
-        f'{v.get("direction", "")} — {conv}</span> {meta}<br>'
-        f'<span style="color:#e8e6e3; font-size:13px;">{v.get("thesis", "")}</span>'
+        f'<span style="color:{cc}; font-weight:700;">{esc(v.get("instrument", "?"))} — '
+        f'{esc(v.get("direction", ""))} — {esc(conv)}</span> {meta}<br>'
+        f'<span style="color:#e8e6e3; font-size:13px;">{esc(v.get("thesis", ""))}</span>'
         f'{rows}'
         f'<div style="margin-top:6px;">{chip("ENTRY " + str(v.get("entry", "—")), "#e8e6e3")}'
         f'{chip("TARGET " + str(v.get("target", "—")), GREEN)}'
@@ -839,10 +845,22 @@ def factor_sheets():
                  f"{s['as_of'][:16]} · {s['n_liquid']} liquid of {s['n_universe']} names · "
                  f"regime {reg['name'].upper()} (VIX {reg['vix']} term {reg['vix_term']}) · "
                  f"panel age {s['panel_age_hours']}h")
+    model = s.get("model_validation") or {}
+    quality = s.get("data_quality") or {}
+    model_status = str(model.get("status", "unknown")).upper()
+    quality_status = "PASSED" if quality.get("ok") else "UNKNOWN"
     st.markdown(chip(s["method"], DIM)
-                + chip("validate2 verdict: factor tilts are candidate generators, "
-                       "NOT proven alpha (see SCORECARD)", RED),
+                + chip(f"MODEL {model_status} · {model.get('role', 'unknown')}",
+                       GREEN if model_status == "PRODUCTION_ELIGIBLE" else RED)
+                + chip(f"DATA QUALITY {quality_status} · build "
+                       f"{s.get('panel_build_id', 'legacy')} · "
+                       f"{len(s.get('quarantined_tickers') or [])} quarantined",
+                       GREEN if quality.get("ok") else RED)
+                + chip("factor tilts are candidate generators, NOT proven alpha "
+                       "(see SCORECARD)", RED),
                 unsafe_allow_html=True)
+    if model.get("reasons"):
+        st.caption("Promotion blockers: " + " · ".join(str(x) for x in model["reasons"]))
     fund = load_json(RESEARCH / "fundamental_latest.json")
     tabs = st.tabs(["LONGS", "SHORTS", "SHOCK (REVERSION CANDIDATES)",
                     "REVISIONS", "CHEAP-QUALITY"])
@@ -955,12 +973,14 @@ def portfolio_risk():
                     f'armed, filing poller live (RTH, 20min)</div>',
                     unsafe_allow_html=True)
     for a in alerts:
+        alert_url = safe_http_url(a.get("url"))
         st.markdown(
             chip(a.get("ts", "")[:16], DIM)
             + chip(a.get("ticker", "?"), AMBER)
             + chip(f"{a.get('form', a.get('kind', ''))} filed {a.get('filed', '')}", "#58a6ff")
-            + f'<a href="{a.get("url", "")}" target="_self" style="color:{AMBER}; '
-              f'font-size:11px;">[filing]</a>',
+            + (f'<a href="{alert_url}" target="_self" rel="noopener noreferrer" '
+               f'style="color:{AMBER}; font-size:11px;">[filing]</a>'
+               if alert_url else ""),
             unsafe_allow_html=True)
     if watcher:
         st.markdown(f'<div style="color:{DIM}; font-size:12px; margin-top:6px;">'
@@ -1106,9 +1126,18 @@ def scorecard_doctrine():
 
     ic = load_json(RESEARCH / "ic_live.json")
     if ic and ic.get("factors"):
-        line = " · ".join(f'{k} {s["ewma_ic"]:+.3f}' for k, s in ic["factors"].items())
-        st.markdown(chip(f"live IC (maturing, {ic.get('n_matured')} obs): {line}", DIM),
-                    unsafe_allow_html=True)
+        fac = ic["factors"]
+        n_ind = max((s.get("n_independent") or 0) for s in fac.values())
+        line = " · ".join(
+            f'{k} {s.get("mean_ic_independent", s["ewma_ic"]):+.3f}'
+            for k, s in fac.items())
+        st.markdown(
+            chip(f"live IC — {ic.get('n_matured')} daily snapshots "
+                 f"= {n_ind} INDEPENDENT 21d windows", AMBER)
+            + chip(line, DIM)
+            + chip("overlapping-window t-stats are not inference; see validate2",
+                   RED),
+            unsafe_allow_html=True)
     else:
         st.markdown(chip("live IC series: first snapshots mature in ~21 trading days", DIM),
                     unsafe_allow_html=True)
@@ -1175,10 +1204,21 @@ with _bc1:
                      icon="🔒")
         else:
             try:
-                subprocess.Popen(["/bin/zsh", str(REPO / "advisor" / "run_brief.sh")],
-                                 stdout=open("/tmp/manual_brief.log", "a"),
-                                 stderr=subprocess.STDOUT,
-                                 cwd=REPO, start_new_session=True)
+                # /bin/zsh is a macOS assumption — the Linux host has bash only.
+                _sh = shutil.which("zsh") or shutil.which("bash") or "/bin/sh"
+                _log = REPO / "advisor" / "logs" / "manual_brief.log"
+                _log.parent.mkdir(parents=True, exist_ok=True)
+                # run_brief.sh is self-contained (sources its own env, sets
+                # CLAUDE_BIN/PATH), but the systemd service environment this
+                # button inherits has neither node on PATH nor Telegram creds —
+                # so pass a login-ish env explicitly rather than relying on it.
+                _env = {**os.environ,
+                        "PYTHONPATH": str(REPO),
+                        "HOME": os.path.expanduser("~")}
+                with _log.open("a") as _lf:
+                    subprocess.Popen([_sh, str(REPO / "advisor" / "run_brief.sh")],
+                                     stdout=_lf, stderr=subprocess.STDOUT,
+                                     cwd=REPO, env=_env, start_new_session=True)
                 st.toast("Pipeline started (~15-30 min for the full chain). "
                          "Watch the footer; hit REFRESH when publish lands.", icon="🔄")
             except Exception as _e:
@@ -1263,7 +1303,10 @@ def status_footer():
         f'<span style="margin-right:12px;"><span style="color:{DIM};">{n}</span> '
         f'<span style="color:{c}; font-weight:700;">●{s}</span></span>'
         for n, s, c in _service_status())
-    meta = load_json(RESEARCH / "panels" / "meta.json") or {}
+    try:
+        meta = current_panel_meta()
+    except Exception:
+        meta = {}
     import time as _t
     panel_age = (_t.time() - meta.get("built_unix", 0)) / 3600 if meta.get("built_unix") else None
     sig = load_json(RESEARCH / "signals_latest.json") or {}

@@ -83,18 +83,35 @@ def mature() -> dict:
             arr = np.array(vals)
             # EWMA with ~8-week halflife (snapshots are daily; 40 trading days)
             w = 0.5 ** (np.arange(len(arr))[::-1] / 40)
+            # Snapshots are DAILY but each scores a 21-day forward window, so
+            # consecutive rows overlap 20/21 and the naive t-stat is inflated
+            # by ~sqrt(21). Report a non-overlapping subset (every FWD-th row)
+            # as the only figure fit for inference — a month of daily snapshots
+            # spanning one regime break is ~1 independent observation, not 21.
+            indep = arr[::FWD]
             stats[k] = {
                 "n_obs": len(arr),
                 "mean_ic": round(float(arr.mean()), 4),
                 "ewma_ic": round(float((arr * w).sum() / w.sum()), 4),
-                "t_stat": round(float(arr.mean() / (arr.std(ddof=1) / len(arr) ** .5)), 2)
+                "t_stat_overlapping": round(
+                    float(arr.mean() / (arr.std(ddof=1) / len(arr) ** .5)), 2)
                 if len(arr) > 2 and arr.std(ddof=1) > 0 else None,
+                "n_independent": int(len(indep)),
+                "mean_ic_independent": round(float(indep.mean()), 4),
+                "t_stat_independent": round(
+                    float(indep.mean() / (indep.std(ddof=1) / len(indep) ** .5)), 2)
+                if len(indep) > 2 and indep.std(ddof=1) > 0 else None,
                 "pct_positive": round(float((arr > 0).mean()), 2),
+                "inference_note": "t_stat_overlapping is NOT valid inference "
+                                  "(daily snapshots, 21d windows); use "
+                                  "t_stat_independent, and validate2 for the "
+                                  "non-overlapping long-history study",
             }
 
+    series.sort(key=lambda r: r["snapshot"])
     out = {"as_of": datetime.now(ET).isoformat(),
            "fwd_days": FWD, "n_matured": len(series), "n_new_this_run": n_new,
-           "factors": stats, "series": series[-260:],
+           "factors": stats, "series": series,
            "note": "overlapping daily snapshots — t-stats overstated by "
                    "~sqrt(21); use the non-overlapping weekly view in "
                    "validate2 for inference. Proposals only per TUNING_NOTES "
@@ -112,7 +129,9 @@ def main() -> int:
               f"(+{res['n_new_this_run']} new)")
         for k, s in res.get("factors", {}).items():
             print(f"  {k:<12} mean {s['mean_ic']:+.4f}  ewma {s['ewma_ic']:+.4f} "
-                  f" t {s['t_stat']}  +ve {s['pct_positive']}")
+                  f" indep {s['mean_ic_independent']:+.4f} "
+                  f"(n={s['n_independent']}, t={s['t_stat_independent']}) "
+                  f" +ve {s['pct_positive']}")
     return 0
 
 
