@@ -69,8 +69,24 @@ def _chunks(text: str) -> list[str]:
     return out or [""]
 
 
+def muted() -> bool:
+    """Opt-out switch: ADVISOR_TELEGRAM_MUTE=1 suppresses delivery.
+
+    Distinct from `enabled()` — a muted send reports SUCCESS so the publish
+    stage's "confirm exit 0" step still passes. Silencing the channel must
+    never look like a failed brief, and must never make the pipeline retry.
+    The brief artifacts (brief.md / brief.json) are written before any send,
+    so muting costs no output — only the push notification.
+    """
+    return os.environ.get("ADVISOR_TELEGRAM_MUTE", "").strip() in ("1", "true", "yes")
+
+
 def send(text: str, *, html: bool = False, prefix: bool = True) -> bool:
     """Send a message to the authorized chat. Chunks long messages."""
+    if muted():
+        print("[telegram] MUTED (ADVISOR_TELEGRAM_MUTE=1) — not delivered; "
+              "brief artifacts are unaffected", file=sys.stderr)
+        return True
     if not enabled():
         print("[telegram] disabled — TELEGRAM_BOT_TOKEN/CHAT_ID not set", file=sys.stderr)
         return False
