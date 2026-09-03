@@ -104,6 +104,64 @@ def validation_status() -> dict:
             "validation_as_of": validation_as_of}
 
 
+# ── live-IC feedback ────────────────────────────────────────────────────────
+# 2026-09-03: the daily-picks lane lost 8.7pp to SPY over Jul-Aug because the
+# composite is ~90% momentum in risk_on while momentum's realized IC was
+# deeply negative (mom_12_1 -0.216, resid_mom -0.257, prox_52w -0.189). The
+# market-regime detector never noticed: VIX stayed ~15 and SPY held its
+# 200dma, so it kept calling risk_on. Low VIX does not mean momentum works.
+# ic_monitor had measured the crash correctly and nothing consumed it.
+#
+# Three deliberate constraints, because this is the exact place overfitting
+# gets institutionalised:
+#   DE-WEIGHT ONLY  a negative IC shrinks a factor toward the floor; it never
+#                   inverts it (shorting your own signal on one regime's data)
+#                   and never amplifies a positive one.
+#   SHRINKAGE       the adjustment scales with independent-window count, so
+#                   two overlapping observations barely move it.
+#   FLOOR           no factor is driven to zero — that is a bigger claim than
+#                   the evidence supports.
+IC_FEEDBACK_FLOOR = 0.25      # smallest surviving fraction of a factor's weight
+IC_FEEDBACK_SCALE = 0.10      # |IC| at which the penalty saturates
+IC_FEEDBACK_K = 6.0           # shrinkage half-weight in independent windows
+
+
+def ic_weight_multipliers() -> dict:
+    """Per-factor weight multipliers in [FLOOR, 1.0] from realized live IC."""
+    if os.environ.get("ADVISOR_IC_FEEDBACK", "1").strip() in ("0", "false", "no"):
+        return {"enabled": False, "reason": "disabled by ADVISOR_IC_FEEDBACK",
+                "multipliers": {}}
+    path = (REPO_ROOT / "advisor" / "data" / "research" / "ic_live.json")
+    try:
+        live = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {"enabled": False, "reason": "no ic_live.json", "multipliers": {}}
+    mults, detail = {}, {}
+    for name, row in (live.get("factors") or {}).items():
+        ic = row.get("mean_ic_independent")
+        if ic is None:
+            ic = row.get("mean_ic")
+        n_ind = int(row.get("n_independent") or 0)
+        if ic is None or n_ind < 1:
+            continue
+        if ic >= 0:
+            mults[name] = 1.0                       # never amplify
+            detail[name] = {"ic": ic, "n_independent": n_ind, "mult": 1.0}
+            continue
+        confidence = n_ind / (n_ind + IC_FEEDBACK_K)
+        severity = min(1.0, abs(ic) / IC_FEEDBACK_SCALE)
+        mult = round(max(IC_FEEDBACK_FLOOR,
+                         1.0 - confidence * severity * (1.0 - IC_FEEDBACK_FLOOR)), 4)
+        mults[name] = mult
+        detail[name] = {"ic": round(ic, 4), "n_independent": n_ind, "mult": mult}
+    return {"enabled": True, "multipliers": mults, "detail": detail,
+            "params": {"floor": IC_FEEDBACK_FLOOR, "scale": IC_FEEDBACK_SCALE,
+                       "shrinkage_k": IC_FEEDBACK_K},
+            "policy": ("de-weight only; never inverts or amplifies a factor; "
+                       "shrinkage scales with independent-window count"),
+            "ic_as_of": live.get("as_of")}
+
+
 def detect_regime(close) -> dict:
     """Regime from SPY trend, VIX level + term structure, credit, breadth.
 
@@ -260,7 +318,16 @@ def compute(top: int = 20, score_snapshot_dir: Path | None = None) -> dict:
     stock_cols = [c for c in close.columns if c in sectors]
 
     regime = detect_regime(close)
-    w = regime["weights"]
+    base_w = regime["weights"]
+    ic_fb = ic_weight_multipliers()
+    mults = ic_fb.get("multipliers") or {}
+    # Deliberately NOT renormalized: shrinking a broken factor must not hand
+    # its weight to the survivors (that would amplify them on the same thin
+    # evidence). The composite simply gets smaller, and ranking is unaffected
+    # because only relative order matters downstream.
+    w = {k: round(wt * mults.get(k, 1.0), 4) for k, wt in base_w.items()}
+    regime = {**regime, "base_weights": base_w, "weights": w,
+              "ic_feedback": ic_fb}
     composite = sum(z[k].fillna(0) * wt for k, wt in w.items())
 
     def sheet(idx) -> list[dict]:

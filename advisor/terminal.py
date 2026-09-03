@@ -879,6 +879,20 @@ def factor_sheets():
     quality = s.get("data_quality") or {}
     model_status = str(model.get("status", "unknown")).upper()
     quality_status = "PASSED" if quality.get("ok") else "UNKNOWN"
+    # live-IC feedback changes factor weights; surface it rather than silently
+    # shipping a different model than the regime table implies
+    fb = (reg or {}).get("ic_feedback") or {}
+    if fb.get("enabled") and fb.get("detail"):
+        base = (reg or {}).get("base_weights") or {}
+        adj = (reg or {}).get("weights") or {}
+        parts = [chip(f'{k} IC {d["ic"]:+.3f} n={d["n_independent"]} '
+                      f'{base[k]:.2f}->{adj.get(k, base[k]):.3f}',
+                      RED if d["mult"] < 1.0 else GREEN)
+                 for k, d in sorted(fb["detail"].items()) if base.get(k)]
+        if parts:
+            st.markdown(chip("LIVE-IC FEEDBACK ACTIVE — de-weight only, "
+                             "shrunk by evidence, floored 0.25", AMBER)
+                        + "".join(parts), unsafe_allow_html=True)
     st.markdown(chip(s["method"], DIM)
                 + chip(f"MODEL {model_status} · {model.get('role', 'unknown')}",
                        GREEN if model_status == "PRODUCTION_ELIGIBLE" else RED)
