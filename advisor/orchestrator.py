@@ -5,11 +5,9 @@ Claude sessions, replacing the old single 60-turn session. Design rules
 (INTELLIGENCE_PLAN §4, ops-critic adopted wholesale):
 
 - SEQUENTIAL only — no parallel claude processes on this Mac.
-- Every stage optional except publish-or-fallback:
-    synthesis fails   → run the LEGACY single-session prompt (old behavior,
-                        which researches AND publishes) — brief still lands.
-    red-team fails    → publish ships the brief stamped UNREDTEAMED.
-    publish fails     → retry once, then loud Telegram failure alert.
+- Fail closed for actionable output: synthesis or red-team failure means no
+  recommendation is published. A zero-view draft may still publish after a
+  red-team outage because there is no trade to approve.
 - Deadline guard: if synthesis has eaten the morning, skip red-team rather
   than push the brief past the open.
 - Preflight: a 1-turn claude ping catches the expired-/login failure mode at
@@ -25,6 +23,7 @@ Called by run_brief.sh (which owns env: ~/.webull_env, PATH w/ node, ulimit).
 from __future__ import annotations
 
 import json
+import fcntl
 import os
 import subprocess
 import sys
@@ -40,6 +39,7 @@ CLAUDE = os.environ.get(
     "CLAUDE_BIN", "/Users/varmakammili/.nvm/versions/node/v24.14.0/bin/claude")
 LOGS = REPO / "advisor" / "logs"
 HEARTBEATS = LOGS / "pipeline_runs.jsonl"
+PIPELINE_LOCK = "/tmp/advisor-pipeline.lock"
 
 SKIP_REDTEAM_AFTER_S = 45 * 60      # protect the send deadline over the audit
 
@@ -58,7 +58,9 @@ STAGES: dict[str, dict] = {
         "timeout_s": 1200,
         "tools": READ_TOOLS + ["WebSearch", "WebFetch",
                                "Write(advisor/data/context/**)",
-                               "Write(advisor/data/knowledge/narrative/**)"]
+                               "Edit(advisor/data/context/**)",
+                               "Write(advisor/data/knowledge/narrative/**)",
+                               "Edit(advisor/data/knowledge/narrative/**)"]
         + ["Bash(date:*)"],
         "check": lambda ctx: _run_check(
             [PY, "-m", "advisor.macro_check", str(ctx / "macro.json")]),
@@ -67,7 +69,8 @@ STAGES: dict[str, dict] = {
         "prompt": "advisor/prompts/synthesis.md",
         "max_turns": 40,
         "timeout_s": 1800,
-        "tools": READ_TOOLS + ["WebSearch", "WebFetch", "Write(advisor/data/**)"]
+        "tools": READ_TOOLS + ["WebSearch", "WebFetch", "Write(advisor/data/**)",
+                               "Edit(advisor/data/**)"]
         + _tools("journal --list", "proposals --list", "vol_check", "quant",
                  "research.fair_value", "research.factors", "research.peek",
                  "watchlist --list", "brief_check") + ["Bash(date:*)"],
@@ -80,7 +83,8 @@ STAGES: dict[str, dict] = {
         "max_turns": 30,
         "timeout_s": 1500,
         "tools": READ_TOOLS + ["WebSearch", "WebFetch",
-                               "Write(advisor/data/context/**)"]
+                               "Write(advisor/data/context/**)",
+                               "Edit(advisor/data/context/**)"]
         + _tools("journal --list", "vol_check", "research.fair_value",
                  "research.peek", "research.redteam_check") + ["Bash(date:*)"],
         "check": lambda ctx: _run_check(
@@ -91,22 +95,11 @@ STAGES: dict[str, dict] = {
         "prompt": "advisor/prompts/publish.md",
         "max_turns": 20,
         "timeout_s": 1200,
-        "tools": READ_TOOLS + ["Write(advisor/data/**)"]
+        "tools": READ_TOOLS + ["Write(advisor/data/**)", "Edit(advisor/data/**)"]
         + _tools("journal", "proposals", "telegram_io", "watchlist",
                  "brief_check") + ["Bash(date:*)"],
         "check": lambda ctx: _run_check(
             [PY, "-m", "advisor.brief_check", str(ctx / "brief.json")]),
-    },
-    # full legacy single-session behavior — the fallback when synthesis dies
-    "legacy": {
-        "prompt": "advisor/prompts/daily_brief.md",
-        "max_turns": 60,
-        "timeout_s": 3600,
-        "tools": READ_TOOLS + ["WebSearch", "WebFetch", "Write(advisor/data/**)"]
-        + _tools("journal", "proposals", "telegram_io", "vol_check", "quant",
-                 "research.fair_value", "research.factors", "research.peek",
-                 "brief_check") + ["Bash(date:*)"],
-        "check": None,
     },
 }
 
@@ -199,6 +192,12 @@ def run_stage(stage: str, date: str, dry_run: bool = False) -> int:
 
 def run_pipeline(date: str, skip_preflight: bool = False,
                  dry_run: bool = False) -> int:
+    lock = open(PIPELINE_LOCK, "w")
+    try:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        _heartbeat("pipeline", 75, 0, f"already running; refused date={date}")
+        return 75
     t_start = time.time()
     _heartbeat("pipeline", None, 0, f"start date={date}")
 
@@ -217,24 +216,34 @@ def run_pipeline(date: str, skip_preflight: bool = False,
     rc = run_stage("synthesis", date, dry_run)
     if rc != 0:
         _heartbeat("pipeline", rc, time.time() - t_start,
-                   "synthesis failed → legacy fallback")
-        _telegram("⚠️ Morning pipeline: synthesis stage failed — falling back to "
-                  "the legacy single-session brief (old behavior).")
-        lrc = run_stage("legacy", date, dry_run)
-        _heartbeat("pipeline", lrc, time.time() - t_start, "legacy fallback done")
-        if lrc != 0:
-            _telegram("❌ NO BRIEF TODAY — legacy fallback also failed. "
-                      f"Check advisor/logs/brief_{date}_legacy.log")
-        return lrc
+                   "synthesis failed — actionable publication blocked")
+        _telegram("❌ NO RECOMMENDATIONS TODAY — synthesis failed validation. "
+                  f"Fail-closed; inspect advisor/logs/brief_{date}_synthesis.log")
+        return rc
+
+    ctx = REPO / "advisor" / "data" / "context" / date
+    try:
+        actionable = bool(json.loads((ctx / "views_draft.json").read_text())
+                          .get("views"))
+    except Exception:
+        actionable = True
 
     elapsed = time.time() - t_start
     if elapsed > SKIP_REDTEAM_AFTER_S:
         _heartbeat("redteam", None, 0,
                    f"skipped — {elapsed:.0f}s elapsed, protecting send deadline")
+        if actionable and not dry_run:
+            _telegram("❌ NO RECOMMENDATIONS TODAY — red-team deadline expired. "
+                      "Actionable drafts were blocked, not shipped unreviewed.")
+            return 74
     else:
         rrc = run_stage("redteam", date, dry_run)
         if rrc != 0:
-            _heartbeat("redteam", rrc, 0, "failed — publish will stamp UNREDTEAMED")
+            _heartbeat("redteam", rrc, 0, "failed — actionable publication blocked")
+            if actionable and not dry_run:
+                _telegram("❌ NO RECOMMENDATIONS TODAY — independent red-team "
+                          "failed validation. Actionable drafts were blocked.")
+                return rrc
 
     prc = run_stage("publish", date, dry_run)
     if prc != 0:
@@ -250,9 +259,12 @@ def run_pipeline(date: str, skip_preflight: bool = False,
     if not dry_run:
         try:
             subprocess.run([PY, "-m", "advisor.journal", "--stamp-ref"],
-                           cwd=REPO, timeout=300)
+                           cwd=REPO, timeout=300, check=True)
         except Exception as exc:
-            print(f"[orchestrator] stamp-ref failed (non-fatal): {exc}", flush=True)
+            _heartbeat("stamp-ref", 1, 0, f"failed: {exc}")
+            _telegram("❌ Published brief could not be armed with reference prices; "
+                      "treat its views as non-actionable until repaired.")
+            return 69
 
     _heartbeat("pipeline", 0, time.time() - t_start, "complete")
     return 0

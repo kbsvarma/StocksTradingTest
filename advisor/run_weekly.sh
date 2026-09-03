@@ -16,7 +16,7 @@ mkdir -p advisor/logs advisor/data/context
 DATE=$(date +%F)
 "$CLAUDE" -p "$(cat advisor/prompts/weekly_review.md)" \
   --allowedTools "Read" "Glob" "Grep" "WebSearch" "WebFetch" \
-    "Write(advisor/data/**)" "Write(/tmp/**)" \
+    "Write(advisor/data/**)" "Edit(advisor/data/**)" "Write(/tmp/**)" \
     "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.journal:*)" \
     "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.market_context:*)" \
     "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.telegram_io:*)" \

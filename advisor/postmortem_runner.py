@@ -27,6 +27,7 @@ LOGS = REPO / "advisor" / "logs"
 
 TOOLS = ["Read", "Glob", "Grep", "WebFetch",
          "Write(advisor/data/knowledge/**)",
+         "Edit(advisor/data/knowledge/**)",
          f"Bash({PY} -m advisor.journal:*)",
          f"Bash({PY} -m advisor.watchlist:*)",
          f"Bash({PY} -m advisor.research.outcomes:*)",

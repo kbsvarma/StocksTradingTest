@@ -37,7 +37,7 @@ TODAY: $DATE
 
 $(cat advisor/prompts/librarian.md)" \
   --allowedTools "Read" "Glob" "Grep" "WebSearch" "WebFetch" \
-    "Write(advisor/data/knowledge/**)" \
+    "Write(advisor/data/knowledge/**)" "Edit(advisor/data/knowledge/**)" \
     "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.research.deep_pull:*)" \
     "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.research.peek:*)" \
     "Bash(/opt/anaconda3/envs/llms/bin/python3 -m advisor.research.fair_value:*)" \
