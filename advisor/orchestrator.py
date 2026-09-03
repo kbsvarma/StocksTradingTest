@@ -4,7 +4,7 @@ Runs the three-stage chain (synthesis → red-team → publish) of headless
 Claude sessions, replacing the old single 60-turn session. Design rules
 (INTELLIGENCE_PLAN §4, ops-critic adopted wholesale):
 
-- SEQUENTIAL only — no parallel claude processes on this Mac.
+- SEQUENTIAL only — no parallel provider processes on a host.
 - Fail closed for actionable output: synthesis or red-team failure means no
   recommendation is published. A zero-view draft may still publish after a
   red-team outage because there is no trade to approve.
@@ -28,15 +28,18 @@ import os
 import subprocess
 import sys
 import time
+import uuid
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
+
+from advisor.pipeline_status import classify_failure, write_status
 
 ET = ZoneInfo("America/New_York")
 REPO = Path(__file__).resolve().parent.parent
 PY = sys.executable
 CLAUDE = os.environ.get(
-    "CLAUDE_BIN", "/Users/varmakammili/.nvm/versions/node/v24.14.0/bin/claude")
+    "CLAUDE_BIN", "claude")
 LOGS = REPO / "advisor" / "logs"
 HEARTBEATS = LOGS / "pipeline_runs.jsonl"
 PIPELINE_LOCK = "/tmp/advisor-pipeline.lock"
@@ -54,14 +57,12 @@ def _tools(*mods: str) -> list[str]:
 STAGES: dict[str, dict] = {
     "macro": {
         "prompt": "advisor/prompts/macro.md",
-        "max_turns": 25,
+        "max_turns": 45,
         "timeout_s": 1200,
         "tools": READ_TOOLS + ["WebSearch", "WebFetch",
-                               "Write(advisor/data/context/**)",
                                "Edit(advisor/data/context/**)",
-                               "Write(advisor/data/knowledge/narrative/**)",
                                "Edit(advisor/data/knowledge/narrative/**)"]
-        + ["Bash(date:*)"],
+        + _tools("macro_check") + ["Bash(date:*)"],
         "check": lambda ctx: _run_check(
             [PY, "-m", "advisor.macro_check", str(ctx / "macro.json")]),
     },
@@ -69,8 +70,7 @@ STAGES: dict[str, dict] = {
         "prompt": "advisor/prompts/synthesis.md",
         "max_turns": 40,
         "timeout_s": 1800,
-        "tools": READ_TOOLS + ["WebSearch", "WebFetch", "Write(advisor/data/**)",
-                               "Edit(advisor/data/**)"]
+        "tools": READ_TOOLS + ["WebSearch", "WebFetch", "Edit(advisor/data/**)"]
         + _tools("journal --list", "proposals --list", "vol_check", "quant",
                  "research.fair_value", "research.factors", "research.peek",
                  "watchlist --list", "brief_check") + ["Bash(date:*)"],
@@ -80,10 +80,9 @@ STAGES: dict[str, dict] = {
     },
     "redteam": {
         "prompt": "advisor/prompts/redteam.md",
-        "max_turns": 30,
+        "max_turns": 55,
         "timeout_s": 1500,
         "tools": READ_TOOLS + ["WebSearch", "WebFetch",
-                               "Write(advisor/data/context/**)",
                                "Edit(advisor/data/context/**)"]
         + _tools("journal --list", "vol_check", "research.fair_value",
                  "research.peek", "research.redteam_check") + ["Bash(date:*)"],
@@ -93,15 +92,43 @@ STAGES: dict[str, dict] = {
     },
     "publish": {
         "prompt": "advisor/prompts/publish.md",
-        "max_turns": 20,
+        "max_turns": 30,
         "timeout_s": 1200,
-        "tools": READ_TOOLS + ["Write(advisor/data/**)", "Edit(advisor/data/**)"]
+        "tools": READ_TOOLS + ["Edit(advisor/data/**)"]
         + _tools("journal", "proposals", "telegram_io", "watchlist",
                  "brief_check") + ["Bash(date:*)"],
         "check": lambda ctx: _run_check(
             [PY, "-m", "advisor.brief_check", str(ctx / "brief.json")]),
     },
 }
+
+STAGE_OUTPUTS = {
+    "macro": ("macro.json",),
+    "synthesis": ("views_draft.json",),
+    "redteam": ("redteam.json",),
+    "publish": ("brief.json", "brief.md"),
+}
+
+
+def _signature(path: Path) -> tuple[int, int] | None:
+    try:
+        stat = path.stat()
+        return stat.st_mtime_ns, stat.st_size
+    except OSError:
+        return None
+
+
+def _quarantine_changed(stage: str, ctx: Path,
+                        before: dict[Path, tuple[int, int] | None]) -> list[Path]:
+    """Move only outputs changed by the failed attempt; preserve last-known-good."""
+    moved = []
+    stamp = datetime.now(ET).strftime("%Y%m%dT%H%M%S")
+    for path in (ctx / name for name in STAGE_OUTPUTS.get(stage, ())):
+        if path.exists() and _signature(path) != before.get(path):
+            target = path.with_name(f"{path.name}.invalid.{stamp}")
+            os.replace(path, target)
+            moved.append(target)
+    return moved
 
 
 def _heartbeat(stage: str, rc: int | None, secs: float, note: str = "") -> None:
@@ -180,45 +207,83 @@ def preflight() -> bool:
 def run_stage(stage: str, date: str, dry_run: bool = False) -> int:
     ctx = REPO / "advisor" / "data" / "context" / date
     cfg = STAGES[stage]
+    outputs = [ctx / name for name in STAGE_OUTPUTS.get(stage, ())]
+    before = {path: _signature(path) for path in outputs}
     t0 = time.time()
     rc = _claude(stage, date, dry_run)
     if rc == 0 and cfg["check"] and not dry_run:
         crc = cfg["check"](ctx)
         if crc != 0:
             rc = 3   # session finished but its output contract is invalid
-    _heartbeat(stage, rc, time.time() - t0)
+    note = ""
+    if rc != 0 and not dry_run:
+        moved = _quarantine_changed(stage, ctx, before)
+        if moved:
+            note = "quarantined: " + ", ".join(path.name for path in moved)
+    if not dry_run:
+        _heartbeat(stage, rc, time.time() - t0, note)
     return rc
 
 
 def run_pipeline(date: str, skip_preflight: bool = False,
                  dry_run: bool = False) -> int:
+    if dry_run:
+        for stage in STAGES:
+            rc = run_stage(stage, date, dry_run=True)
+            if rc:
+                return rc
+        print("[orchestrator] DRY-RUN complete — no status or artifacts written",
+              flush=True)
+        return 0
+    run_id = f"{date}-{uuid.uuid4().hex[:8]}"
+    started_at = datetime.now(ET).isoformat()
+    write_status(run_id=run_id, date=date, state="starting", stage="pipeline",
+                 started_at=started_at)
     lock = open(PIPELINE_LOCK, "w")
     try:
         fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
         _heartbeat("pipeline", 75, 0, f"already running; refused date={date}")
+        write_status(run_id=run_id, date=date, state="failed", stage="pipeline",
+                     returncode=75, reason="already_running",
+                     note="single-flight lock refused duplicate run",
+                     started_at=started_at)
         return 75
     t_start = time.time()
     _heartbeat("pipeline", None, 0, f"start date={date}")
+    write_status(run_id=run_id, date=date, state="running", stage="preflight",
+                 started_at=started_at)
 
     if not skip_preflight and not dry_run:
         if not preflight():
             _telegram("❌ MORNING PIPELINE ABORTED — claude CLI preflight failed "
                       "(likely expired `claude /login`). No brief today until fixed.")
             _heartbeat("pipeline", 78, time.time() - t_start, "preflight failed")
+            write_status(run_id=run_id, date=date, state="failed", stage="preflight",
+                         returncode=78, reason="provider_auth",
+                         note="provider preflight failed", started_at=started_at)
             return 78
 
+    write_status(run_id=run_id, date=date, state="running", stage="macro",
+                 started_at=started_at)
     mrc = run_stage("macro", date, dry_run)
     if mrc != 0:
         _heartbeat("macro", mrc, 0,
                    "failed — synthesis will do its own overnight scan")
 
+    write_status(run_id=run_id, date=date, state="running", stage="synthesis",
+                 started_at=started_at)
     rc = run_stage("synthesis", date, dry_run)
     if rc != 0:
+        log = LOGS / f"brief_{date}_synthesis.log"
+        reason = classify_failure(rc, log)
         _heartbeat("pipeline", rc, time.time() - t_start,
                    "synthesis failed — actionable publication blocked")
         _telegram("❌ NO RECOMMENDATIONS TODAY — synthesis failed validation. "
                   f"Fail-closed; inspect advisor/logs/brief_{date}_synthesis.log")
+        write_status(run_id=run_id, date=date, state="failed", stage="synthesis",
+                     returncode=rc, reason=reason,
+                     note="actionable publication blocked", started_at=started_at)
         return rc
 
     ctx = REPO / "advisor" / "data" / "context" / date
@@ -235,16 +300,30 @@ def run_pipeline(date: str, skip_preflight: bool = False,
         if actionable and not dry_run:
             _telegram("❌ NO RECOMMENDATIONS TODAY — red-team deadline expired. "
                       "Actionable drafts were blocked, not shipped unreviewed.")
+            write_status(run_id=run_id, date=date, state="failed",
+                         stage="redteam", returncode=74,
+                         reason="redteam_deadline",
+                         note="actionable drafts blocked at deadline",
+                         started_at=started_at)
             return 74
     else:
+        write_status(run_id=run_id, date=date, state="running", stage="redteam",
+                     started_at=started_at)
         rrc = run_stage("redteam", date, dry_run)
         if rrc != 0:
             _heartbeat("redteam", rrc, 0, "failed — actionable publication blocked")
             if actionable and not dry_run:
                 _telegram("❌ NO RECOMMENDATIONS TODAY — independent red-team "
                           "failed validation. Actionable drafts were blocked.")
+                write_status(run_id=run_id, date=date, state="failed",
+                             stage="redteam", returncode=rrc,
+                             reason=classify_failure(rrc, LOGS / f"brief_{date}_redteam.log"),
+                             note="actionable publication blocked",
+                             started_at=started_at)
                 return rrc
 
+    write_status(run_id=run_id, date=date, state="running", stage="publish",
+                 started_at=started_at)
     prc = run_stage("publish", date, dry_run)
     if prc != 0:
         _heartbeat("publish", prc, 0, "failed — one retry")
@@ -254,6 +333,10 @@ def run_pipeline(date: str, skip_preflight: bool = False,
                   f"synthesis. Draft views exist in advisor/data/context/{date}/"
                   f"views_draft.json; logs: advisor/logs/brief_{date}_publish.log")
         _heartbeat("pipeline", prc, time.time() - t_start, "publish failed twice")
+        write_status(run_id=run_id, date=date, state="failed", stage="publish",
+                     returncode=prc,
+                     reason=classify_failure(prc, LOGS / f"brief_{date}_publish.log"),
+                     note="publication blocked", started_at=started_at)
         return prc
 
     if not dry_run:
@@ -264,9 +347,15 @@ def run_pipeline(date: str, skip_preflight: bool = False,
             _heartbeat("stamp-ref", 1, 0, f"failed: {exc}")
             _telegram("❌ Published brief could not be armed with reference prices; "
                       "treat its views as non-actionable until repaired.")
+            write_status(run_id=run_id, date=date, state="failed", stage="stamp-ref",
+                         returncode=69, reason="reference_price_failure",
+                         note="published views are non-actionable", started_at=started_at)
             return 69
 
     _heartbeat("pipeline", 0, time.time() - t_start, "complete")
+    write_status(run_id=run_id, date=date, state="complete", stage="pipeline",
+                 returncode=0, reason="none", note="validated publication complete",
+                 started_at=started_at)
     return 0
 
 
