@@ -28,7 +28,7 @@ SERIES = {
 
 def _download(series_id: str, opener=urlopen) -> str:
     url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={quote(series_id)}"
-    request = Request(url, headers={"User-Agent": "AdvisorTerminal/1.0 research-contact"})
+    request = Request(url)
     with opener(request, timeout=12) as response:
         return response.read().decode("utf-8")
 
@@ -47,7 +47,7 @@ def _download_bulk(opener=urlopen) -> dict[str, str]:
     """Fetch FRED's multi-series ZIP once and return series CSV payloads."""
     ids = ",".join(SERIES)
     url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={ids}"
-    request = Request(url, headers={"User-Agent": "AdvisorTerminal/1.0 research-contact"})
+    request = Request(url)
     with opener(request, timeout=30) as response:
         payload = response.read()
     out: dict[str, str] = {}
@@ -75,9 +75,17 @@ def build(*, now: datetime | None = None, fetcher=None) -> dict:
                     completed.append((series_id, date, value))
                 except Exception as exc:
                     errors[series_id] = f"{type(exc).__name__}: {exc}"
-        except Exception as exc:
+        except Exception as bulk_exc:
+            # Some FRED edges intermittently fail the multi-frequency ZIP
+            # response while serving individual CSVs normally. Fall back
+            # sequentially to avoid the throttling seen with parallel calls.
             for series_id in SERIES:
-                errors[series_id] = f"bulk {type(exc).__name__}: {exc}"
+                try:
+                    date, value = _latest(_download(series_id), series_id)
+                    completed.append((series_id, date, value))
+                except Exception as exc:
+                    errors[series_id] = (f"bulk {type(bulk_exc).__name__}; "
+                                         f"single {type(exc).__name__}: {exc}")
     else:
         def one(series_id):
             date, value = _latest(fetcher(series_id), series_id)
