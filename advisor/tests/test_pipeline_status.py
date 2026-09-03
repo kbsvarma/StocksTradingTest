@@ -24,4 +24,13 @@ def test_status_replacement_is_valid_json(tmp_path, monkeypatch):
     value = json.loads(path.read_text())
     assert value["reason"] == "provider_quota"
     assert value["actionable_output_allowed"] is False
+    assert value["validated_publication_available"] is False
     assert not list(tmp_path.glob("*.tmp.*"))
+
+
+def test_pipeline_completion_never_self_declares_actionability(tmp_path, monkeypatch):
+    monkeypatch.setattr(ps, "STATUS", tmp_path / "pipeline_status.json")
+    value = write_status(run_id="r2", date="2026-09-03", state="complete",
+                         stage="pipeline")
+    assert value["validated_publication_available"] is True
+    assert value["actionable_output_allowed"] is False

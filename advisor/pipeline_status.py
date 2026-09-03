@@ -64,7 +64,11 @@ def write_status(*, run_id: str, date: str, state: str, stage: str,
         "reason": reason,
         "note": note,
         "updated_at": datetime.now(ET).isoformat(),
-        "actionable_output_allowed": state == "complete",
+        # Pipeline completion attests publication, not investment actionability.
+        # Only production_status may combine publication, calibration, portfolio,
+        # runtime and release gates into an actionable decision.
+        "validated_publication_available": state == "complete",
+        "actionable_output_allowed": False,
     }
     STATUS.parent.mkdir(parents=True, exist_ok=True)
     tmp = STATUS.with_suffix(f".json.tmp.{os.getpid()}")
