@@ -319,6 +319,13 @@ def detect_clusters(window_days: int = CLUSTER_WINDOW_D,
                 "source": "form4_parsed",
                 "reason": "no parsed partitions in window"}
     df = pd.concat(frames, ignore_index=True)
+    # An empty partition concats to a column-less frame, and `df.code` then
+    # raises AttributeError rather than returning nothing.
+    needed = {"code", "derivative", "ticker", "value_usd", "tx_date"}
+    if not len(df) or not needed <= set(df.columns):
+        return {"as_of": datetime.now(ET_TZ).isoformat(), "clusters": [],
+                "source": "form4_parsed",
+                "reason": "no usable rows in window"}
     buys = df[(df.code.isin(BUY_CODES)) & (~df.derivative.fillna(False))
               & (df.ticker.notna()) & (df.value_usd.notna())]
     # Filter on the TRANSACTION date, not the filing date. Late and amended

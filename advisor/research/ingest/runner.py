@@ -195,6 +195,22 @@ def run_all(subset: int | None = None, only: list[str] | None = None) -> dict:
         res["as_of"] = datetime.now(ET).isoformat()
         manifest["datasets"]["form4"] = res
         print(f"[ingest] form4: {json.dumps(res)}", flush=True)
+    if not only or "schedule13" in (only or []):
+        # 5%+ stakes. 13D carries intent to influence and a 10-day deadline —
+        # far fresher than the 45-day congressional disclosure lag, and with
+        # better-replicated evidence behind it (Brav et al. 2008).
+        try:
+            from advisor.research import schedule13
+            res = schedule13.enrich(days=3, verbose=False)
+            sig = schedule13.signals()
+            res["n_stakes"] = len(sig.get("stakes", []))
+            res["n_new_13d"] = sum(1 for s in sig.get("stakes", [])
+                                   if s.get("new_13d"))
+        except Exception as exc:
+            res = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+        res["as_of"] = datetime.now(ET).isoformat()
+        manifest["datasets"]["schedule13"] = res
+        print(f"[ingest] schedule13: {json.dumps(res)}", flush=True)
     if not only or "edgar_facts" in (only or []):
         try:
             from advisor.research import edgar

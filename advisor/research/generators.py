@@ -54,6 +54,10 @@ FAMILY = {
     "edgar_quality_growth": "fundamental_value",
     "insider_cluster": "positioning",
     "squeeze_flag": "positioning",
+    # Deliberately the SAME family as insider_cluster. A 5% stake and an
+    # insider buy are both ownership evidence; separating them would let one
+    # ticker manufacture cross-family confluence out of one idea.
+    "activist_stake": "positioning",
     "repeat_kill": "kill_memory",
 }
 
@@ -69,6 +73,7 @@ DIRECTION = {
     "cheap_quality": "long",
     "edgar_quality_growth": "long",
     "insider_cluster": "long",
+    "activist_stake": "long",
     "new_entrant": None,
     "technical_setup": None,
     "squeeze_flag": None,
@@ -91,6 +96,12 @@ STANDALONE = {
     "cheap_quality": True,
     "edgar_quality_growth": True,
     "insider_cluster": True,
+    # Brav et al. (2008) measured ACTIVIST HEDGE FUND 13Ds. This store cannot
+    # yet tell an activist from a sponsor or a founder filing on their own
+    # company (GAP/Fisher, HIMS/Dudum are real examples from the first sweep),
+    # so it contributes confluence and accrues an attributed record but never
+    # leads a pick until its own by_lead_bucket cell earns promotion.
+    "activist_stake": False,
     "new_entrant": False,
     "technical_setup": False,
     "squeeze_flag": False,

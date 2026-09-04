@@ -245,3 +245,11 @@ def test_stale_transactions_are_excluded_by_transaction_date(parsed):
     res = form4.detect_clusters()
     assert res["clusters"] == []
     assert res["n_stale_tx_excluded"] == 1
+
+
+def test_empty_partition_is_reported_not_crashed(parsed):
+    """A column-less frame must not raise AttributeError on df.code."""
+    parsed([])
+    res = form4.detect_clusters()
+    assert res["clusters"] == []
+    assert "no usable rows" in res["reason"]

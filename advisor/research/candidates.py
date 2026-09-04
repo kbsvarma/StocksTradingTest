@@ -29,7 +29,7 @@ OUT = RESEARCH_DIR / "candidates_latest.json"
 CAPS = {"tactical_long": 10, "tactical_short": 5, "pead_fresh": 6,
         "insider_cluster": 5, "revision_leader": 5, "cheap_quality": 5,
         "new_entrant": 5, "squeeze_flag": 3, "technical_setup": 10,
-        "edgar_quality_growth": 5}
+        "edgar_quality_growth": 5, "activist_stake": 5}
 
 # Exploratory diagnostic only. Repeated rejects are retained for retrospective
 # attribution, but are NOT injected into the candidate slate: the original
@@ -302,6 +302,35 @@ def build() -> dict:
              "no Form 4 buy clusters detected in the window")
     except Exception as exc:
         mark("insider_cluster", 0, f"insider_clusters.json unreadable: {exc}")
+
+    # 5%+ stakes. A NEW 13D (intent to influence, 10-day deadline) is the
+    # Brav et al. event; a 13G is passive and an amendment is a revision, so
+    # the tier is carried into rank_basis rather than flattened away.
+    try:
+        sc = json.loads((RESEARCH_DIR / "positioning" /
+                         "schedule13_signals.json").read_text())
+        stakes = sc.get("stakes", [])
+        pop = {s["ticker"]: s["pct_of_class"] for s in stakes
+               if s.get("pct_of_class") is not None}
+        for s in stakes[:CAPS["activist_stake"]]:
+            tier = ("new_13D" if s.get("new_13d") else
+                    "13D_amendment" if s.get("is_13d") else "13G_passive")
+            add(s["ticker"], "activist_stake",
+                rank_pct=gen.pct_rank(pop, s["ticker"]),
+                metric="pct_of_class", value=s["pct_of_class"],
+                rank_basis=f"stake percentile within {len(pop)} names with a "
+                           f"5%+ filing in {sc.get('window_days', '?')}d "
+                           f"[{tier}"
+                           + (", control block" if s.get("control_block") else "")
+                           + "]",
+                stake_pct=s["pct_of_class"], stake_tier=tier,
+                stake_filer=s.get("filer"),
+                stake_control_block=s.get("control_block"))
+        mark("activist_stake", min(len(stakes), CAPS["activist_stake"]),
+             "no 5%+ filings on universe names in the window")
+    except Exception as exc:
+        mark("activist_stake", 0,
+             f"schedule13_signals.json unreadable: {exc}")
 
     # enrich with next-earnings (the kill-test fodder) + dossier existence
     try:
