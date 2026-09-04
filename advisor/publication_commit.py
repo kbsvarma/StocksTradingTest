@@ -125,11 +125,23 @@ def commit(context_dir: Path, *, notify: bool = True) -> dict:
                   source=str(row.get("source") or ""))
 
     stamp_refs()
+    # NOTIFICATION IS NOT A GATE ON PUBLICATION.
+    #
+    # This used to raise, which is wrong twice over. The journal, watchlist
+    # and ref-stamps are already written by the time we get here, so a raise
+    # leaves a HALF-COMMITTED state: the decision is recorded but the brief
+    # is never promoted, and the terminal shows "NO BRIEF TODAY" over research
+    # that exists and is valid. Seen for real on 2026-09-04.
+    #
+    # And the brief is the deliverable — the dashboard is the delivery. A push
+    # notification is a courtesy. Withholding published research because a
+    # chat message did not go out is the wrong trade. The failure is recorded
+    # on the receipt so it stays visible.
     notification_status = "disabled"
     if notify:
         notification_status = "muted" if telegram_io.muted() else "delivered"
         if not telegram_io.send(message):
-            raise RuntimeError("validated brief notification failed")
+            notification_status = "failed"
 
     receipt = {
         "schema_version": 1,
@@ -140,6 +152,10 @@ def commit(context_dir: Path, *, notify: bool = True) -> dict:
         "rejected": len(committed) - len(view_rows),
         "notification_status": notification_status,
         "notified": notification_status == "delivered",
+        "notification_note": (
+            "delivery failed; the brief is published regardless — the journal "
+            "was already committed and the dashboard is the delivery"
+            if notification_status == "failed" else None),
     }
     # Promotion occurs only after every deterministic effect above succeeds.
     rendered_tmp = context_dir / f"brief.md.tmp.{os.getpid()}"
