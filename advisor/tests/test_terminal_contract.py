@@ -6,6 +6,7 @@ def test_daily_picks_do_not_label_signal_strength_as_confidence():
     assert '"SIGNAL", "CAL P"' in source
     assert '"TKR", "DIR", "CONF"' not in source
     assert "NOT CALIBRATED" in source
+    assert "'CAL' if calibrated else 'UNCAL'" in source
 
 
 def test_terminal_toast_icons_are_valid_for_streamlit_runtime():

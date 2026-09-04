@@ -389,12 +389,16 @@ def active_recommendations():
             else:
                 state = "▶ STANDING"
                 detail = f"px {px:,.2f}" if isinstance(px, (int, float)) else "no fresh quote"
+        p_label = ""
+        if e.get("p_win") is not None:
+            calibrated = bool((e.get("probability_basis") or {}).get("calibrated"))
+            p_label = f" · p{e['p_win']} {'CAL' if calibrated else 'UNCAL'}"
         cards.append(
             f'<div style="border:1px solid #2a2f36; border-left:4px solid {color}; '
             f'background:#11151a; padding:8px 12px; margin-bottom:5px; border-radius:3px;">'
             f'<span style="color:{color}; font-weight:700;">'
             f'{esc(e.get("instrument", "?"))} — {"LONG" if long_ else "SHORT"} — {esc(conv)}'
-            f'{" · p" + esc(e.get("p_win")) if e.get("p_win") else ""}</span> '
+            f'{esc(p_label)}</span> '
             f'<span style="color:#e8e6e3; font-size:12px; margin-left:8px;">{esc(state)}</span> '
             f'<span style="color:{DIM}; font-size:11px;">{esc(detail)}</span><br>'
             f'<span style="color:#c9c7c2; font-size:12px;">'
