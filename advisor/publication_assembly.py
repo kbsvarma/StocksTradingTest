@@ -33,6 +33,36 @@ def _deep_update(base: dict, patch: dict) -> dict:
     return base
 
 
+def _capital_amended(originals: list, surviving: list) -> bool:
+    """Did an amendment change any view's deployed capital?"""
+    before = {v.get("decision_key"): (v.get("sizing") or {}).get("capital_usd")
+              for v in originals}
+    return any((v.get("sizing") or {}).get("capital_usd")
+               != before.get(v.get("decision_key")) for v in surviving)
+
+
+def _recompute_after_capital(views: list) -> None:
+    """Restate the derived post-trade exposure across every surviving view.
+
+    Uses brief_check's own helper so there is exactly ONE definition of
+    existing open capital and the two cannot drift apart.
+    """
+    from advisor.brief_check import _existing_open_capital, _finite_number
+
+    keys = {v.get("decision_key") for v in views if v.get("decision_key")}
+    try:
+        existing = _existing_open_capital(keys)
+    except Exception:
+        return                      # never block publication on this
+    deployed = sum(float((v.get("sizing") or {}).get("capital_usd") or 0)
+                   for v in views
+                   if _finite_number((v.get("sizing") or {}).get("capital_usd")))
+    after = round(existing + deployed, 2)
+    for v in views:
+        if isinstance(v.get("sizing"), dict):
+            v["sizing"]["portfolio_capital_after_usd"] = after
+
+
 def assemble(context_dir: Path) -> Path:
     context_dir = Path(context_dir)
     draft_path = context_dir / "views_draft.json"
@@ -77,6 +107,20 @@ def assemble(context_dir: Path) -> Path:
             view["thesis"] = (str(view.get("thesis") or "")
                               + f" [red-team amended: {verdict['reason']}]")
         surviving.append(view)
+
+    # portfolio_capital_after_usd is DERIVED, not a judgement: it is
+    # existing open capital plus the capital deployed by this brief. The
+    # model asserts it in the draft and brief_check verifies that assertion —
+    # a useful integrity check on the model's own arithmetic.
+    #
+    # But an amendment is applied by CODE, not re-asserted by the model. When
+    # the red-team cut DELL's capital_usd 10280 -> 7710 on 2026-09-04 the
+    # derived field kept the draft's value and the brief was rejected for not
+    # reconciling. Recompute it here — and only when an amendment actually
+    # moved capital — so the invariant survives the patch while the model's
+    # unamended arithmetic is still checked.
+    if _capital_amended(draft.get("views") or [], surviving):
+        _recompute_after_capital(surviving)
 
     calendar = {}
     macro = {}

@@ -82,3 +82,46 @@ def test_a_dict_replacing_a_scalar_still_works():
     view = {"sizing": None}
     _deep_update(view, {"sizing": {"quantity": 5}})
     assert view["sizing"] == {"quantity": 5}
+
+
+# --- derived exposure -------------------------------------------------------
+
+def test_capital_amendment_is_detected():
+    from advisor.publication_assembly import _capital_amended
+    originals = [{"decision_key": "k1", "sizing": {"capital_usd": 10280}}]
+    unchanged = [{"decision_key": "k1", "sizing": {"capital_usd": 10280}}]
+    amended = [{"decision_key": "k1", "sizing": {"capital_usd": 7710}}]
+    assert _capital_amended(originals, unchanged) is False
+    assert _capital_amended(originals, amended) is True
+
+
+def test_derived_exposure_is_restated_across_every_view(monkeypatch):
+    """portfolio_capital_after_usd is existing + deployed. It is DERIVED, so
+    after code changes capital_usd it must be recomputed, not inherited from
+    the draft — the second half of the 2026-09-04 publication failure."""
+    import advisor.brief_check as bc
+    from advisor.publication_assembly import _recompute_after_capital
+
+    monkeypatch.setattr(bc, "_existing_open_capital", lambda keys: 1000.0)
+    views = [
+        {"decision_key": "k1", "sizing": {"capital_usd": 7710,
+                                          "portfolio_capital_after_usd": 10280}},
+        {"decision_key": "k2", "sizing": {"capital_usd": 500,
+                                          "portfolio_capital_after_usd": 10280}},
+    ]
+    _recompute_after_capital(views)
+    for v in views:                       # identical across views, as required
+        assert v["sizing"]["portfolio_capital_after_usd"] == 9210.0
+
+
+def test_recompute_never_blocks_publication(monkeypatch):
+    import advisor.brief_check as bc
+    from advisor.publication_assembly import _recompute_after_capital
+
+    def boom(keys):
+        raise RuntimeError("journal unreadable")
+    monkeypatch.setattr(bc, "_existing_open_capital", boom)
+    views = [{"decision_key": "k", "sizing": {"capital_usd": 1,
+                                              "portfolio_capital_after_usd": 42}}]
+    _recompute_after_capital(views)       # must not raise
+    assert views[0]["sizing"]["portfolio_capital_after_usd"] == 42
