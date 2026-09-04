@@ -30,6 +30,37 @@ BATCH = 200
 FIELDS = ["Close", "High", "Low", "Volume"]
 
 
+def code_version() -> dict:
+    """Which code produced this artifact.
+
+    The panel serving every factor computation on 2026-09-03 was built at
+    06:01 by code replaced at 11:56 — its meta was missing fields the current
+    datastore writes, while still declaring schema_version 2, so a version
+    check could not catch it. Nothing invalidated a stale artifact after a
+    code change and nothing recorded which code made it.
+
+    Reads the PRODUCTION checkout (git rev-parse in the repo root), plus the
+    deploy stamp naming the source commit rsynced in. Both are best-effort:
+    an artifact must still build on a box without git.
+    """
+    import subprocess
+    out = {"git_sha": None, "git_dirty": None, "deployed_from": None}
+    try:
+        out["git_sha"] = subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=10).stdout.strip() or None
+        out["git_dirty"] = bool(subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "status", "--porcelain"],
+            capture_output=True, text=True, timeout=10).stdout.strip())
+    except Exception:
+        pass
+    try:
+        out["deployed_from"] = (REPO_ROOT / ".deployed_from").read_text().strip()
+    except OSError:
+        pass
+    return out
+
+
 def build(subset: int | None = None) -> dict:
     import pandas as pd
     import yfinance as yf
@@ -129,7 +160,8 @@ def build(subset: int | None = None) -> dict:
             path = temp_dir / f"{f.lower()}.parquet"
             panels[f].to_parquet(path)
             hashes[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
-        meta = {"schema_version": 2, "build_id": build_id,
+        meta = {"schema_version": 3, "build_id": build_id,
+                "code_version": code_version(),
                 "built_unix": built_unix, "n_tickers_requested": len(set(tickers)),
                 "provider": "Yahoo Finance via yfinance",
                 "price_adjustment": "auto_adjust=True (split/dividend adjusted OHLC)",

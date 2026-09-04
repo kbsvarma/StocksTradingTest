@@ -378,6 +378,19 @@ def compute(top: int = 20, score_snapshot_dir: Path | None = None) -> dict:
             raise RuntimeError("current price panel is not production-safe: " +
                                " | ".join(audit["errors"]))
         panel_meta = {**panel_meta, "quality": audit}
+    # ARTIFACT <-> CODE BINDING. A panel built by superseded code is not
+    # obviously wrong, which is exactly why it went unnoticed for a day: the
+    # metadata simply lacked fields the newer code writes. Surface the
+    # mismatch on the sheet rather than letting it be invisible.
+    from advisor.research.datastore import code_version
+    _now, _built = code_version(), (panel_meta.get("code_version") or {})
+    code_drift = None
+    if _built.get("git_sha") and _now.get("git_sha") \
+            and _built["git_sha"] != _now["git_sha"]:
+        code_drift = (f"panel built by {_built['git_sha'][:8]}, "
+                      f"current code is {_now['git_sha'][:8]}")
+    elif not _built.get("git_sha"):
+        code_drift = "panel predates code-version stamping"
     quarantined = set((panel_meta.get("quality") or {}).get("quarantine") or {})
     if quarantined:
         u = dict(u)
@@ -490,6 +503,8 @@ def compute(top: int = 20, score_snapshot_dir: Path | None = None) -> dict:
         "quarantined_tickers": sorted(quarantined),
         "model_validation": validation_status(),
         "panel_age_hours": round(age, 1),
+        "code_version": code_version(),
+        "panel_code_drift": code_drift,
         "n_universe": len(stock_cols), "n_liquid": len(liquid),
         "regime": regime,
         "longs": sheet(ranked.head(top).index, "long"),

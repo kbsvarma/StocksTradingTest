@@ -129,10 +129,23 @@ def _quarantine_changed(stage: str, ctx: Path,
     return moved
 
 
-def _heartbeat(stage: str, rc: int | None, secs: float, note: str = "") -> None:
+def _heartbeat(stage: str, rc: int | None, secs: float, note: str = "",
+               usage: dict | None = None) -> None:
+    """One JSONL row per stage.
+
+    Duration was always recorded; SPEND never was. There was no token or
+    dollar figure anywhere in 12,697 lines, so "is this worth the operational
+    cost" could not be answered from the system's own data — and the
+    duplicate-spend problem below was invisible for the same reason.
+    """
     LOGS.mkdir(parents=True, exist_ok=True)
     row = {"ts": datetime.now(ET).isoformat(), "stage": stage, "rc": rc,
            "secs": round(secs, 1), "note": note}
+    if usage:
+        row.update({k: usage[k] for k in
+                    ("cost_usd", "input_tokens", "output_tokens",
+                     "cache_read_tokens", "cache_creation_tokens", "num_turns")
+                    if usage.get(k) is not None})
     with HEARTBEATS.open("a", encoding="utf-8") as f:
         f.write(json.dumps(row) + "\n")
     print(f"[orchestrator] {stage}: rc={rc} {secs:.0f}s {note}", flush=True)
@@ -158,6 +171,32 @@ def _telegram(msg: str) -> None:
         print(f"[orchestrator] telegram alert failed: {exc}", flush=True)
 
 
+def _parse_usage(log_path) -> dict:
+    """Pull cost and tokens from the final `result` event of a stream-json log."""
+    try:
+        lines = log_path.read_text(errors="ignore").splitlines()
+    except OSError:
+        return {}
+    for line in reversed(lines):
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            d = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if d.get("type") != "result" and "total_cost_usd" not in d:
+            continue
+        u = d.get("usage") or {}
+        return {"cost_usd": round(float(d.get("total_cost_usd") or 0), 6),
+                "input_tokens": u.get("input_tokens"),
+                "output_tokens": u.get("output_tokens"),
+                "cache_read_tokens": u.get("cache_read_input_tokens"),
+                "cache_creation_tokens": u.get("cache_creation_input_tokens"),
+                "num_turns": d.get("num_turns")}
+    return {}
+
+
 def _claude(stage: str, date: str, dry_run: bool = False) -> int:
     cfg = STAGES[stage]
     allowed_tools = [rule.format(date=date) for rule in cfg["tools"]]
@@ -169,8 +208,13 @@ def _claude(stage: str, date: str, dry_run: bool = False) -> int:
               f"project runtime. Never request interactive approval; if a tool "
               f"is denied, report the denial and stop.\n\n"
               + (REPO / cfg["prompt"]).read_text(encoding="utf-8"))
+    # stream-json keeps the full event transcript in the log (every tool call
+    # is its own line) AND ends with a `result` event carrying total_cost_usd
+    # and the token breakdown. Plain `--output-format json` would give the
+    # cost but throw the tool-call detail away.
     cmd = [CLAUDE, "-p", prompt, "--max-turns", str(cfg["max_turns"]),
            "--permission-mode", "dontAsk", "--permission-prompts", "none",
+           "--output-format", "stream-json", "--verbose",
            "--allowedTools", *allowed_tools]
     if dry_run:
         print(f"[orchestrator] DRY-RUN {stage}: {' '.join(cmd[:1])} "
@@ -190,6 +234,35 @@ def _claude(stage: str, date: str, dry_run: bool = False) -> int:
         except subprocess.TimeoutExpired:
             lf.write(f"\n===== {stage} TIMEOUT after {cfg['timeout_s']}s =====\n")
             return 124
+
+
+def _run_cost(date: str) -> float:
+    """Total spend across this date's stages, from the heartbeat rows."""
+    total = 0.0
+    try:
+        for line in HEARTBEATS.read_text().splitlines():
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if row.get("ts", "").startswith(date) and row.get("stage") in STAGES:
+                total += float(row.get("cost_usd") or 0)
+    except OSError:
+        pass
+    return total
+
+
+def _stamp_fingerprint(digest: str) -> None:
+    """Record the inputs this completed run consumed, for the skip check."""
+    try:
+        LOGS.mkdir(parents=True, exist_ok=True)
+        with HEARTBEATS.open("a", encoding="utf-8") as f:
+            f.write(json.dumps({"ts": datetime.now(ET).isoformat(),
+                                "stage": "pipeline", "rc": 0, "secs": 0,
+                                "note": "fingerprint",
+                                "fingerprint": digest}) + "\n")
+    except OSError:
+        pass
 
 
 def preflight() -> tuple[bool, str]:
@@ -227,12 +300,60 @@ def run_stage(stage: str, date: str, dry_run: bool = False) -> int:
         if moved:
             note = "quarantined: " + ", ".join(path.name for path in moved)
     if not dry_run:
-        _heartbeat(stage, rc, time.time() - t0, note)
+        usage = _parse_usage(LOGS / f"brief_{date}_{stage}.log")
+        if usage.get("cost_usd"):
+            note = (note + " " if note else "") + f"${usage['cost_usd']:.4f}"
+        _heartbeat(stage, rc, time.time() - t0, note, usage=usage)
     return rc
 
 
+# ── input fingerprint: don't pay twice for the same answer ──────────────────
+def input_fingerprint() -> dict:
+    """What the pipeline is actually reasoning about.
+
+    On 2026-09-03 every kill in the brief read "re-kill: unchanged data from
+    this morning's kill" and cited the same panel_build_id and the same price.
+    The pipeline ran twice against an identical panel and paid full model cost
+    to reach the same six conclusions. Nothing short-circuits a run whose
+    inputs have not moved.
+    """
+    import hashlib
+    data = REPO / "advisor" / "data" / "research"
+    parts = {}
+    try:
+        sig = json.loads((data / "signals_latest.json").read_text())
+        parts["panel_build_id"] = sig.get("panel_build_id")
+    except Exception:
+        parts["panel_build_id"] = None
+    try:
+        cand = json.loads((data / "candidates_latest.json").read_text())
+        parts["slate"] = sorted(e["ticker"] for e in cand.get("slate", []))
+        parts["n_pickable"] = cand.get("n_pickable")
+    except Exception:
+        parts["slate"] = None
+    digest = hashlib.sha256(
+        json.dumps(parts, sort_keys=True).encode()).hexdigest()
+    return {"fingerprint": digest, "panel_build_id": parts.get("panel_build_id"),
+            "n_slate": len(parts.get("slate") or [])}
+
+
+def last_fingerprint() -> str | None:
+    """Fingerprint of the most recent COMPLETED pipeline run."""
+    try:
+        for line in reversed(HEARTBEATS.read_text().splitlines()):
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if row.get("stage") == "pipeline" and row.get("fingerprint"):
+                return row["fingerprint"]
+    except OSError:
+        pass
+    return None
+
+
 def run_pipeline(date: str, skip_preflight: bool = False,
-                 dry_run: bool = False) -> int:
+                 dry_run: bool = False, force: bool = False) -> int:
     if dry_run:
         for stage in STAGES:
             rc = run_stage(stage, date, dry_run=True)
@@ -256,6 +377,23 @@ def run_pipeline(date: str, skip_preflight: bool = False,
                      started_at=started_at)
         return 75
     t_start = time.time()
+    # Refuse to pay twice for the same answer. `--force` overrides.
+    fp = input_fingerprint()
+    if not force and fp["fingerprint"] == last_fingerprint():
+        _heartbeat("pipeline", 76, 0,
+                   f"inputs unchanged since last run "
+                   f"(panel {fp['panel_build_id']}, {fp['n_slate']} slate "
+                   f"names) — skipped; use --force to override")
+        write_status(run_id=run_id, date=date, state="skipped",
+                     stage="pipeline", returncode=76, reason="inputs_unchanged",
+                     note="same panel build and candidate slate as the last "
+                          "completed run", started_at=started_at)
+        try:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+            lock.close()
+        except Exception:
+            pass
+        return 76
     _heartbeat("pipeline", None, 0, f"start date={date}")
     write_status(run_id=run_id, date=date, state="running", stage="preflight",
                  started_at=started_at)
@@ -369,7 +507,11 @@ def run_pipeline(date: str, skip_preflight: bool = False,
                          note="prior brief preserved", started_at=started_at)
             return 69
 
-    _heartbeat("pipeline", 0, time.time() - t_start, "complete")
+    total = _run_cost(date)
+    _heartbeat("pipeline", 0, time.time() - t_start,
+               f"complete ${total:.4f}" if total else "complete",
+               usage={"cost_usd": round(total, 6)} if total else None)
+    _stamp_fingerprint(fp["fingerprint"])
     write_status(run_id=run_id, date=date, state="complete", stage="pipeline",
                  returncode=0, reason="none", note="validated publication complete",
                  started_at=started_at)
@@ -383,8 +525,12 @@ def main() -> int:
     dry = "--dry-run" in args
     if "--stage" in args:
         return run_stage(args[args.index("--stage") + 1], date, dry)
+    if "--cost" in args:
+        print(json.dumps({"date": date, "cost_usd": round(_run_cost(date), 6),
+                          "inputs": input_fingerprint()}, indent=2))
+        return 0
     return run_pipeline(date, skip_preflight="--skip-preflight" in args,
-                        dry_run=dry)
+                        dry_run=dry, force="--force" in args)
 
 
 if __name__ == "__main__":
