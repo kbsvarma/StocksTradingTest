@@ -1,6 +1,13 @@
 from pathlib import Path
 
 
+def test_daily_picks_do_not_label_signal_strength_as_confidence():
+    source = (Path(__file__).resolve().parents[1] / "terminal.py").read_text()
+    assert '"SIGNAL", "CAL P"' in source
+    assert '"TKR", "DIR", "CONF"' not in source
+    assert "NOT CALIBRATED" in source
+
+
 def test_terminal_toast_icons_are_valid_for_streamlit_runtime():
     """Regression: an invalid success icon raised after queuing a real run."""
     import ast

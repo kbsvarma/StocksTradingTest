@@ -1382,8 +1382,9 @@ def picks_tab():
 
     rows = []
     for i, p in enumerate(picks["picks"], 1):
-        conf = (f'{p["confidence_pct"]}%' if p.get("confidence_pct") is not None
-                else f'{p["score"]:.2f} <span style="color:{DIM};">uncal</span>')
+        signal = f'{p["score"]:.2f}'
+        probability = (f'{p["confidence_pct"]}%' if p.get("confidence_pct") is not None
+                       else f'<span style="color:{DIM};">NOT CALIBRATED</span>')
         dcol = GREEN if p["direction"] == "long" else RED
         # WHY this name: the generator that won, at what cross-sectional
         # percentile, over how many INDEPENDENT families. A losing pick has to
@@ -1408,7 +1409,8 @@ def picks_tab():
             f'<td style="padding:3px 8px; color:{DIM};">{i}</td>'
             f'<td style="padding:3px 8px; color:{AMBER}; font-weight:700;">{p["ticker"]}</td>'
             f'<td style="padding:3px 8px; color:{dcol}; font-weight:700;">{p["direction"].upper()}</td>'
-            f'<td style="padding:3px 8px; color:#e8e6e3;">{conf}</td>'
+            f'<td style="padding:3px 8px; color:#e8e6e3;">{signal}</td>'
+            f'<td style="padding:3px 8px; color:{DIM};">{probability}</td>'
             f'<td style="padding:3px 8px;">{p["entry_low"]}–{p["entry_high"]}</td>'
             f'<td style="padding:3px 8px; color:{RED};">{p["stop"]}</td>'
             f'<td style="padding:3px 8px; color:{GREEN};">{p["target"]}</td>'
@@ -1418,7 +1420,7 @@ def picks_tab():
             f'{p.get("next_earnings") or "—"}</td></tr>')
     head = "".join(f'<th style="padding:4px 8px; color:{AMBER}; text-align:left; '
                    f'border-bottom:1px solid {PANEL_BORDER};">{h}</th>'
-                   for h in ("#", "TKR", "DIR", "CONF", "ENTRY", "STOP", "TARGET",
+                   for h in ("#", "TKR", "DIR", "SIGNAL", "CAL P", "ENTRY", "STOP", "TARGET",
                              "ATR20", "WHY ▸ LEAD @PCTILE · SUPPORT", "NEXT EPS"))
     st.markdown(
         f'<div style="background:{PANEL_BG}; border:1px solid {PANEL_BORDER}; '
