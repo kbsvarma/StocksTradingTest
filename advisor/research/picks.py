@@ -42,6 +42,19 @@ ATR_WINDOW = 20
 STOP_ATR = 1.5           # stop distance in ATR units
 TARGET_ATR = 3.0         # target distance -> 2:1 reward:risk by construction
 
+PRIORS = RESEARCH_DIR / "generator_priors.json"
+
+# v1: 0.65*|composite|/max + 0.35*(n_buckets/4). `composite` was populated ONLY
+#     by tactical_long/short/new_entrant, so 50.8% of every slate scored ~0.09
+#     against a ~0.60 cutoff and could never be picked. 200/200 published picks
+#     carried a price bucket; the stratified slate collapsed to a momentum list.
+# v2: generators.score_candidate — every generator emits a cross-sectional
+#     percentile in its own claimed direction, confluence counts DISTINCT
+#     FAMILIES, and the winning generator is recorded on the pick.
+# v1 and v2 picks are DIFFERENT SYSTEMS and must never be pooled in a
+# calibration; `scoring_version` on every ledger row keeps them separable.
+SCORING_VERSION = 2
+
 
 def _atr(high, low, close, window: int = ATR_WINDOW):
     """True-range average per ticker over the wide panel.
@@ -66,12 +79,30 @@ def _calibration() -> dict:
         return {}
 
 
+def _priors() -> dict:
+    """Fitted per-generator priors, or {} (== all neutral) when unfitted."""
+    try:
+        doc = json.loads(PRIORS.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return doc.get("priors") or {}
+
+
 def apply_calibration(score: float, cal: dict | None = None) -> tuple:
-    """(confidence_pct, basis). None until an empirical mapping exists."""
+    """(confidence_pct, basis). None until an empirical mapping exists.
+
+    A calibration maps SCORE -> hit rate, so it is only valid for the scoring
+    version that produced those scores. A v1-fitted mapping applied to a v2
+    score is a fabricated probability; refuse it rather than display it.
+    """
     cal = _calibration() if cal is None else cal
     buckets = cal.get("buckets") or []
     if not cal.get("usable") or not buckets:
         return None, "uncalibrated"
+    cal_version = int(cal.get("scoring_version") or 1)
+    if cal_version != SCORING_VERSION:
+        return None, (f"uncalibrated — calibration was fitted on scoring_version="
+                      f"{cal_version}, picks are v{SCORING_VERSION}")
     for b in buckets:
         if b["lo"] <= score <= b["hi"]:
             return round(b["hit_rate"] * 100, 1), (
@@ -113,11 +144,29 @@ def build(top_n: int = 10, as_of: str | None = None,
     if not entries:
         return {"error": "empty slate"}
 
-    # raw signal strength: |composite| percentile within the slate, lifted by
-    # independent-generator agreement. Explicitly NOT a probability.
-    scored = []
+    # Signal strength in the common currency. Explicitly NOT a probability.
+    from advisor.research import generators as gen
+    priors = _priors()
+    has_v2 = any(e.get("generators") for e in entries)
+    version = SCORING_VERSION if has_v2 else 1
     comps = [abs(e.get("detail", {}).get("score", 0) or 0) for e in entries]
     max_comp = max(comps) or 1.0
+
+    def legacy(e):
+        """Pre-generators slates (archived) — reproduced verbatim so replayed
+        history stays faithful, and tagged v1 so it never pools with v2."""
+        buckets = e.get("buckets", [])
+        short = any(b in ("tactical_short", "repeat_kill") for b in buckets)
+        comp = abs(e.get("detail", {}).get("score", 0) or 0)
+        conf = min(len(buckets), 4) / 4.0
+        return {"score": round(min(1.0, 0.65 * (comp / max_comp) + 0.35 * conf), 4),
+                "direction": "short" if short else "long",
+                "lead_bucket": None, "direction_source": "legacy_bucket_membership",
+                "families": gen.families(buckets), "n_families": len(gen.families(buckets)),
+                "confluence": conf, "contributions": {},
+                "formula": "v1 legacy: 0.65*|composite|/max + 0.35*(n_buckets/4)"}
+
+    scored, unpickable = [], []
     for e in entries:
         t = e["ticker"]
         if t not in close.columns:
@@ -127,13 +176,16 @@ def build(top_n: int = 10, as_of: str | None = None,
                 or not (px > 0 and a > 0):
             continue
         buckets = e.get("buckets", [])
-        short = any(b in ("tactical_short", "repeat_kill") for b in buckets)
-        direction = "short" if short else "long"
-        comp = abs(e.get("detail", {}).get("score", 0) or 0)
-        confluence = min(len(buckets), 4) / 4.0
-        score = round(min(1.0, 0.65 * (comp / max_comp) + 0.35 * confluence), 4)
-
-        sign = -1 if short else 1
+        gens = e.get("generators") or {}
+        sel = gen.score_candidate(gens, priors) if gens else (legacy(e) if not has_v2 else None)
+        if sel is None:
+            # No standalone generator with a direction. We do NOT guess one.
+            unpickable.append({"ticker": t, "buckets": buckets,
+                               "reason": "no standalone directional generator"})
+            continue
+        direction = sel["direction"]
+        score = round(min(1.0, sel["score"]), 4)
+        sign = -1 if direction == "short" else 1
         stop = px - sign * STOP_ATR * a
         target = px + sign * TARGET_ATR * a
         conf_pct, basis = apply_calibration(score)
@@ -150,6 +202,12 @@ def build(top_n: int = 10, as_of: str | None = None,
             "rr": round(TARGET_ATR / STOP_ATR, 2),
             "horizon_td": HORIZON_TD,
             "generators": buckets,
+            # WHY this name, in full. Every term of the score, the generator
+            # that won, the population its percentile was taken against, and
+            # where the direction came from — so a failed pick indicts a
+            # specific generator rather than "the model".
+            "selection": sel,
+            "scoring_version": version,
             "sector": e.get("detail", {}).get("sector"),
             "next_earnings": e.get("detail", {}).get("next_earnings"),
         })
@@ -162,12 +220,23 @@ def build(top_n: int = 10, as_of: str | None = None,
         "source": source,
         "price_bar": as_of_bar,
         "n_slate": len(entries), "n_picks": len(picks),
+        "n_unpickable": len(unpickable), "unpickable": unpickable[:20],
         "horizon_trading_days": HORIZON_TD,
         "levels_method": (f"deterministic: entry ±0.25*ATR20, stop {STOP_ATR}*ATR20, "
                           f"target {TARGET_ATR}*ATR20 (R:R {TARGET_ATR/STOP_ATR:.1f}); "
                           f"no model-authored numbers"),
-        "score_method": ("0.65*|composite| percentile + 0.35*generator confluence; "
-                         "signal strength in [0,1], NOT a probability"),
+        "scoring_version": version,
+        "score_method": (picks[0]["selection"]["formula"] if picks else "n/a")
+                        + "; signal strength in [0,1], NOT a probability",
+        "priors_applied": priors or "neutral (unfitted)",
+        # carried straight through from the slate so a day's picks can be read
+        # against what was actually generating that day
+        "generator_health": slate.get("generator_health"),
+        "generators_live": slate.get("generators_live"),
+        "generators_dark": slate.get("generators_dark"),
+        "families_live": slate.get("families_live"),
+        "breadth_warning": slate.get("breadth_warning"),
+        "lead_bucket_mix": _mix(picks),
         "calibration": _calibration().get("calibration_id"),
         "class": "research_idea",
         "disclaimer": ("Research ideas, not personalized advice. Levels are "
@@ -184,6 +253,15 @@ def build(top_n: int = 10, as_of: str | None = None,
         json.dumps(result, indent=2) + "\n")
     _append_ledger(picks, now, as_of_bar, day=day, source=source)
     return result
+
+
+def _mix(picks: list) -> dict:
+    """Which generator actually led each published pick."""
+    out: dict = {}
+    for p in picks:
+        b = (p.get("selection") or {}).get("lead_bucket") or "legacy"
+        out[b] = out.get(b, 0) + 1
+    return dict(sorted(out.items(), key=lambda kv: -kv[1]))
 
 
 def _append_ledger(picks: list, now: datetime, price_bar: str,
@@ -213,6 +291,16 @@ def _append_ledger(picks: list, now: datetime, price_bar: str,
                 "score": p["score"], "confidence_pct": p["confidence_pct"],
                 "ref_px": p["ref_px"], "stop": p["stop"], "target": p["target"],
                 "horizon_td": p["horizon_td"], "generators": p["generators"],
+                # attribution keys, denormalized onto the row so outcome
+                # analysis never has to re-open the day's slate
+                "scoring_version": p.get("scoring_version"),
+                "lead_bucket": (p.get("selection") or {}).get("lead_bucket"),
+                "lead_rank_pct": (p.get("selection") or {}).get("lead_rank_pct"),
+                "lead_prior": (p.get("selection") or {}).get("lead_prior"),
+                "families": (p.get("selection") or {}).get("families"),
+                "n_families": (p.get("selection") or {}).get("n_families"),
+                "direction_source": (p.get("selection") or {}).get("direction_source"),
+                "selection": p.get("selection"),
                 "status": "open",
             }) + "\n")
             n += 1
@@ -246,13 +334,24 @@ def main() -> int:
         print("picks:", res["error"])
         return 1
     print(f"picks: {res['n_picks']} of {res['n_slate']} slate names "
+          f"({res['n_unpickable']} unpickable) v{res['scoring_version']} "
           f"(bar {res['price_bar']}, horizon {res['horizon_trading_days']}td)")
+    if res.get("generators_dark"):
+        for b, why in res["generators_dark"].items():
+            print(f"  dark  {b}: {why}")
+    if res.get("breadth_warning"):
+        print(f"  ** {res['breadth_warning']}")
+    print(f"  lead-generator mix: {res.get('lead_bucket_mix')}")
     for p in res["picks"]:
         conf = (f"{p['confidence_pct']}%" if p["confidence_pct"] is not None
                 else f"score {p['score']:.2f} (uncal)")
+        sel = p.get("selection") or {}
+        lead = sel.get("lead_bucket") or "legacy"
+        rp = sel.get("lead_rank_pct")
+        why = f"{lead}@{rp:.3f}" if isinstance(rp, (int, float)) else lead
         print(f"  {p['ticker']:<6} {p['direction']:<5} {conf:<22} "
               f"entry {p['entry_low']}-{p['entry_high']}  stop {p['stop']}  "
-              f"tgt {p['target']}  [{','.join(p['generators'][:2])}]")
+              f"tgt {p['target']}  [{why}, {sel.get('n_families', '?')}fam]")
     return 0
 
 

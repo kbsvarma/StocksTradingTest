@@ -59,11 +59,20 @@ def _one(ticker: str) -> dict:
     return row
 
 
-def build(tickers: list[str], out_dir, workers: int = 4) -> dict:
+def build(tickers: list[str], out_dir, workers: int = 2) -> dict:
+    """Estimates need far gentler pacing than the other snapshotters.
+
+    Each ticker costs FOUR quoteSummary calls (earnings/revenue estimate, eps
+    trend, growth), so 4 workers at the 0.15s default is ~100 req/s of the one
+    endpoint family Yahoo throttles hardest — that is what produced 0/80 rows
+    for a month. 2 workers at 1s is ~8 req/s and returns full payloads; the
+    scoped fetch is small enough that the extra minute is free.
+    """
     import pandas as pd
     from advisor.research.ingest._pool import run_pool
     t0 = datetime.now(ET)
-    rows, errors, err_samples = run_pool(_one, tickers, workers=workers)
+    rows, errors, err_samples = run_pool(_one, tickers, workers=workers,
+                                         pace_s=1.0, retry_rounds=2)
     day = t0.date().isoformat()
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"dt={day}.parquet"

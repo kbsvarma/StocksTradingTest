@@ -162,9 +162,15 @@ def _pav(points: list[tuple]) -> list[tuple]:
 
 
 def calibrate(verbose: bool = True) -> dict:
+    from advisor.research.picks import SCORING_VERSION
+    # A calibration maps SCORE -> hit rate. Scores from different scoring
+    # versions are not the same quantity, so pooling them would fabricate a
+    # mapping for a system that never produced those outcomes. Rows predating
+    # the field are v1 by definition.
     scored = [r for r in effective().values()
               if r.get("status") == "resolved" and r.get("calibration_eligible")
-              and r.get("win") is not None and r.get("score") is not None]
+              and r.get("win") is not None and r.get("score") is not None
+              and int(r.get("scoring_version") or 1) == SCORING_VERSION]
     n = len(scored)
     raw = []
     for lo, hi in BUCKETS:
@@ -175,14 +181,17 @@ def calibrate(verbose: bool = True) -> dict:
     smoothed = _pav(raw) if usable else raw
     buckets = [{"lo": lo, "hi": hi, "hit_rate": round(rate, 4), "n": bn}
                for lo, hi, rate, bn in smoothed]
-    payload = {"schema_version": 1, "fitted_at": datetime.now(ET).isoformat(),
+    payload = {"schema_version": 2, "fitted_at": datetime.now(ET).isoformat(),
+               "scoring_version": SCORING_VERSION,
                "n_resolved": n, "min_n": MIN_N_CALIBRATE,
                "usable": usable, "buckets": buckets,
                "method": ("empirical hit rate per score bucket, "
-                          "pool-adjacent-violators monotone smoothing"),
+                          "pool-adjacent-violators monotone smoothing; "
+                          f"fitted ONLY on scoring_version={SCORING_VERSION} picks"),
                "gate": (f"auto-applied at n>={MIN_N_CALIBRATE}"
                         if usable else
-                        f"NOT applied — {n}/{MIN_N_CALIBRATE} resolved picks")}
+                        f"NOT applied — {n}/{MIN_N_CALIBRATE} resolved "
+                        f"scoring_version={SCORING_VERSION} picks")}
     payload["calibration_id"] = hashlib.sha256(
         json.dumps(buckets, sort_keys=True).encode()).hexdigest()
     tmp = CALIBRATION.with_suffix(f".json.tmp.{os.getpid()}")
@@ -193,6 +202,98 @@ def calibrate(verbose: bool = True) -> dict:
         for b in buckets:
             print(f"  score {b['lo']:.2f}-{b['hi']:.2f}: "
                   f"hit {b['hit_rate']*100:.1f}% (n={b['n']})")
+    return payload
+
+
+def _agg(rows: list) -> dict:
+    """Outcome summary for one attribution cell."""
+    dec = [r for r in rows if r.get("win") is not None]
+    rets = [r["return_pct"] for r in rows
+            if isinstance(r.get("return_pct"), (int, float))]
+    rs = [r["r_multiple"] for r in rows
+          if isinstance(r.get("r_multiple"), (int, float))]
+    return {
+        "n": len(rows),
+        "hit_rate": round(sum(r["win"] for r in dec) / len(dec), 4) if dec else None,
+        "mean_return_pct": round(sum(rets) / len(rets), 3) if rets else None,
+        "mean_r": round(sum(rs) / len(rs), 3) if rs else None,
+    }
+
+
+def attribution() -> dict:
+    """Outcomes cut by WHICH GENERATOR led the pick.
+
+    This is the point of the whole attribution chain: when picks lose money the
+    answer should name a generator, not shrug at "the model". A generator whose
+    cell is persistently negative is a design decision to revisit; one that is
+    positive earns weight through fit_generator_priors().
+    """
+    from advisor.research import generators as gen
+    rows = [r for r in effective().values() if r.get("status") == "resolved"]
+    by_lead: dict[str, list] = {}
+    by_family: dict[str, list] = {}
+    by_nfam: dict[str, list] = {}
+    by_version: dict[str, list] = {}
+    for r in rows:
+        lead = r.get("lead_bucket") or "unattributed_v1"
+        by_lead.setdefault(lead, []).append(r)
+        by_family.setdefault(gen.family(lead) if r.get("lead_bucket") else "unattributed_v1",
+                             []).append(r)
+        by_nfam.setdefault(str(r.get("n_families") or "?"), []).append(r)
+        by_version.setdefault(str(r.get("scoring_version") or 1), []).append(r)
+    return {
+        "as_of": datetime.now(ET).isoformat(),
+        "n_resolved": len(rows),
+        "overall": _agg(rows),
+        "by_lead_bucket": {k: _agg(v) for k, v in
+                           sorted(by_lead.items(), key=lambda kv: -len(kv[1]))},
+        "by_lead_family": {k: _agg(v) for k, v in
+                           sorted(by_family.items(), key=lambda kv: -len(kv[1]))},
+        "by_n_families": {k: _agg(v) for k, v in sorted(by_nfam.items())},
+        "by_scoring_version": {k: _agg(v) for k, v in sorted(by_version.items())},
+        "note": ("'unattributed_v1' are picks made before per-generator "
+                 "attribution existed; they cannot be assigned a lead generator "
+                 "retrospectively and are reported separately, never pooled."),
+    }
+
+
+def fit_generator_priors(verbose: bool = True) -> dict:
+    """Fit per-generator priors from realized outcomes. Neutral until earned.
+
+    Only picks carrying a lead_bucket count. Below generators.PRIOR_MIN_N a
+    bucket gets exactly 1.0 — no prior at all rather than a weak one — and
+    above it the ratio is shrunk by n/(n+K) and clipped, so no generator can be
+    switched off or doubled on a thin sample.
+    """
+    from advisor.research import generators as gen
+    from advisor.research.picks import PRIORS
+    att = attribution()
+    cells = {k: v for k, v in att["by_lead_bucket"].items()
+             if k in gen.ALL_BUCKETS and v.get("hit_rate") is not None}
+    base = att["overall"].get("hit_rate")
+    priors = gen.fit_priors(cells, base) if base else {}
+    active = {k: v for k, v in priors.items() if v != 1.0}
+    payload = {
+        "schema_version": 1, "fitted_at": datetime.now(ET).isoformat(),
+        "baseline_hit_rate": base,
+        "min_n": gen.PRIOR_MIN_N, "shrinkage_k": gen.PRIOR_K,
+        "clip": [gen.PRIOR_LO, gen.PRIOR_HI],
+        "priors": priors, "n_active": len(active),
+        "evidence": cells,
+        "policy": ("multiplicative on the lead generator's percentile; neutral "
+                   f"below n={gen.PRIOR_MIN_N}; shrunk by n/(n+{gen.PRIOR_K:.0f}) "
+                   "and clipped — a generator can be leaned away from or toward, "
+                   "never switched off or doubled"),
+    }
+    PRIORS.parent.mkdir(parents=True, exist_ok=True)
+    tmp = PRIORS.with_suffix(f".json.tmp.{os.getpid()}")
+    tmp.write_text(json.dumps(payload, indent=2) + "\n")
+    os.replace(tmp, PRIORS)
+    if verbose:
+        print(f"generator priors: baseline hit {base}, {len(active)} active")
+        for b, st in cells.items():
+            print(f"  {b:22} n={st['n']:3d} hit={st['hit_rate']} "
+                  f"ret={st['mean_return_pct']} -> prior {priors.get(b)}")
     return payload
 
 
@@ -275,7 +376,10 @@ def write_record(verbose: bool = True) -> dict:
            "mean_pick_return_pct": round(mean_pick, 2) if mean_pick is not None else None,
            "mean_spy_return_pct": round(mean_bench, 2) if mean_bench is not None else None,
            "vs_spy_pp": vs_spy, "independent_periods": n_ind,
-           "verdict": verdict}
+           "verdict": verdict,
+           # which generator produced which outcome — the record that turns
+           # "picks lost money" into "this generator lost money"
+           "attribution": attribution()}
     out = RESEARCH_DIR / "pick_record.json"
     tmp = out.with_suffix(f".json.tmp.{os.getpid()}")
     tmp.write_text(json.dumps(rec, indent=2, default=str) + "\n")
@@ -288,9 +392,16 @@ def write_record(verbose: bool = True) -> dict:
 
 def main() -> int:
     args = sys.argv[1:]
+    if "--attribution" in args:
+        print(json.dumps(attribution(), indent=2))
+        return 0
+    if "--priors" in args:
+        fit_generator_priors()
+        return 0
     if "--resolve" in args:
         resolve()
-        calibrate()          # refit immediately on new outcomes
+        calibrate()              # refit score->hit mapping on new outcomes
+        fit_generator_priors()   # refit per-generator priors on the same
         write_record()
         return 0
     if "--calibrate" in args:

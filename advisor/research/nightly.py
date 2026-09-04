@@ -104,37 +104,69 @@ def run(subset: int | None = None, ingest: bool = True) -> int:
         except Exception as exc:
             print(f"[nightly] ingest failed (non-fatal — signals already written): {exc}")
 
-        # downstream of ingest: fundamental scores → candidate slate → live IC.
-        # Each guarded — a failure here never blocks the morning.
-        try:
-            from advisor.research.factors_fundamental import (OUT as FOUT,
-                                                              compute_scores,
-                                                              render_top,
-                                                              write_result)
-            f, meta = compute_scores()
-            write_result(render_top(f, meta))
-            print(f"[nightly] fundamental scores → {FOUT.name}")
-        except Exception as exc:
-            print(f"[nightly] fundamental scores failed (non-fatal): {exc}")
-        try:
-            from advisor.research.factors_edgar import build as build_edgar_factors, write as write_edgar_factors
-            edgar_factors = build_edgar_factors()
-            write_edgar_factors(edgar_factors)
-            print(f"[nightly] EDGAR factors: {edgar_factors['n_eligible']} eligible")
-        except Exception as exc:
-            print(f"[nightly] EDGAR factors failed (non-fatal): {exc}")
-        try:
-            from advisor.research.candidates import main as candidates_main
-            candidates_main()
-        except Exception as exc:
-            print(f"[nightly] candidates failed (non-fatal): {exc}")
-        try:
-            from advisor.research.ic_monitor import mature
-            res = mature()
-            print(f"[nightly] ic_monitor: {res['n_matured']} matured "
-                  f"(+{res['n_new_this_run']})")
-        except Exception as exc:
-            print(f"[nightly] ic_monitor failed (non-fatal): {exc}")
+    # Downstream of BOTH signals and (when it ran) the ingest. Deliberately OUTSIDE `if ingest:` —
+    # candidates and picks depend on the FACTOR SHEET, not on the ingest, and leaving them
+    # coupled meant a --no-ingest rebuild refreshed signals while serving yesterday's picks.
+    # Each stage stays guarded — a failure here never blocks the morning.
+    try:
+        from advisor.research.factors_fundamental import (OUT as FOUT,
+                                                          compute_scores,
+                                                          render_top,
+                                                          write_result)
+        f, meta = compute_scores()
+        write_result(render_top(f, meta))
+        print(f"[nightly] fundamental scores → {FOUT.name}")
+    except Exception as exc:
+        print(f"[nightly] fundamental scores failed (non-fatal): {exc}")
+    try:
+        from advisor.research.factors_edgar import build as build_edgar_factors, write as write_edgar_factors
+        edgar_factors = build_edgar_factors()
+        write_edgar_factors(edgar_factors)
+        print(f"[nightly] EDGAR factors: {edgar_factors['n_eligible']} eligible")
+    except Exception as exc:
+        print(f"[nightly] EDGAR factors failed (non-fatal): {exc}")
+    try:
+        from advisor.research.candidates import main as candidates_main
+        candidates_main()
+    except Exception as exc:
+        print(f"[nightly] candidates failed (non-fatal): {exc}")
+    try:
+        from advisor.research.ic_monitor import mature
+        res = mature()
+        print(f"[nightly] ic_monitor: {res['n_matured']} matured "
+              f"(+{res['n_new_this_run']})")
+    except Exception as exc:
+        print(f"[nightly] ic_monitor failed (non-fatal): {exc}")
+    # Resolve BEFORE issuing: today's picks must not be resolvable by
+    # today's own bar, and the refit that follows must inform the scores
+    # we are about to publish rather than lag them by a day.
+    try:
+        from advisor.research.pick_tracker import (
+            calibrate, fit_generator_priors, resolve, write_record)
+        counts = resolve(verbose=False)
+        calibrate(verbose=False)          # score -> hit, per scoring_version
+        fit_generator_priors(verbose=False)
+        write_record(verbose=False)
+        print(f"[nightly] pick_tracker: resolved {counts.get('resolved', 0)}, "
+              f"still open {counts.get('still_open', 0)}")
+    except Exception as exc:
+        print(f"[nightly] pick_tracker failed (non-fatal): {exc}")
+    try:
+        from advisor.research.picks import build as build_picks
+        res = build_picks(top_n=10)
+        if "error" in res:
+            print(f"[nightly] picks: {res['error']}")
+        else:
+            print(f"[nightly] picks: {res['n_picks']} issued "
+                  f"(v{res['scoring_version']}, "
+                  f"{res['n_unpickable']} unpickable) "
+                  f"lead mix {res['lead_bucket_mix']}")
+            if res.get("breadth_warning"):
+                print(f"[nightly] ** {res['breadth_warning']}")
+            for b, why in (res.get("generators_dark") or {}).items():
+                print(f"[nightly]   dark {b}: {why}")
+    except Exception as exc:
+        print(f"[nightly] picks failed (non-fatal): {exc}")
 
     print(f"[nightly] done in {time.time()-t0:.0f}s", flush=True)
     return 0

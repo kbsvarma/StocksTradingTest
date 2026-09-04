@@ -330,13 +330,28 @@ def compute(top: int = 20, score_snapshot_dir: Path | None = None) -> dict:
               "ic_feedback": ic_fb}
     composite = sum(z[k].fillna(0) * wt for k, wt in w.items())
 
-    def sheet(idx) -> list[dict]:
+    # Cross-sectional percentile of the composite. This is the price side's
+    # entry in the common currency every generator now speaks (see
+    # research/generators.py): a percentile taken against the FULL liquid
+    # cross-section, not against the 20 names that happen to be on the sheet.
+    comp_pct = composite.dropna().rank(pct=True)
+    rank_basis = f"composite percentile within {len(comp_pct)} liquid names"
+
+    def sheet(idx, side: str = "long") -> list[dict]:
         out = []
         for t in idx:
+            p = comp_pct.get(t)
+            rank_pct = None
+            if p is not None and pd.notna(p):
+                # oriented BY SIDE: a bottom-of-book name is a strong short,
+                # so its short-side percentile is high.
+                rank_pct = round(float(p) if side == "long" else 1.0 - float(p), 6)
             out.append({
                 "ticker": t, "sector": sectors.get(t, "?"),
                 "px": round(float(px[t]), 2),
                 "score": round(float(composite[t]), 2),
+                "rank_pct": rank_pct,
+                "rank_basis": rank_basis,
                 "attribution": {k: round(float(z.loc[t, k]), 2) if pd.notna(z.loc[t, k]) else None
                                 for k in w},
                 "raw": {"mom_12_1_pct": round(float(f.loc[t, "mom_12_1"]) * 100, 1),
@@ -377,9 +392,9 @@ def compute(top: int = 20, score_snapshot_dir: Path | None = None) -> dict:
         "panel_age_hours": round(age, 1),
         "n_universe": len(stock_cols), "n_liquid": len(liquid),
         "regime": regime,
-        "longs": sheet(ranked.head(top).index),
-        "shorts": sheet(ranked.tail(max(top // 2, 5)).index[::-1]),
-        "shock_candidates": sheet([t for t in ranked.index if t in shocks][:15]),
+        "longs": sheet(ranked.head(top).index, "long"),
+        "shorts": sheet(ranked.tail(max(top // 2, 5)).index[::-1], "short"),
+        "shock_candidates": sheet([t for t in ranked.index if t in shocks][:15], "long"),
         "method": ("sector-neutral winsorized z-scores; regime-conditioned weights "
                    f"({regime['name']}); liquidity floor $10M ADV, px>$5"),
     }

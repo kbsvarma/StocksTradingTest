@@ -16,7 +16,15 @@ PACE_S = 0.15          # per-call spacing inside a worker (~aggregate <10 req/s)
 COOLDOWN_S = 45
 RATELIMIT_COOLDOWN_S = 150     # Yahoo penalty box needs real time, not 45s
 
-_RL_MARKERS = ("ratelimit", "too many requests", "401", "crumb", "unauthorized")
+# Yahoo signals throttling on the estimate endpoints by returning EMPTY
+# payloads rather than a 429/401, so "all estimate endpoints empty" never
+# matched here and the pool retried at 45s/4-workers instead of entering the
+# penalty box. Estimates were 0-row from 2026-07-31 to 2026-09-03 because of
+# it — verified 09-03: the same endpoints return 4-5 rows per call when paced
+# sequentially. Any wording a snapshotter uses for "looks throttled" belongs
+# in this list.
+_RL_MARKERS = ("ratelimit", "too many requests", "401", "crumb", "unauthorized",
+               "throttled", "endpoints empty")
 
 
 def _is_ratelimit(err: str | None) -> bool:

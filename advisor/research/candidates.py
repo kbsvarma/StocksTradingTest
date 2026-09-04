@@ -70,15 +70,31 @@ def repeat_kills() -> list[dict]:
 
 def build() -> dict:
     import pandas as pd
+    from advisor.research import generators as gen
     from advisor.research.factors_fundamental import compute_scores
 
     entries: dict[str, dict] = {}
+    # Per-generator health. A generator that produced nothing must say WHY —
+    # silently emitting an empty bucket is how the fundamental half of this
+    # slate went dark for a month without anyone noticing.
+    health: dict[str, dict] = {b: {"live": False, "n": 0, "reason": "not evaluated"}
+                               for b in CAPS}
 
-    def add(ticker: str, bucket: str, **info) -> None:
+    def mark(bucket: str, n: int, reason: str | None = None) -> None:
+        health[bucket] = {"live": n > 0, "n": n,
+                          "reason": reason if n == 0 else None}
+
+    def add(ticker: str, bucket: str, *, rank_pct=None, metric=None,
+            value=None, rank_basis=None, **info) -> None:
         e = entries.setdefault(ticker, {"ticker": ticker, "buckets": [],
-                                        "detail": {}})
+                                        "detail": {}, "generators": {}})
         if bucket not in e["buckets"]:
             e["buckets"].append(bucket)
+        e["generators"][bucket] = {
+            "rank_pct": rank_pct,
+            "direction": gen.resolve_direction(bucket, value),
+            "metric": metric, "value": value, "rank_basis": rank_basis,
+        }
         e["detail"].update({k: v for k, v in info.items() if v is not None})
 
     # price-factor sheets
@@ -86,86 +102,192 @@ def build() -> dict:
         s = json.loads((RESEARCH_DIR / "signals_latest.json").read_text())
     except Exception:
         s = {}
+    if not s.get("longs") and not s.get("shorts"):
+        for b in ("tactical_long", "tactical_short", "new_entrant"):
+            mark(b, 0, "signals_latest.json missing or empty")
+    n_long = n_short = 0
     for x in s.get("longs", [])[:CAPS["tactical_long"]]:
         add(x["ticker"], "tactical_long", px=x["px"], score=x["score"],
+            rank_pct=x.get("rank_pct"), metric="composite_z", value=x["score"],
+            rank_basis=x.get("rank_basis"),
             sector=x["sector"], mom12=x["raw"]["mom_12_1_pct"])
+        n_long += 1
     for x in s.get("shorts", [])[:CAPS["tactical_short"]]:
         add(x["ticker"], "tactical_short", px=x["px"], score=x["score"],
-            sector=x["sector"])
+            rank_pct=x.get("rank_pct"), metric="composite_z", value=x["score"],
+            rank_basis=x.get("rank_basis"), sector=x["sector"])
+        n_short += 1
+    if s.get("longs") or s.get("shorts"):
+        mark("tactical_long", n_long, "no long names on the factor sheet")
+        mark("tactical_short", n_short, "no short names on the factor sheet")
     n_new = 0
     for side in ("longs", "shorts"):
         for x in s.get(side, []):
             if x.get("new_entrant") and n_new < CAPS["new_entrant"]:
-                add(x["ticker"], "new_entrant", px=x["px"], score=x["score"])
+                add(x["ticker"], "new_entrant", px=x["px"], score=x["score"],
+                    rank_pct=x.get("rank_pct"), metric="composite_z",
+                    value=x["score"], rank_basis=x.get("rank_basis"))
                 n_new += 1
+    if s.get("longs") or s.get("shorts"):
+        mark("new_entrant", n_new, "no rank changes vs the prior sheet")
 
     # Multi-dimensional technical confirmation. This is descriptive and
     # research-only; it enriches/stratifies candidates but never adds a model
     # weight or actionability by itself.
     try:
         technical = json.loads((RESEARCH_DIR / "technical_latest.json").read_text())
-        for row in technical.get("setups", [])[:CAPS["technical_setup"]]:
-            add(row["ticker"], "technical_setup", setup=row.get("setup"),
+        setups = technical.get("setups", [])[:CAPS["technical_setup"]]
+        conf_pop = {r["ticker"]: r.get("state_confidence") for r in setups
+                    if r.get("state_confidence") is not None}
+        for row in setups:
+            add(row["ticker"], "technical_setup",
+                rank_pct=gen.pct_rank(conf_pop, row["ticker"]),
+                metric="state_confidence", value=row.get("state_confidence"),
+                rank_basis=f"state_confidence percentile within {len(conf_pop)} "
+                           "nominated setups (full population not published)",
+                setup=row.get("setup"),
                 rsi14=row.get("rsi14"), adx14=row.get("adx14"),
                 atr14_pct=row.get("atr14_pct"),
                 rs_spy_63d_pct=row.get("rs_spy_63d_pct"),
                 volume_ratio=row.get("volume_ratio_20_120"),
                 drawdown126_pct=row.get("drawdown126_pct"),
                 technical_state_confidence=row.get("state_confidence"))
-    except Exception:
+        mark("technical_setup", len(setups),
+             f"technical gate: {technical.get('gate', 'unavailable')}")
+    except Exception as exc:
         technical = {}
+        mark("technical_setup", 0, f"technical_latest.json unreadable: {exc}")
 
     # Independent filing-derived fundamentals. These do not depend on Yahoo
     # profile data and carry the latest SEC filing date into research.
     try:
         edgar_factors = json.loads((RESEARCH_DIR / "edgar_fundamental_latest.json").read_text())
-        for row in edgar_factors.get("leaders", [])[:CAPS["edgar_quality_growth"]]:
+        leaders = edgar_factors.get("leaders", [])[:CAPS["edgar_quality_growth"]]
+        # Prefer the full scored population when the producer publishes it;
+        # fall back to the nominated leaders and SAY SO in rank_basis.
+        pop_rows = edgar_factors.get("scored") or edgar_factors.get("all") or leaders
+        eg_pop = {r["ticker"]: r.get("edgar_quality_growth") for r in pop_rows
+                  if r.get("edgar_quality_growth") is not None}
+        full = pop_rows is not leaders
+        for row in leaders:
             add(row["ticker"], "edgar_quality_growth",
+                rank_pct=gen.pct_rank(eg_pop, row["ticker"]),
+                metric="edgar_quality_growth",
+                value=row.get("edgar_quality_growth"),
+                rank_basis=f"edgar_quality_growth percentile within {len(eg_pop)} "
+                           + ("scored names" if full else
+                              "nominated leaders (full population not published)"),
                 edgar_quality_growth=row.get("edgar_quality_growth"),
                 edgar_growth=row.get("edgar_growth"),
                 edgar_quality=row.get("edgar_quality"),
                 latest_sec_filing=row.get("latest_filed"))
-    except Exception:
+        mark("edgar_quality_growth", len(leaders),
+             f"edgar gate: {edgar_factors.get('gate', 'unavailable')}")
+    except Exception as exc:
         edgar_factors = {}
+        mark("edgar_quality_growth", 0,
+             f"edgar_fundamental_latest.json unreadable: {exc}")
 
     # fundamental/event generators
     f, fundamental_meta = compute_scores()
-    if len(f):
+    FUND = ("pead_fresh", "revision_leader", "cheap_quality", "squeeze_flag")
+    if not len(f):
+        # Name the upstream cause rather than emitting four silent empties.
+        iq = fundamental_meta.get("input_quality") or {}
+        bad = [k for k, v in iq.items() if not v.get("usable")]
+        why = ("fundamental frame empty — unusable inputs: "
+               + ", ".join(f"{k} ({(iq[k] or {}).get('reason') or 'fetch not ok'})"
+                           for k in bad)) if bad else \
+              "fundamental frame empty — no ingest snapshots on disk"
+        for b in FUND:
+            mark(b, 0, why)
+    else:
         pead = f.dropna(subset=["pead"]) if "pead" in f else f.iloc[0:0]
+        pead_pop = {t: abs(float(v)) for t, v in pead.pead.items()}
+        n = 0
         for t, r in pead.reindex(pead.pead.abs()
                                  .sort_values(ascending=False).index) \
                         .head(CAPS["pead_fresh"]).iterrows():
             if abs(r.pead) >= 1.0:
-                add(t, "pead_fresh", sue=round(float(r.sue), 2),
+                # direction rides the SIGN of the drift; strength rides its size
+                add(t, "pead_fresh", rank_pct=gen.pct_rank(pead_pop, t),
+                    metric="pead", value=round(float(r.pead), 3),
+                    rank_basis=f"|pead| percentile within {len(pead_pop)} "
+                               "names with a recent report",
+                    sue=round(float(r.sue), 2),
                     days_since_report=int(r.days_since_report))
+                n += 1
+        mark("pead_fresh", n, "no name cleared |pead| >= 1.0")
         if "est_revision" in f:
+            rev_pop = {t: float(v) for t, v in f.est_revision.dropna().items()}
+            n = 0
             for t, v in f.est_revision.dropna().sort_values(
                     ascending=False).head(CAPS["revision_leader"]).items():
-                add(t, "revision_leader", est_revision=round(float(v), 2))
+                add(t, "revision_leader", rank_pct=gen.pct_rank(rev_pop, t),
+                    metric="est_revision", value=round(float(v), 2),
+                    rank_basis=f"est_revision percentile within {len(rev_pop)} "
+                               "names with estimate coverage",
+                    est_revision=round(float(v), 2))
+                n += 1
+            mark("revision_leader", n, "no estimate revisions in the frame")
+        else:
+            mark("revision_leader", 0, "est_revision column absent from the frame")
         try:
             vq = f[["value", "quality"]].dropna()
+            val_pop = {t: float(x) for t, x in vq.value.items()}
+            qual_pop = {t: float(x) for t, x in vq.quality.items()}
             v70, q70 = vq.value.quantile(0.7), vq.quality.quantile(0.7)
             joint = vq[(vq.value > v70) & (vq.quality > q70)]
+            n = 0
             for t, r in joint.sort_values("value", ascending=False) \
                              .head(CAPS["cheap_quality"]).iterrows():
-                add(t, "cheap_quality", value=round(float(r.value), 2),
+                # joint claim -> the weaker of the two legs carries it
+                pv, pq = gen.pct_rank(val_pop, t), gen.pct_rank(qual_pop, t)
+                rp = min(pv, pq) if (pv is not None and pq is not None) else None
+                add(t, "cheap_quality", rank_pct=rp,
+                    metric="min(value_pct, quality_pct)",
+                    value=round(float(r.value), 2),
+                    rank_basis=f"weaker leg of value/quality percentiles within "
+                               f"{len(val_pop)} names scored on both",
                     quality=round(float(r.quality), 2))
-        except Exception:
-            pass
+                n += 1
+            mark("cheap_quality", n, "no name in the joint value+quality 70th pctile")
+        except Exception as exc:
+            mark("cheap_quality", 0, f"value/quality unavailable: {exc}")
         if "squeeze_flag" in f:
-            for t in list(f.index[f.squeeze_flag == True])[:CAPS["squeeze_flag"]]:  # noqa: E712
-                add(t, "squeeze_flag",
+            sq = list(f.index[f.squeeze_flag == True])[:CAPS["squeeze_flag"]]  # noqa: E712
+            sq_pop = {t: float(f.loc[t, "short_pct_float"])
+                      for t in f.index[f.squeeze_flag == True]  # noqa: E712
+                      if f.loc[t, "short_pct_float"] == f.loc[t, "short_pct_float"]}
+            for t in sq:
+                add(t, "squeeze_flag", rank_pct=gen.pct_rank(sq_pop, t),
+                    metric="short_pct_float",
+                    value=round(float(f.loc[t, "short_pct_float"]), 1),
+                    rank_basis=f"short interest percentile within {len(sq_pop)} "
+                               "flagged names",
                     short_pct_float=round(float(f.loc[t, "short_pct_float"]), 1))
+            mark("squeeze_flag", len(sq), "no name tripped the squeeze flag")
+        else:
+            mark("squeeze_flag", 0, "squeeze_flag column absent from the frame")
 
     # insider clusters
     try:
         cl = json.loads((RESEARCH_DIR / "positioning" /
                          "insider_clusters.json").read_text())
-        for c in cl.get("clusters", [])[:CAPS["insider_cluster"]]:
-            add(c["ticker"], "insider_cluster", n_buys=c["n_buys"],
-                insider_net_usd=c["net_value_usd"])
-    except Exception:
-        pass
+        clusters = cl.get("clusters", [])
+        cl_pop = {c["ticker"]: c.get("net_value_usd") for c in clusters
+                  if c.get("net_value_usd") is not None}
+        for c in clusters[:CAPS["insider_cluster"]]:
+            add(c["ticker"], "insider_cluster",
+                rank_pct=gen.pct_rank(cl_pop, c["ticker"]),
+                metric="insider_net_usd", value=c["net_value_usd"],
+                rank_basis=f"net insider buying percentile within {len(cl_pop)} "
+                           "detected clusters",
+                n_buys=c["n_buys"], insider_net_usd=c["net_value_usd"])
+        mark("insider_cluster", min(len(clusters), CAPS["insider_cluster"]),
+             "no Form 4 buy clusters detected in the window")
+    except Exception as exc:
+        mark("insider_cluster", 0, f"insider_clusters.json unreadable: {exc}")
 
     # enrich with next-earnings (the kill-test fodder) + dossier existence
     try:
@@ -196,17 +318,42 @@ def build() -> dict:
     except Exception:
         pass
 
+    # Score every candidate in the common currency with NEUTRAL priors. This
+    # orders the slate; picks.py re-scores with fitted priors. A candidate with
+    # no standalone, directional generator gets selection=None and is honestly
+    # marked unpickable rather than being handed a guessed direction.
+    for e in entries.values():
+        e["selection"] = gen.score_candidate(e["generators"])
+        e["pickable"] = e["selection"] is not None
     slate = sorted(entries.values(),
-                   key=lambda e: (-len(e["buckets"]),
+                   key=lambda e: (-(e["selection"] or {}).get("score", -1),
+                                  -len(gen.families(e["buckets"])),
                                   -abs(e["detail"].get("score", 0))))
     signal_scope = {"kind": "liquid_price_cross_section",
                     "n": s.get("n_liquid"), "reference_n": s.get("n_universe"),
                     "market_wide": False}
     fundamental_scope = {"kind": "fundamental_subset", "market_wide": False,
                          **fundamental_meta.get("scope", {})}
+    live = [b for b, h in health.items() if h["live"]]
+    dark = {b: h["reason"] for b, h in health.items() if not h["live"]}
+    fam_live = sorted({gen.family(b) for b in live})
     return {"as_of": datetime.now(ET).isoformat(),
             "n": len(slate),
-            "confluence": [e["ticker"] for e in slate if len(e["buckets"]) >= 2],
+            "n_pickable": sum(1 for e in slate if e["pickable"]),
+            # Cross-family agreement, not "appears on several price lists".
+            "confluence": [e["ticker"] for e in slate
+                           if len(gen.families(e["buckets"])) >= 2],
+            # THE DIAGNOSTIC LINE. If every pick on a given day is momentum,
+            # this says whether that was a judgement or an outage.
+            "generator_health": health,
+            "generators_live": live,
+            "generators_dark": dark,
+            "families_live": fam_live,
+            "breadth_warning": (
+                None if len(fam_live) >= 2 else
+                "SINGLE-FAMILY SLATE — every candidate comes from "
+                f"{fam_live[0] if fam_live else 'no'} evidence; picks this day "
+                "are not diversified and must not be read as such"),
             "slate": slate,
             "generator_scope": {
                 "tactical_long": signal_scope, "tactical_short": signal_scope,
@@ -237,8 +384,17 @@ def main() -> int:
     os.replace(tmp, OUT)
     day = datetime.now(ET).date().isoformat()
     shutil.copy(OUT, RESEARCH_DIR / f"candidates_{day}.json")
-    print(f"[candidates] {res['n']} names, "
-          f"{len(res['confluence'])} multi-bucket: {res['confluence']}")
+    # tolerate a partial result: main()'s contract is an atomic publish, not a
+    # schema (test_candidate_safety stubs build() with a minimal dict).
+    conf = res.get("confluence", [])
+    print(f"[candidates] {res.get('n', 0)} names "
+          f"({res.get('n_pickable', 0)} pickable), "
+          f"{len(conf)} cross-family: {conf}")
+    print(f"[candidates] live: {', '.join(res.get('generators_live') or []) or 'NONE'}")
+    for b, why in (res.get("generators_dark") or {}).items():
+        print(f"[candidates]   dark {b}: {why}")
+    if res.get("breadth_warning"):
+        print(f"[candidates] ** {res['breadth_warning']}")
     print(f"→ {OUT}")
     return 0
 
