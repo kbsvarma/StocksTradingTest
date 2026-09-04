@@ -725,14 +725,21 @@ def ideas_tab():
             tier = c.get("tier", "cluster")
             tier_col = GREEN if tier == "cluster" else AMBER
             n_ins = c.get("n_insiders")
-            who = c.get("top_title") or ", ".join(c.get("buyers_seen", [])[:2])
+            # top_title arrives from pandas and is NaN when the top buyer has
+            # no officer title. NaN is TRUTHY, so `or` never fires and the
+            # panel printed a literal "nan".
+            title = c.get("top_title")
+            if title is None or title != title or str(title).lower() == "nan":
+                title = None
+            who = title or ", ".join(c.get("buyers_seen", [])[:2])
             val = c.get("opportunistic_value_usd") or c.get("net_value_usd") or 0
             plan = c.get("plan_10b5_1_share")
             st.markdown(
                 chip(c.get("ticker", "?"), AMBER)
                 + chip(tier.replace("_", " "), tier_col)
                 + chip(f"{n_ins} insider{'s' if (n_ins or 0) != 1 else ''} · "
-                       f"{c.get('n_buys', 0)} buys", GREEN)
+                       f"{c.get('n_buys', 0)} "
+                       f"buy{'s' if c.get('n_buys', 0) != 1 else ''}", GREEN)
                 + chip(f"${val:,.0f}", GREEN)
                 + (chip(f"{c.get('n_officer_buys', 0)} officer", DIM)
                    if c.get("n_officer_buys") else "")

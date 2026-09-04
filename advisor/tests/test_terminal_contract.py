@@ -114,3 +114,20 @@ def test_cluster_record_matches_the_documented_contract(tmp_path, monkeypatch):
                   "plan_10b5_1_share", "top_title", "buyers_seen"):
         assert field in c, f"producer stopped emitting {field}"
     assert "n_sells" not in c        # sales are excluded by design
+
+
+def test_nan_officer_title_does_not_render_as_the_string_nan():
+    """pandas NaN is TRUTHY, so `c.get("top_title") or fallback` never fired
+    and the panel printed a literal "nan" for buyers with no officer title."""
+    import ast
+
+    source = Path(__file__).resolve().parents[1] / "terminal.py"
+    tree = ast.parse(source.read_text())
+    loop = next(n for n in ast.walk(tree)
+                if isinstance(n, ast.For) and isinstance(n.target, ast.Name)
+                and n.target.id == "c" and "clusters" in ast.dump(n.iter))
+    src = ast.unparse(loop)
+    # a bare `c.get("top_title") or ...` is the bug; there must be an explicit
+    # NaN guard between the read and the fallback
+    assert 'title != title' in src or 'isna' in src, (
+        "top_title must be NaN-guarded before the `or` fallback")
