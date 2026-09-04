@@ -182,13 +182,18 @@ def assess(now: datetime | None = None) -> dict:
     today = now.date().isoformat()
     brief = DATA / "context" / today / "brief.json"
     receipt = _json(DATA / "context" / today / "publication_commit.json")
+    fabrication = _json(DATA / "research" / "fabrication_audit.json")
     publication_attested = False
     if pipe.get("date") == today and pipe.get("state") == "complete" and brief.exists():
         try:
             digest = hashlib.sha256(brief.read_bytes()).hexdigest()
             validation_errors, _ = validate_brief(brief)
+            today_audit = next((row for row in fabrication.get("days", [])
+                                if row.get("date") == today), {})
+            fabrication_clear = (today_audit.get("usable") is True
+                                 and int(today_audit.get("contradicted") or 0) == 0)
             publication_attested = (receipt.get("brief_sha256") == digest
-                                    and not validation_errors)
+                                    and not validation_errors and fabrication_clear)
             if publication_attested:
                 level, detail = "pass", "today's validated publication and commit receipt verified"
             else:

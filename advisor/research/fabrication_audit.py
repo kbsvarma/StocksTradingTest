@@ -192,7 +192,8 @@ def _check(claim_text: str, ticker: str, truth: dict) -> list[dict]:
     return out
 
 
-def audit_date(date: str) -> dict:
+def audit_date(date: str, artifacts: tuple[str, ...] =
+               ("views_draft.json", "brief.json")) -> dict:
     """Audit every model-authored claim in one day's brief."""
     ctx_dir = CONTEXT / date
     if not ctx_dir.is_dir():
@@ -203,7 +204,7 @@ def audit_date(date: str) -> dict:
                 "reason": "context snapshot has no deterministic artifacts"}
 
     items = []
-    for name in ("views_draft.json", "brief.json"):
+    for name in artifacts:
         try:
             doc = json.loads((ctx_dir / name).read_text())
         except (OSError, json.JSONDecodeError):
@@ -233,7 +234,7 @@ def audit_date(date: str) -> dict:
     # Evidence URLs: schema-enforced today, never resolved. Reported so the
     # gap is visible rather than assumed covered.
     n_evidence = sum(len(r.get("evidence") or [])
-                     for name in ("views_draft.json", "brief.json")
+                     for name in artifacts
                      for r in _safe_items(ctx_dir / name))
     return {
         "date": date, "usable": True,
@@ -253,6 +254,17 @@ def audit_date(date: str) -> dict:
                    "claims are excluded from the denominator, not counted as "
                    "fabrication."),
     }
+
+
+def publication_gate(date: str) -> dict:
+    """Raise before publication when frozen context contradicts the draft."""
+    result = audit_date(date, artifacts=("brief.pending.json",))
+    if not result.get("usable"):
+        raise ValueError("pending brief could not be audited against frozen context")
+    if result.get("contradicted"):
+        raise ValueError(f"pending brief contains {result['contradicted']} numeric "
+                         "claim(s) contradicted by frozen context")
+    return result
 
 
 def _safe_items(path):

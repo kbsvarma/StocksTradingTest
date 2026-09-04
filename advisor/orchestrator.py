@@ -494,6 +494,11 @@ def run_pipeline(date: str, skip_preflight: bool = False,
 
     if not dry_run:
         try:
+            # Audit the exact pending artifact before any journal/watchlist/
+            # notification mutation. Numeric contradictions are publication
+            # failures even when they occur only in rejected-idea rationale.
+            from advisor.research.fabrication_audit import publication_gate
+            publication_gate(date)
             receipt = commit_publication(REPO / "advisor" / "data" / "context" / date)
             _heartbeat("commit", 0, 0,
                        f"journaled={len(receipt['journal_ids'])} "

@@ -155,3 +155,18 @@ def test_ground_truth_comes_from_the_context_snapshot(tmp_path, monkeypatch):
     monkeypatch.setattr(fa, "CONTEXT", tmp_path / "context")
     t = fa.ground_truth(ctx)
     assert t["by_ticker"]["DELL"]["score"] == 1.99
+
+
+def test_pending_publication_can_be_audited_exactly(tmp_path, monkeypatch):
+    ctx = tmp_path / "context" / "2026-09-03"
+    ctx.mkdir(parents=True)
+    (ctx / "candidates.json").write_text(json.dumps({"slate": [
+        {"ticker": "CAKE", "detail": {"px": 108.57}}]}))
+    (ctx / "brief.pending.json").write_text(json.dumps({"views": [], "rejected": [
+        {"yf_ticker": "CAKE", "idea": "trading at $95.00"}]}))
+    monkeypatch.setattr(fa, "CONTEXT", tmp_path / "context")
+    result = fa.audit_date("2026-09-03", artifacts=("brief.pending.json",))
+    assert result["contradicted"] == 1
+    assert result["findings"][0]["artifact"] == "brief.pending.json"
+    with pytest.raises(ValueError, match="contradicted"):
+        fa.publication_gate("2026-09-03")
