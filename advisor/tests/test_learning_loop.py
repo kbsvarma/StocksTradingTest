@@ -242,6 +242,18 @@ def test_redteam_check_contract(tmp_path):
     assert not errs
 
 
+def test_redteam_check_rejects_prose_in_structured_sizing(tmp_path):
+    from advisor.research.redteam_check import validate
+    draft = tmp_path / "draft.json"
+    rt = tmp_path / "redteam.json"
+    draft.write_text(json.dumps({"views": [{"instrument": "MTRN"}]}))
+    rt.write_text(json.dumps({"verdicts": [{"instrument": "MTRN",
+        "verdict": "amend", "reason": "resize", "checks": ["risk"],
+        "amended": {"sizing": "reduce to eleven shares"}}]}))
+    errors, _ = validate(rt, draft)
+    assert any("sizing must be an object" in error for error in errors)
+
+
 def test_brief_check_production_fields(tmp_path):
     from advisor.brief_check import validate
     p = tmp_path / "brief.json"

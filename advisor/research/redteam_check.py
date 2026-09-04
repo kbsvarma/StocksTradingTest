@@ -6,6 +6,7 @@ Exit 0 = valid. Zero deps, same pattern as brief_check.
 from __future__ import annotations
 
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -13,6 +14,8 @@ VERDICTS = ("survive", "kill", "amend")
 AMENDABLE = ("stop_px", "target_px", "entry_px_low", "entry_px_high",
              "entry", "target", "stop", "time_stop", "sizing", "p_win",
              "reward_risk", "expected_value_r")
+NUMERIC_AMENDMENTS = {"stop_px", "target_px", "entry_px_low", "entry_px_high",
+                      "p_win", "reward_risk", "expected_value_r"}
 
 
 def validate(redteam_path: Path, draft_path: Path) -> tuple[list[str], list[str]]:
@@ -56,6 +59,14 @@ def validate(redteam_path: Path, draft_path: Path) -> tuple[list[str], list[str]
                     if k not in AMENDABLE:
                         errs.append(f"{tag}: amended field '{k}' not allowed "
                                     f"(allowed: {AMENDABLE})")
+                    value = am[k]
+                    if k == "sizing" and not isinstance(value, dict):
+                        errs.append(f"{tag}: amended sizing must be an object, "
+                                    f"got {type(value).__name__}")
+                    if k in NUMERIC_AMENDMENTS and not (
+                            isinstance(value, (int, float)) and not isinstance(value, bool)
+                            and math.isfinite(value)):
+                        errs.append(f"{tag}: amended {k} must be a finite number")
         if not v.get("checks"):
             warns.append(f"{tag}: no 'checks' detail — thin audit trail")
     missing = drafted - seen

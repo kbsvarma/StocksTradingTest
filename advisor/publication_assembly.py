@@ -35,6 +35,9 @@ def _deep_update(base: dict, patch: dict) -> dict:
 
 def _capital_amended(originals: list, surviving: list) -> bool:
     """Did an amendment change any view's deployed capital?"""
+    if any(not isinstance(v.get("sizing") or {}, dict)
+           for v in [*originals, *surviving]):
+        raise ValueError("every surviving view's sizing must be an object")
     before = {v.get("decision_key"): (v.get("sizing") or {}).get("capital_usd")
               for v in originals}
     return any((v.get("sizing") or {}).get("capital_usd")
