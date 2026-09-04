@@ -707,15 +707,38 @@ def ideas_tab():
     clusters = load_json(RESEARCH / "positioning" / "insider_clusters.json")
     if clusters and clusters.get("clusters"):
         st.markdown("<br>", unsafe_allow_html=True)
-        panel_header("INSIDER BUY CLUSTERS",
-                      f"{clusters['as_of'][:16]} · ≥2 distinct insiders net buying, "
-                      f"{clusters['window_days']}d window · candidate source, not a factor")
+        # Schema note: these now come from PARSED Form 4 documents (SEC
+        # primary, transaction code P only), not from yfinance text-matching.
+        # Sales are excluded entirely — Lakonishok & Lee (2001): the buy side
+        # is the informative one — so there is no sell count to show. Every
+        # field is read with .get() so a future schema change degrades the
+        # panel instead of taking the tab down.
+        n_parsed = clusters.get("n_parsed_transactions")
+        panel_header(
+            "INSIDER OPEN-MARKET BUYING",
+            f"{clusters.get('as_of', '')[:16]} · "
+            f"{clusters.get('window_days', '?')}d window · "
+            f"code P only, sales excluded"
+            + (f" · {n_parsed} parsed transactions" if n_parsed else "")
+            + " · candidate source, not a factor")
         for c in clusters["clusters"][:8]:
+            tier = c.get("tier", "cluster")
+            tier_col = GREEN if tier == "cluster" else AMBER
+            n_ins = c.get("n_insiders")
+            who = c.get("top_title") or ", ".join(c.get("buyers_seen", [])[:2])
+            val = c.get("opportunistic_value_usd") or c.get("net_value_usd") or 0
+            plan = c.get("plan_10b5_1_share")
             st.markdown(
-                chip(c["ticker"], AMBER)
-                + chip(f"{c['n_buys']} buys / {c['n_sells']} sells", GREEN)
-                + chip(f"net ${c['net_value_usd']:,.0f}", GREEN)
-                + chip(", ".join(c.get("buyers_seen", [])[:3]), DIM),
+                chip(c.get("ticker", "?"), AMBER)
+                + chip(tier.replace("_", " "), tier_col)
+                + chip(f"{n_ins} insider{'s' if (n_ins or 0) != 1 else ''} · "
+                       f"{c.get('n_buys', 0)} buys", GREEN)
+                + chip(f"${val:,.0f}", GREEN)
+                + (chip(f"{c.get('n_officer_buys', 0)} officer", DIM)
+                   if c.get("n_officer_buys") else "")
+                + (chip(f"10b5-1 {plan:.0%}", DIM)
+                   if plan else "")
+                + chip(str(who)[:40], DIM),
                 unsafe_allow_html=True)
 
 
