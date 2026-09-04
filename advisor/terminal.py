@@ -299,12 +299,20 @@ def _brief_missing_banner() -> str | None:
     if (CTX / today / "brief.json").exists():
         return None
     reason = "no pipeline heartbeat today"
-    rows = load_jsonl_tail(REPO / "advisor" / "logs" / "pipeline_runs.jsonl", 8)
-    for r in rows:
-        if r.get("ts", "").startswith(today):
-            reason = f"last stage: {r.get('stage')} rc={r.get('rc')} {r.get('note', '')[:60]}"
-            break
-    else:
+    # Show the FAILING stage, not merely the first row of the day, and give
+    # the note room to say what actually happened. Truncating at 60 chars cut
+    # the 2026-09-04 failure to "assembled brief invalid: views[" — which named
+    # neither the field nor the cause, and sent the reader to a hardcoded
+    # "root cause" line that was about macOS TCC on a Linux box.
+    rows = [r for r in load_jsonl_tail(
+        REPO / "advisor" / "logs" / "pipeline_runs.jsonl", 40)
+        if r.get("ts", "").startswith(today)]
+    failed = [r for r in rows if r.get("rc") not in (0, None)]
+    r = (failed[-1] if failed else (rows[-1] if rows else None))
+    if r is not None:
+        reason = (f"{r.get('stage')} rc={r.get('rc')}: "
+                  f"{str(r.get('note') or '')[:220]}")
+    if not rows:
         try:
             for line in reversed((REPO / "advisor" / "logs" / "brief_runs.log")
                                  .read_text().splitlines()[-8:]):
@@ -321,9 +329,8 @@ def _brief_missing_banner() -> str | None:
             f'<span style="color:#e8e6e3; font-size:12px; margin-left:12px; '
             f'font-family:Menlo,monospace;">{esc(reason)}</span>'
             f'<div style="color:{DIM}; font-size:11px; margin-top:4px;">'
-            f'watchdog self-heals after 09:00 · or use GENERATE NEW BRIEF above · '
-            f'root cause: dark-wake TCC denies the 08:15 calendar job '
-            f'(see TUNING_NOTES)</div></div>')
+            f'watchdog self-heals after 09:00 · or use GENERATE NEW BRIEF above'
+            f'</div></div>')
 
 
 @st.fragment(run_every="30s")

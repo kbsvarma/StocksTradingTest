@@ -1,0 +1,102 @@
+{
+  "schema_version": 3,
+  "regime_summary": "Risk-on tape (VIX ~14.1, SPY>200dma) awaiting 8:30ET NFP; Iran/Hormuz keeps an oil war-premium bid and Gov. Waller's conditional-dovish pivot has cracked the hawkish-Fed narrative ahead of the Sept 16 FOMC.",
+  "portfolio_context": {
+    "status": "unavailable",
+    "as_of": "2026-09-04T08:16:12.162556-04:00",
+    "sizing_mode": "illustrative"
+  },
+  "views": [
+    {
+      "decision_key": "2026-09-04:DELL:long",
+      "instrument": "DELL",
+      "yf_ticker": "DELL",
+      "direction": "long",
+      "conviction": "medium",
+      "p_win": 0.56,
+      "probability_basis": {
+        "type": "analyst_judgment",
+        "calibrated": false,
+        "sample_n": 0,
+        "method": "explicit scenario judgment weighing a verified margin-resolution catalyst and broad sell-side target migration against post-rally extension (100% of 52w high, one-day +15.8% gap) and momentum-crash risk"
+      },
+      "recommendation_class": "research_idea",
+      "source": "revision_leader",
+      "thesis_tags": [
+        "catalyst_event",
+        "estimate_revision",
+        "momentum"
+      ],
+      "data_as_of": "2026-09-04T08:30:00-04:00",
+      "thesis": "FIXTURE thesis \u2014 frozen from the 2026-09-04 publication failure.",
+      "entry": "510-518",
+      "entry_px_low": 510.0,
+      "entry_px_high": 518.0,
+      "target": "580",
+      "target_px": 580.0,
+      "stop": "483",
+      "stop_px": 483.0,
+      "time_stop": "2026-10-19",
+      "sizing": {
+        "capital_usd": 10280,
+        "max_loss_usd": 645.7,
+        "portfolio_capital_after_usd": 10280,
+        "quantity": 20,
+        "instrument_type": "equity",
+        "slippage_bps": 25,
+        "method": "vol-targeted shares; stop loss including 25bp slippage; sized well under the 5%-of-budget per-view loss cap given post-earnings realized vol (ATR14 6.3%, RV60ann 79%)"
+      },
+      "reward_risk": 2.129,
+      "expected_value_r": 0.752,
+      "catalyst": {
+        "event": "Q2 FY27 earnings (reported 2026-09-01 after close / 09-02 reaction) resolved the margin-compression bear thesis; ongoing sell-side target migration is the follow-through catalyst",
+        "date": "2026-09-01",
+        "mechanism": "ISG operating margin proof (15.0%, +620bps) reverses the 07-28 crash driver (feared near-zero AI-server margins); sell-side price targets are still catching up to the print, a multi-week re-rating rather than a single-day move"
+      },
+      "disconfirmers": [
+        "ISG margin gain proves a one-quarter mix/timing fluke and compresses again next quarter as memory input costs (DRAM +50-70% 2025-26) keep flowing through COGS",
+        "AI-capex-ROI skepticism (the theme that got HPE and Broadcom sold this same week despite beats) rotates into DELL on any incremental datapoint",
+        "Silver Lake sponsor resumes trimming into the rally (prior blocks sold at $448-460 in July, now well below spot)",
+        "GAAP operating cash flow remains working-capital-constrained (YTD CFO $6.3B vs the $8.1B adjusted-FCF quarter figure) \u2014 a quality-of-earnings gap between adjusted and GAAP cash generation",
+        "a close back below ~483 fills the earnings gap and invalidates the re-rating read"
+      ],
+      "watch": "Whether DELL holds the ~483 gap-fill support on any market-wide pullback (today's NFP print is a near-term risk event); any incremental Silver Lake Form 4 filings as the supply-overhang gauge",
+      "evidence": [
+        {
+          "claim": "Q2 FY27 (reported 2026-09-01): revenue $47.0B +58% YoY, ISG revenue $31.8B +89%, ISG operating margin 15.0% up 620bps despite AI-server mix growth; AI-optimized servers $16.4B in the quarter; adjusted FCF $8.1B +224% YoY, TTM adjusted FCF $18.1B",
+          "url": "https://investors.delltechnologies.com/static-files/a24f97e4-63b2-460d-a4be-44738826e8ce",
+          "retrieved": "2026-09-04T09:10:00-04:00",
+          "primary": true
+        },
+        {
+          "claim": "Post-print target hikes: BofA to $600 (from $505), Citi to $600 (from $515), Goldman Sachs to $570 (from $510), Loop Capital to $600, JPMorgan to $635, Melius Research to $735, all reiterating Buy",
+          "url": "https://www.thestreet.com/investing/stocks/analyst-resets-dell-stock-price-target-after-earnings",
+          "retrieved": "2026-09-04T09:15:00-04:00",
+          "primary": false
+        },
+        {
+          "claim": "Spot $516.39, +4.92% in the past 24h; broad 28-analyst mean target $564.46 (+9.3% from spot)",
+          "url": "https://stockanalysis.com/stocks/dell/",
+          "retrieved": "2026-09-04T09:20:00-04:00",
+          "primary": false
+        }
+      ]
+    }
+  ],
+  "rejected": [
+    {
+      "idea": "ABR short \u2014 tactical_short composite leader (rank_pct 0.999) conflicting with a pead_fresh signal (SUE=3.0 max, 35 days ",
+      "killed_by": "loop A/D: PIT snapshot shows deteriorating forward estimates (EPS 0Q -27.5% 30d, 1 down/0 up revisions) and a negative o",
+      "yf_ticker": "ABR",
+      "direction": "short",
+      "source": "tactical_short"
+    },
+    {
+      "idea": "VSTS long \u2014 revision_leader + insider_cluster confluence (CEO Barber open-market buy, Q3 beat +81.5% surprise on 2026-08",
+      "killed_by": "loop C: dossier's fair_value cross-check (refreshed 2026-07-29) put the scenario mid at $7.53 vs a spot then near $14.92",
+      "yf_ticker": "VSTS",
+      "direction": "long",
+      "source": "revision_leader"
+    }
+  ]
+}

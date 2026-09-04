@@ -1,0 +1,24 @@
+{
+  "as_of": "2026-09-04T10:45:00-04:00",
+  "verdicts": [
+    {
+      "instrument": "DELL",
+      "verdict": "amend",
+      "reason": "Core evidence (ISG margin 15.0%/+620bps, $47.0B rev +58%, $95B backlog, analyst target hikes, 28-analyst $564.46 mean) is independently confirmed and the entry/",
+      "checks": {
+        "evidence_audit": "pass with one correction: primary Dell IR release figures (ISG operating margin 15.0% +620bps, revenue $47.0B +58% YoY, ISG revenue $31.8B +89%, AI-optimized server revenue $16.4B, $95B backlog) independently confirmed via Seeking Alpha/FinanceFeeds coverage (IR PDF itself timed out on direct fetch); analyst target hikes confirmed via CNBC/TheStreet/Yahoo (BofA $600 from $505, Citi $600 from $515, Goldman $570 from $510, Melius $735 from $650); stockanalysis.com 28-analyst mean $564.46 confirmed exactly. FAIL on one sub-claim: 'this week's other AI-hardware beats (HPE, Broadcom) were sold despite beat-and-raise' \u2014 AVGO actually rose after its 9/2 beat-and-raise on custom AI-chip guidance; only the HPE comparison holds (HPE fell >5% despite raising FY26 guidance).",
+        "disconfirmation": "Searched (1) 'DELL bear case skeptic downgrade September 2026 margin AI server memory cost' and (2) 'Silver Lake Dell shares sale Form 4 September 2026', plus a bull/bear target-spread piece. Found: Morgan Stanley (Erik Woodring) carries a stale pre-earnings (8/24) Equal-Weight $434 target citing FY2028 margin-compression risk if the $95B backlog (struck at pre-shock component prices) gets repriced as Nvidia raises AI-server prices >15% on early-2027 shipments \u2014 a specific mechanism the draft's disconfirmers gesture at generically (DRAM COGS) but don't name. Multiple Seeking Alpha authors downgraded DELL to Hold post-print on valuation/margin-of-safety grounds despite the beat. No September-2026 Silver Lake Form 4 found (most recent located sale 2026-07-06, 1,409 shares at $405-419) \u2014 overhang is real but dormant this month, not an active seller-into-strength signal right now.",
+        "quant_cross": "peek: next_earnings 2026-11-27, outside the 2026-10-19 time_stop \u2014 clean. Estimate momentum, 0 sell ratings, and 4.6% short-float all match the draft's citations exactly. fair_value.py: scenario mid $763.83, analyst-anchor scenario A $556.12; entry 510-518 sits below both, not chasing above fair value. Factor sheet model_validation=research_only/discovery_only is correctly disclosed as NOT the basis for p_win (view is catalyst-driven, not factor-rank-driven) \u2014 no violation of the model-promotion rule. candidates.json's own technical block flags DELL's setup as 'mixed' with ADX14=9.25 (very weak trend), which undercuts the draft's 'momentum' thesis tag and isn't mentioned in the draft.",
+        "level_stress": "ATR14%=6.324% of px (candidates.json) -> ~$32.7 in dollar terms; stop distance (entry mid 514 minus stop 483) = $31, ~0.95x ATR, under the 1.5x-ATR noise floor \u2014 and ATR14 is itself inflated by the earnings-gap day sitting inside the 14-day window, so it understates how tight this really is. 483 is a fundamentally-anchored level (earnings gap-fill, the thesis's own stated invalidation), not an arbitrary technical stop, so widening it would hold the position past the author's own bear trigger and would also drag RR below 2 (66/36=1.83 at a $478 stop). Reward:risk recomputed at entry mid = 66/31 = 2.13, EV = 0.56x2.13-0.44 = 0.75 \u2014 both match the draft exactly. Given real whipsaw risk from a stop this tight against RV60ann=79% and today's NFP print, size down instead.",
+        "crowding": "decision_journal.jsonl has only 5 'open' entries, all from June 2026 (SPXW 0DTE test proposal; IWM put spread; USO/XLE/GLD macro WATCH ideas whose time_stops have already lapsed) \u2014 none overlap DELL's sector, factor, or direction. portfolio.json is unavailable (broker source not configured). No crowding concern."
+      },
+      "amended": {
+        "sizing": {
+          "quantity": 15,
+          "capital_usd": 7710,
+          "max_loss_usd": 484.3
+        }
+      }
+    }
+  ]
+}
