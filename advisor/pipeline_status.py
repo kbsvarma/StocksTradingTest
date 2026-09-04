@@ -12,6 +12,25 @@ REPO = Path(__file__).resolve().parent.parent
 STATUS = REPO / "advisor" / "data" / "pipeline_status.json"
 
 
+def quota_retry_at(log_path: Path, now: float) -> float | None:
+    """Read an explicit provider reset timestamp; never guess from prose."""
+    try:
+        lines = log_path.read_text(errors="replace")[-24000:].splitlines()
+    except OSError:
+        return None
+    for line in reversed(lines):
+        try:
+            event = json.loads(line)
+            info = event.get("rate_limit_info") or {}
+            value = info.get("resetsAt")
+            if info.get("status") == "rejected" and isinstance(value, (int, float)) \
+                    and now < value <= now + 7 * 86400:
+                return value
+        except (ValueError, AttributeError, TypeError):
+            continue
+    return None
+
+
 def classify_text(returncode: int, text: str = "") -> str:
     if returncode == 0:
         return "none"
@@ -69,6 +88,9 @@ def write_status(*, run_id: str, date: str, state: str, stage: str,
         # runtime and release gates into an actionable decision.
         "validated_publication_available": state == "complete",
         "actionable_output_allowed": False,
+        "provider_retry_at": (quota_retry_at(
+            REPO / "advisor" / "logs" / f"brief_{date}_{stage}.log",
+            datetime.now(ET).timestamp()) if reason == "provider_quota" else None),
     }
     STATUS.parent.mkdir(parents=True, exist_ok=True)
     tmp = STATUS.with_suffix(f".json.tmp.{os.getpid()}")

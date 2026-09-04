@@ -34,7 +34,8 @@ def test_model_promotion_requires_oos_independence_and_matching_approval(tmp_pat
         "approved": True, "config_hash": "abc123",
     }))
     result = factors.validation_status()
-    assert result["status"] == "production_eligible"
+    assert result["status"] == "research_only"
+    assert any("parity" in reason for reason in result["reasons"])
     assert result["fdr10_survivors"] == ["mom_12_1|oos"]
 
 

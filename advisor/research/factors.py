@@ -59,6 +59,9 @@ def validation_status() -> dict:
     reasons, survivors = [], []
     dsr, validation_as_of, live_n, live_independent = None, None, 0, 0
     config_hash, approved_hash, oos_n = None, None, 0
+    # validate2 currently replays fixed regime weights, not the adaptive live
+    # IC/volatility/redundancy policy. Never promote using that different model.
+    reasons.append("adaptive live scoring has no point-in-time parity validation")
     try:
         v = json.loads((data / "validation2_latest.json").read_text())
         validation_as_of = v.get("as_of")

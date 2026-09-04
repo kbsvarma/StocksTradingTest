@@ -101,6 +101,14 @@ def request_generation(*, actor: str = "portal_operator",
             return row
 
         previous = last_request()
+        pipeline = _read_json(PIPELINE_STATUS)
+        retry_at = pipeline.get("provider_retry_at")
+        if pipeline.get("reason") == "provider_quota" and isinstance(retry_at, (int, float)) \
+                and now.timestamp() < retry_at <= now.timestamp() + 7 * 86400:
+            row = {**base, "outcome": "rejected", "reason": "provider_quota",
+                   "retry_after_s": int(retry_at - now.timestamp()) + 1}
+            _append_audit(row)
+            return row
         if previous.get("requested_at"):
             try:
                 age = (now - datetime.fromisoformat(previous["requested_at"])).total_seconds()

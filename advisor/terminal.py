@@ -1321,6 +1321,9 @@ def picks_tab():
         st.info("No picks yet — run `python -m advisor.research.picks`.")
         return
     src = picks.get("source", "live")
+    if picks.get("n_cost_unverified"):
+        st.warning(f"{picks['n_cost_unverified']} picks have unverified trading costs; "
+                   "economic viability is unknown.")
     panel_header("DAILY RANKED PICKS",
                  f"{picks['as_of'][:16]} · bar {picks.get('price_bar')} · "
                  f"top {picks['n_picks']} of {picks['n_slate']} slate · "
@@ -1338,10 +1341,10 @@ def picks_tab():
     if live or dark:
         chips = "".join(chip(g, BUCKET_COLORS.get(g, GREEN)) for g in live)
         chips += "".join(
-            f'<span title="{str(why).replace(chr(34), "")}" style="display:inline-block; '
+            f'<span title="{esc(why)}" style="display:inline-block; '
             f'border:1px dashed {DIM}; color:{DIM}; border-radius:2px; '
             f'padding:0 5px; margin:1px 3px 1px 0; font-size:10.5px;">'
-            f'{g} · dark</span>' for g, why in dark.items())
+            f'{esc(g)} · dark</span>' for g, why in dark.items())
         st.markdown(
             f'<div style="margin:6px 0;"><span style="color:{DIM}; font-size:11px;">'
             f'GENERATORS LIVE {len(live)}/{len(live)+len(dark)} '
@@ -1349,13 +1352,13 @@ def picks_tab():
             f'</span><br>{chips}</div>', unsafe_allow_html=True)
         for g, why in dark.items():
             st.markdown(f'<span style="color:{DIM}; font-size:10.5px;">'
-                        f'&nbsp;&nbsp;dark <b>{g}</b>: {why}</span>',
+                        f'&nbsp;&nbsp;dark <b>{esc(g)}</b>: {esc(why)}</span>',
                         unsafe_allow_html=True)
     if picks.get("breadth_warning"):
         st.markdown(
             f'<div style="border:1px solid {RED}; background:#1a1113; padding:6px 10px; '
             f'border-radius:3px; margin:6px 0; color:{RED}; font-size:11.5px;">'
-            f'⚠ {picks["breadth_warning"]}</div>', unsafe_allow_html=True)
+            f'⚠ {esc(picks["breadth_warning"])}</div>', unsafe_allow_html=True)
     if picks.get("n_unpickable"):
         st.markdown(chip(f'{picks["n_unpickable"]} slate names not pickable '
                          f'(no standalone directional generator)', DIM),
@@ -1366,13 +1369,14 @@ def picks_tab():
     if rec.get("resolved"):
         edge = rec.get("vs_spy_pp")
         col = RED if (edge is not None and edge < 0) else GREEN
+        edge_text = f"{edge:+.1f}pp" if isinstance(edge, (int, float)) else "unavailable"
         st.markdown(
             f'<div style="border:1px solid {col}; background:#11151a; padding:8px 12px; '
             f'border-radius:3px; margin:6px 0;">'
             f'<span style="color:{col}; font-weight:700;">LANE PERFORMANCE — '
             f'{rec["resolved"]} resolved picks</span> '
             f'<span style="color:#c9c7c2; font-size:12px;">hit {rec.get("hit_rate")} · '
-            f'avg {rec.get("avg_r")}R · vs SPY {edge:+.1f}pp over {rec.get("horizon_td")}td'
+            f'avg {rec.get("avg_r")}R · vs SPY {edge_text} over {rec.get("horizon_td")}td'
             f'</span><br><span style="color:{DIM}; font-size:11px;">'
             f'{rec.get("verdict","")}</span></div>', unsafe_allow_html=True)
 
@@ -1632,6 +1636,9 @@ def brief_controls() -> None:
                          icon="⏱️")
             elif result["reason"] == "already_running":
                 st.toast("A brief pipeline is already running.", icon="🔒")
+            elif result["reason"] == "provider_quota":
+                st.toast(f"Provider capacity unavailable — retry in {result['retry_after_s']}s.",
+                         icon="⏱️")
             else:
                 st.toast("Brief request failed safely; inspect the operator audit.",
                          icon="⚠️")

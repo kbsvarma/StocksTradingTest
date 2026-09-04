@@ -16,6 +16,7 @@ ARCHIVE="~/.advisor_releases/advisor-$STAMP.tgz"
 MANIFEST_BACKUP="~/.advisor_releases/deployment_manifest-$STAMP.json"
 STAGE="~/.advisor_staging/$RELEASE_ID"
 MUTATED=0
+REMOTE_HASH=$(ssh "$HOST" "cd '$REMOTE' && .venv/bin/python -m advisor.release_integrity")
 
 rollback() {
   rc=$?
@@ -54,10 +55,22 @@ ssh "$HOST" "cd $STAGE && PYTHONPATH=$STAGE \
   PYTHONPATH=$STAGE '$REMOTE/.venv/bin/python' -m compileall -q advisor"
 
 echo "[deploy] promote code without touching runtime data or logs"
-MUTATED=1
-ssh "$HOST" "rsync -a --delete-delay --delay-updates \
+# Refuse a concurrent editor/deployer rather than overwriting unseen work.
+CURRENT_REMOTE_HASH=$(ssh "$HOST" "cd '$REMOTE' && .venv/bin/python -m advisor.release_integrity")
+if [[ "$CURRENT_REMOTE_HASH" != "$REMOTE_HASH" ]]; then
+  echo "[deploy] remote code changed during staging; refusing promotion" >&2
+  exit 1
+fi
+if ssh "$HOST" "flock -n -E 75 /tmp/advisor-pipeline.lock rsync -a --delete-delay --delay-updates \
   --exclude data/ --exclude logs/ --exclude '__pycache__/' --exclude '.pytest_cache/' \
-  $STAGE/advisor/ '$REMOTE/advisor/'"
+  $STAGE/advisor/ '$REMOTE/advisor/'"; then
+  MUTATED=1
+else
+  rc=$?
+  # Lock contention changed nothing: do not roll back an active pipeline.
+  if [[ "$rc" != 75 ]]; then MUTATED=1; fi
+  false
+fi
 
 echo "[deploy] install hardened systemd units"
 ssh "$HOST" "rsync -a $STAGE/advisor/ops/systemd/ ~/.config/systemd/user/"
@@ -78,6 +91,12 @@ ssh "$HOST" "systemctl --user daemon-reload && \
     sleep 0.5; \
   done; exit 1"
 
+# Verify content, not merely that the HTTP listener exists.
+DEPLOYED_HASH=$(ssh "$HOST" "cd '$REMOTE' && .venv/bin/python -m advisor.release_integrity")
+if [[ "$DEPLOYED_HASH" != "$TREE_HASH" ]]; then
+  echo "[deploy] deployed content differs from tested release" >&2
+  false
+fi
 MUTATED=0
 trap - ERR
 ssh "$HOST" "rm -rf $STAGE"

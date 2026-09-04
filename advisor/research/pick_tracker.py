@@ -84,8 +84,18 @@ def resolve(verbose: bool = True) -> dict:
             continue
         horizon = int(p.get("horizon_td", 21))
         window = slice(start, start + horizon)
-        h, l, c = high[t].iloc[window], low[t].iloc[window], close[t].iloc[window]
-        h, l, c = h.dropna(), l.dropna(), c.dropna()
+        # Preserve identical dates across OHLC. Independent dropna shifts bars
+        # against one another and can manufacture target/stop hits.
+        if t not in high.columns or t not in low.columns:
+            counts["skipped"] += 1
+            continue
+        bars = pd.concat({"h": high[t].reindex(idx).iloc[window],
+                          "l": low[t].reindex(idx).iloc[window],
+                          "c": close[t].iloc[window]}, axis=1)
+        if bars.isna().any().any():
+            counts["skipped"] += 1
+            continue
+        h, l, c = bars["h"], bars["l"], bars["c"]
         if not len(c):
             counts["still_open"] += 1
             continue
@@ -136,9 +146,13 @@ def resolve(verbose: bool = True) -> dict:
         # benchmark the same window so excess return needs no later join
         bench_ret = None
         if "SPY" in close.columns:
-            b = close["SPY"].iloc[window].dropna()
-            if len(b) >= 2:
-                bench_ret = round((float(b.iloc[-1]) / float(b.iloc[0]) - 1) * 100, 2)
+            # Same reference date and actual exit date as the pick, not a
+            # truncated first-forward-bar to full-horizon comparison.
+            end = start + (hit_day if hit_day is not None else len(c) - 1)
+            if start > 0 and end < len(idx):
+                base, final = close["SPY"].iloc[start - 1], close["SPY"].iloc[end]
+                if pd.notna(base) and pd.notna(final) and base > 0:
+                    bench_ret = round((float(final) / float(base) - 1) * 100, 2)
 
         row = {"type": "resolution", "id": pid, "ticker": t,
                "ts": datetime.now(ET).isoformat(),
@@ -188,14 +202,17 @@ def calibrate(verbose: bool = True) -> dict:
     scored = [r for r in effective().values()
               if r.get("status") == "resolved" and r.get("calibration_eligible")
               and r.get("win") is not None and r.get("score") is not None
-              and int(r.get("scoring_version") or 1) == SCORING_VERSION]
+              and int(r.get("scoring_version") or 1) == SCORING_VERSION
+              and r.get("source") == "live"]
     n = len(scored)
     raw = []
     for lo, hi in BUCKETS:
         sub = [r for r in scored if lo <= r["score"] < hi]
         if len(sub) >= MIN_BUCKET_N:
             raw.append((lo, hi, sum(r["win"] for r in sub) / len(sub), len(sub)))
-    usable = n >= MIN_N_CALIBRATE and len(raw) >= 2
+    # In-sample hit rates are descriptive, not validated probabilities.
+    # Require a separate time-held-out evaluation before promotion.
+    usable = False
     smoothed = _pav(raw) if usable else raw
     buckets = [{"lo": lo, "hi": hi, "hit_rate": round(rate, 4), "n": bn}
                for lo, hi, rate, bn in smoothed]
@@ -203,13 +220,14 @@ def calibrate(verbose: bool = True) -> dict:
                "scoring_version": SCORING_VERSION,
                "n_resolved": n, "min_n": MIN_N_CALIBRATE,
                "usable": usable, "buckets": buckets,
+               "probability_gate": "blocked_pending_time_held_out_validation",
                "method": ("empirical hit rate per score bucket, "
                           "pool-adjacent-violators monotone smoothing; "
                           f"fitted ONLY on scoring_version={SCORING_VERSION} picks"),
                "gate": (f"auto-applied at n>={MIN_N_CALIBRATE}"
                         if usable else
-                        f"NOT applied — {n}/{MIN_N_CALIBRATE} resolved "
-                        f"scoring_version={SCORING_VERSION} picks")}
+                        f"NOT applied — {n} live resolved v{SCORING_VERSION} picks; "
+                        "independent time-held-out probability validation required")}
     payload["calibration_id"] = hashlib.sha256(
         json.dumps(buckets, sort_keys=True).encode()).hexdigest()
     tmp = CALIBRATION.with_suffix(f".json.tmp.{os.getpid()}")
@@ -302,18 +320,10 @@ def baselines(n_boot: int = 2000, seed: int = 7) -> dict:
     unstopped = [r["unstopped_return_pct"] for r in rows
                  if isinstance(r.get("unstopped_return_pct"), (int, float))]
 
-    # Random-draw control: same slate, same day, same count — score ignored.
-    # Grouped by issue date so the draw faces the identical opportunity set.
-    by_day: dict[str, list] = {}
-    for r in rows:
-        by_day.setdefault(str(r.get("date") or r.get("ts", ""))[:10], []).append(
-            r["return_pct"])
-    rng = random.Random(seed)
+    # The selected-pick ledger is not the opportunity set. Bootstrapping it
+    # cannot measure selection lift; withhold this comparator until complete
+    # point-in-time candidate outcomes (including unselected names) exist.
     draws = []
-    for _ in range(n_boot):
-        tot = [rng.choice(v) for v in by_day.values() if v]
-        if tot:
-            draws.append(sum(tot) / len(tot))
     mean_pick = sum(picked) / len(picked)
     rand_mean = (sum(draws) / len(draws)) if draws else None
     # one-sided: how often does a random draw beat the actual ranking?
@@ -327,22 +337,24 @@ def baselines(n_boot: int = 2000, seed: int = 7) -> dict:
         "n_resolved": len(rows),
         "picks_mean_return_pct": round(mean_pick, 3),
         "spy_mean_return_pct": _m(bench),
-        "vs_spy_pp": (round(mean_pick - _m(bench), 3) if bench else None),
-        "equal_weight_slate_pct": round(mean_pick, 3),
+        "vs_spy_pp": (_m([r["return_pct"] - r["bench_return_pct"] for r in rows
+                          if isinstance(r.get("bench_return_pct"), (int, float))])),
+        "n_spy_paired": len(bench),
+        "equal_weight_slate_pct": None,
+        "ranking_comparison_usable": False,
         "random_draw_mean_pct": (round(rand_mean, 3) if rand_mean is not None
                                  else None),
         "vs_random_draw_pp": (round(mean_pick - rand_mean, 3)
                               if rand_mean is not None else None),
         "p_random_beats_ranking": (round(beat, 4) if beat is not None else None),
         "unstopped_mean_return_pct": _m(unstopped),
-        "stop_cost_pp": (round(mean_pick - _m(unstopped), 3)
-                         if unstopped else None),
+        "stop_cost_pp": _m([r["return_pct"] - r["unstopped_return_pct"] for r in rows
+                            if isinstance(r.get("unstopped_return_pct"), (int, float))]),
+        "n_stop_paired": len(unstopped),
         "n_random_draws": len(draws),
-        "note": ("equal_weight_slate equals the pick mean because every "
-                 "published pick is equal-weighted today; it separates once "
-                 "sizing exists. p_random_beats_ranking is the share of "
-                 f"{len(draws)} same-day random draws that matched or beat the "
-                 "ranked selection — high values mean the ranking adds nothing."),
+        "note": ("Ranking comparison unavailable: full issue-time opportunity-set "
+                 "outcomes are required; selected-pick resampling is not a valid "
+                 "control. SPY and stop comparisons use matched observations only."),
     }
 
 
@@ -355,15 +367,26 @@ def fit_generator_priors(verbose: bool = True) -> dict:
     switched off or doubled on a thin sample.
     """
     from advisor.research import generators as gen
-    from advisor.research.picks import PRIORS
-    att = attribution()
-    cells = {k: v for k, v in att["by_lead_bucket"].items()
-             if k in gen.ALL_BUCKETS and v.get("hit_rate") is not None}
-    base = att["overall"].get("hit_rate")
+    from advisor.research.picks import PRIORS, SCORING_VERSION
+    # Learning may use only observed live outcomes from this scoring policy.
+    # Attribution's all-history totals intentionally include historical replays
+    # for reporting, but they must never feed back into the live policy.
+    live = [r for r in effective().values() if r.get("source") == "live"
+            and r.get("status") == "resolved" and r.get("win") is not None
+            and r.get("scoring_version") == SCORING_VERSION]
+    grouped = {}
+    for row in live:
+        bucket = row.get("lead_bucket")
+        if bucket in gen.ALL_BUCKETS:
+            grouped.setdefault(bucket, []).append(row)
+    cells = {key: _agg(rows) for key, rows in grouped.items()}
+    base = _agg(live).get("hit_rate")
     priors = gen.fit_priors(cells, base) if base else {}
     active = {k: v for k, v in priors.items() if v != 1.0}
     payload = {
         "schema_version": 1, "fitted_at": datetime.now(ET).isoformat(),
+        "source": "live", "scoring_version": SCORING_VERSION,
+        "n_live_resolved": len(live),
         "baseline_hit_rate": base,
         "min_n": gen.PRIOR_MIN_N, "shrinkage_k": gen.PRIOR_K,
         "clip": [gen.PRIOR_LO, gen.PRIOR_HI],

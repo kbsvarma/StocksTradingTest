@@ -181,7 +181,8 @@ def test_fitted_priors_change_the_ordering(env):
     assert [p["ticker"] for p in picks.build(top_n=10)["picks"]] == ["MOMO", "FUND"]
 
     (env / "generator_priors.json").write_text(json.dumps(
-        {"priors": {"tactical_long": 0.7, "revision_leader": 1.3}}))
+        {"source": "live", "scoring_version": picks.SCORING_VERSION,
+         "priors": {"tactical_long": 0.7, "revision_leader": 1.3}}))
     _slate(env, slate)
     res = picks.build(top_n=10)
     assert [p["ticker"] for p in res["picks"]] == ["FUND", "MOMO"]
@@ -219,7 +220,8 @@ def test_matching_version_calibration_is_applied(env):
     _slate(env, [_entry("FUND", {
         "revision_leader": {"rank_pct": 0.98, "direction": "long"}})])
     p = picks.build(top_n=10)["picks"][0]
-    assert p["confidence_pct"] == 31.0
+    assert p["confidence_pct"] is None
+    assert "time-held-out" in p["confidence_basis"]
 
 
 # --- portfolio construction -----------------------------------------------
@@ -310,3 +312,16 @@ def test_cost_model_failure_does_not_empty_the_slate(env, monkeypatch):
         "revision_leader": {"rank_pct": 0.98, "direction": "long"}})])
     res = picks.build(top_n=10)
     assert res["n_picks"] == 1               # fails OPEN
+    assert res["n_cost_unverified"] == 1
+    assert res["picks"][0]["research_warnings"]
+
+
+def test_opportunity_archive_includes_unselected_candidates(env, monkeypatch):
+    monkeypatch.setattr(picks, "MAX_PAIR_CORR", 1.01)
+    _slate(env, [_entry(t, {"tactical_long": {"rank_pct": .9, "direction": "long"}})
+                 for t in ["MOMO", "FUND"]])
+    result = picks.build(top_n=1)
+    archive = json.loads((env / "pick_opportunities" /
+                         f"{result['opportunity_set_id']}.json").read_text())
+    assert len(archive["eligible"]) == 2
+    assert len(archive["selected"]) == 1

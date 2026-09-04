@@ -364,18 +364,17 @@ def run_pipeline(date: str, skip_preflight: bool = False,
         return 0
     run_id = f"{date}-{uuid.uuid4().hex[:8]}"
     started_at = datetime.now(ET).isoformat()
-    write_status(run_id=run_id, date=date, state="starting", stage="pipeline",
-                 started_at=started_at)
     lock = open(PIPELINE_LOCK, "w")
     try:
         fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
         _heartbeat("pipeline", 75, 0, f"already running; refused date={date}")
-        write_status(run_id=run_id, date=date, state="failed", stage="pipeline",
-                     returncode=75, reason="already_running",
-                     note="single-flight lock refused duplicate run",
-                     started_at=started_at)
+        # The existing lock owner owns status. A rejected duplicate must never
+        # replace its running state with a fictitious failure.
+        lock.close()
         return 75
+    write_status(run_id=run_id, date=date, state="starting", stage="pipeline",
+                 started_at=started_at)
     t_start = time.time()
     # Refuse to pay twice for the same answer. `--force` overrides.
     fp = input_fingerprint()
@@ -417,6 +416,13 @@ def run_pipeline(date: str, skip_preflight: bool = False,
                  started_at=started_at)
     mrc = run_stage("macro", date, dry_run)
     if mrc != 0:
+        reason = classify_failure(mrc, LOGS / f"brief_{date}_macro.log")
+        if reason in {"provider_quota", "provider_auth"}:
+            write_status(run_id=run_id, date=date, state="failed", stage="macro",
+                         returncode=mrc, reason=reason,
+                         note="provider unavailable; downstream calls suppressed",
+                         started_at=started_at)
+            return mrc
         _heartbeat("macro", mrc, 0,
                    "failed — synthesis will do its own overnight scan")
 

@@ -49,8 +49,9 @@ def test_random_draw_detects_a_ranking_that_adds_nothing(ledger):
     p-value must be 1.0: the ranking cannot possibly be adding anything."""
     ledger([_res(f"T{i}", 2.0, day="2026-08-01") for i in range(10)])
     b = pt.baselines(n_boot=300)
-    assert b["vs_random_draw_pp"] == pytest.approx(0.0, abs=1e-9)
-    assert b["p_random_beats_ranking"] == pytest.approx(1.0)
+    assert b["vs_random_draw_pp"] is None
+    assert b["p_random_beats_ranking"] is None
+    assert b["ranking_comparison_usable"] is False
 
 
 def test_random_draw_control_uses_the_same_day_opportunity_set(ledger):
@@ -58,7 +59,7 @@ def test_random_draw_control_uses_the_same_day_opportunity_set(ledger):
             _res("C", -10.0, day="2026-08-02"), _res("D", -10.0, day="2026-08-02")])
     b = pt.baselines(n_boot=200)
     # every draw takes one from each day -> mean is always 0
-    assert b["random_draw_mean_pct"] == pytest.approx(0.0, abs=1e-9)
+    assert b["random_draw_mean_pct"] is None
 
 
 def test_stop_cost_separates_exit_policy_from_signal(ledger):

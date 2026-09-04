@@ -183,17 +183,23 @@ def screen(ticker: str, ref_px: float, target: float, cost: dict | None) -> dict
     than a silent drop.
     """
     if not cost:
-        return {"ok": True, "reason": "no cost estimate available",
+        return {"ok": True, "verified": False, "reason": "no cost estimate available",
                 "target_bps": None, "round_trip_bps": None, "ratio": None}
     try:
         target_bps = abs(target - ref_px) / ref_px * 1e4
     except (TypeError, ZeroDivisionError):
-        return {"ok": True, "reason": "target/price unusable", "ratio": None}
+        return {"ok": False, "verified": False, "reason": "target/price unusable", "ratio": None}
     rt = cost.get("round_trip_bps") or 0.0
+    import math
+    if not isinstance(rt, (int, float)) or not math.isfinite(rt) or rt <= 0 \
+            or not math.isfinite(target_bps):
+        return {"ok": False, "verified": False,
+                "reason": "invalid cost or price estimate", "ratio": None}
     ratio = round(target_bps / rt, 2) if rt else None
     ok = ratio is None or ratio >= MIN_TARGET_TO_COST
     return {
         "ok": bool(ok),
+        "verified": True,
         "target_bps": round(target_bps, 1),
         "round_trip_bps": rt,
         "ratio": ratio,

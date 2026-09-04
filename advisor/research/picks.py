@@ -85,10 +85,13 @@ def _priors() -> dict:
         doc = json.loads(PRIORS.read_text())
     except (OSError, json.JSONDecodeError):
         return {}
+    if doc.get("source") != "live" or doc.get("scoring_version") != SCORING_VERSION:
+        return {}
     return doc.get("priors") or {}
 
 
-def apply_calibration(score: float, cal: dict | None = None) -> tuple:
+def apply_calibration(score: float, cal: dict | None = None,
+                      scoring_version: int = SCORING_VERSION) -> tuple:
     """(confidence_pct, basis). None until an empirical mapping exists.
 
     A calibration maps SCORE -> hit rate, so it is only valid for the scoring
@@ -100,9 +103,11 @@ def apply_calibration(score: float, cal: dict | None = None) -> tuple:
     if not cal.get("usable") or not buckets:
         return None, "uncalibrated"
     cal_version = int(cal.get("scoring_version") or 1)
-    if cal_version != SCORING_VERSION:
+    if cal_version != scoring_version:
         return None, (f"uncalibrated — calibration was fitted on scoring_version="
-                      f"{cal_version}, picks are v{SCORING_VERSION}")
+                      f"{cal_version}, picks are v{scoring_version}")
+    if cal.get("probability_gate") != "time_held_out_validated":
+        return None, "uncalibrated — independent time-held-out validation required"
     for b in buckets:
         if b["lo"] <= score <= b["hi"]:
             return round(b["hit_rate"] * 100, 1), (
@@ -136,6 +141,8 @@ def build(top_n: int = 10, as_of: str | None = None,
                             low[low.index <= cut])
         if len(close) < ATR_WINDOW + 5:
             return {"error": f"insufficient panel history at {as_of}"}
+    if close.empty or high.empty or low.empty:
+        return {"error": "price panels unavailable"}
     atr = _atr(high, low, close)
     last_close, last_atr = close.iloc[-1], atr.iloc[-1]
     as_of_bar = str(close.index[-1].date())
@@ -146,7 +153,8 @@ def build(top_n: int = 10, as_of: str | None = None,
 
     # Signal strength in the common currency. Explicitly NOT a probability.
     from advisor.research import generators as gen
-    priors = _priors()
+    # Current learned outcomes did not exist at historical issue time.
+    priors = {} if as_of or source != "live" else _priors()
     has_v2 = any(e.get("generators") for e in entries)
     version = SCORING_VERSION if has_v2 else 1
     comps = [abs(e.get("detail", {}).get("score", 0) or 0) for e in entries]
@@ -172,7 +180,9 @@ def build(top_n: int = 10, as_of: str | None = None,
         if t not in close.columns:
             continue
         px, a = last_close.get(t), last_atr.get(t)
+        import math
         if not (isinstance(px, (int, float)) and isinstance(a, (int, float))) \
+                or not (math.isfinite(px) and math.isfinite(a)) \
                 or not (px > 0 and a > 0):
             continue
         buckets = e.get("buckets", [])
@@ -188,7 +198,13 @@ def build(top_n: int = 10, as_of: str | None = None,
         sign = -1 if direction == "short" else 1
         stop = px - sign * STOP_ATR * a
         target = px + sign * TARGET_ATR * a
-        conf_pct, basis = apply_calibration(score)
+        if min(stop, target, px - 0.25 * a) <= 0:
+            unpickable.append({"ticker": t, "buckets": buckets,
+                               "reason": "non-positive mechanical price level"})
+            continue
+        conf_pct, basis = (apply_calibration(score, scoring_version=version)
+                           if source == "live" and not as_of else
+                           (None, "uncalibrated — historical replay"))
         scored.append({
             "ticker": t, "direction": direction,
             "score": score,
@@ -227,8 +243,11 @@ def build(top_n: int = 10, as_of: str | None = None,
         c = cost_map.get(s["ticker"])
         s["cost"] = c
         verdict = (cost_mod.screen(s["ticker"], s["ref_px"], s["target"], c)
-                   if cost_mod else {"ok": True, "reason": "cost model unavailable"})
+                   if cost_mod else {"ok": True, "verified": False,
+                                     "reason": "cost model unavailable"})
         s["cost_screen"] = verdict
+        s["research_warnings"] = ([] if verdict.get("verified") else
+                                  ["Trading costs are unverified; economic viability unknown"])
         (priced if verdict["ok"] else uneconomic).append(s)
     for s in uneconomic:
         print(f"[picks] uneconomic {s['ticker']}: {s['cost_screen']['reason']}")
@@ -241,6 +260,7 @@ def build(top_n: int = 10, as_of: str | None = None,
         "source": source,
         "price_bar": as_of_bar,
         "n_slate": len(entries), "n_picks": len(picks),
+        "n_cost_unverified": sum(not p["cost_screen"].get("verified") for p in picks),
         "n_unpickable": len(unpickable), "unpickable": unpickable[:20],
         "n_uneconomic": len(uneconomic),
         "uneconomic": [{"ticker": s["ticker"],
@@ -276,6 +296,22 @@ def build(top_n: int = 10, as_of: str | None = None,
     }
     RESEARCH_DIR.mkdir(parents=True, exist_ok=True)
     day = as_of or now.date().isoformat()
+    # Preserve the full pre-selection opportunity set, not just winners.
+    # Future ranking controls must evaluate these same issue-time levels.
+    import hashlib
+    opportunity = {"schema_version": 1, "issued_at": now.isoformat(),
+                   "source": source, "price_bar": as_of_bar,
+                   "scoring_version": version, "constraints": result["constraints"],
+                   "selected": [p["ticker"] for p in picks],
+                   "eligible": priced, "unpickable": unpickable,
+                   "uneconomic": uneconomic}
+    encoded = json.dumps(opportunity, sort_keys=True, allow_nan=False)
+    opportunity_id = hashlib.sha256(encoded.encode()).hexdigest()
+    archive = RESEARCH_DIR / "pick_opportunities"
+    archive.mkdir(parents=True, exist_ok=True)
+    with (archive / f"{opportunity_id}.json").open("x") as handle:
+        handle.write(encoded + "\n")
+    result["opportunity_set_id"] = opportunity_id
     if source == "live":
         tmp = OUT.with_suffix(f".json.tmp.{os.getpid()}")
         tmp.write_text(json.dumps(result, indent=2) + "\n")
