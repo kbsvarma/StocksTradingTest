@@ -48,8 +48,10 @@ def test_same_day_snapshot_retry_preserves_prior_successes(tmp_path, monkeypatch
     prior = pd.DataFrame([{"ticker": "AAA", "snapshot_ts": f"{day}T06:00:00-04:00",
                            "marketCap": 1}])
     prior.to_parquet(tmp_path / f"dt={day}.parquet", index=False)
+    # **kwargs: this test is about merge preservation, not the pool's call
+    # signature — it must not break when build() tunes pacing/retries.
     monkeypatch.setattr("advisor.research.ingest._pool.run_pool",
-                        lambda fn, tickers, workers: (
+                        lambda fn, tickers, **kw: (
                             [{"ticker": "BBB", "marketCap": 2}], 0, []))
     result = snapshots.build(["BBB"], tmp_path)
     stored = pd.read_parquet(tmp_path / f"dt={day}.parquet")

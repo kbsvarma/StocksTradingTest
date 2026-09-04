@@ -15,6 +15,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 PACE_S = 0.15          # per-call spacing inside a worker (~aggregate <10 req/s)
 COOLDOWN_S = 45
 RATELIMIT_COOLDOWN_S = 150     # Yahoo penalty box needs real time, not 45s
+RATELIMIT_SHARE = 0.10         # share of an attempt that must look throttled
+                               # before we treat it as the penalty box
 
 # Yahoo signals throttling on the estimate endpoints by returning EMPTY
 # payloads rather than a 429/401, so "all estimate endpoints empty" never
@@ -58,16 +60,24 @@ def run_pool(fn, tickers: list[str], workers: int = 4,
         # rate-limited → crawl on the retry; otherwise gentle backoff
         w = 2 if (round_no and hit_ratelimit) else max(2, workers - 2 * round_no)
         failed: list[str] = []
+        n_attempted, n_marked = len(pending), 0
         with ThreadPoolExecutor(max_workers=w) as pool:
             futs = {pool.submit(_wrapped, t): t for t in pending}
             for fut in as_completed(futs):
                 t, row, err = fut.result()
                 if row is None:
                     failed.append(t)
-                    hit_ratelimit = hit_ratelimit or _is_ratelimit(err)
+                    n_marked += _is_ratelimit(err)
                     if err and len(err_samples) < 5:
                         err_samples.append(f"{t}: {err}")
                 else:
                     rows.append(row)
+        # Throttling is a POPULATION symptom. A delisted ticker raises the same
+        # "near-empty — throttled?" as a real throttle (yfinance swallows the
+        # 404), so a single dead symbol used to buy the whole next round a
+        # 150s penalty cooldown. Require a meaningful share of the attempt to
+        # have failed before treating it as the penalty box.
+        if n_attempted and n_marked / n_attempted >= RATELIMIT_SHARE:
+            hit_ratelimit = True
         pending = failed
     return rows, len(pending), err_samples

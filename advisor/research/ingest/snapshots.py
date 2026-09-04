@@ -78,11 +78,22 @@ def _one(ticker: str) -> dict:
     return row
 
 
-def build(tickers: list[str], out_dir, workers: int = 4) -> dict:
+def build(tickers: list[str], out_dir, workers: int = 3,
+          pace_s: float = 0.4) -> dict:
+    """One .info call per ticker, paced to stay out of the penalty box.
+
+    2026-09-03: a full-universe pass at the 4-worker/0.15s default returned
+    904/1516 with 612 `YFRateLimitError`s. Coverage is a UNION over
+    INFO_COVERAGE_DAYS, so a throttled night does not just lose that night —
+    it holds the union under the 80% gate and silently disables every
+    .info-derived generator (cheap_quality among them). Slower and complete
+    beats faster and two-thirds.
+    """
     import pandas as pd
     from advisor.research.ingest._pool import run_pool
     t0 = datetime.now(ET)
-    rows, errors, err_samples = run_pool(_one, tickers, workers=workers)
+    rows, errors, err_samples = run_pool(_one, tickers, workers=workers,
+                                         pace_s=pace_s, retry_rounds=2)
     day = t0.date().isoformat()
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"dt={day}.parquet"
