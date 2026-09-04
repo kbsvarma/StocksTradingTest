@@ -18,6 +18,21 @@ def _object(path: Path) -> dict:
     return value
 
 
+def _deep_update(base: dict, patch: dict) -> dict:
+    """Recursively merge `patch` into `base`, preserving untouched nested keys.
+
+    A red-team amendment is a PATCH, not a replacement: it carries only the
+    fields it wants to change. Nested blocks (sizing, probability_basis,
+    catalyst) must therefore be merged key-by-key, not overwritten.
+    """
+    for key, value in patch.items():
+        if isinstance(value, dict) and isinstance(base.get(key), dict):
+            _deep_update(base[key], copy.deepcopy(value))
+        else:
+            base[key] = copy.deepcopy(value)
+    return base
+
+
 def assemble(context_dir: Path) -> Path:
     context_dir = Path(context_dir)
     draft_path = context_dir / "views_draft.json"
@@ -44,7 +59,21 @@ def assemble(context_dir: Path) -> Path:
             })
             continue
         if verdict["verdict"] == "amend":
-            view.update(copy.deepcopy(verdict["amended"]))
+            # DEEP merge. `dict.update` is shallow, so an amendment that
+            # touches part of a nested block replaces the WHOLE block and
+            # silently destroys the untouched keys.
+            #
+            # 2026-09-04: the red-team amended DELL's sizing to cut quantity
+            # 20 -> 15 and sent {quantity, capital_usd, max_loss_usd}. The
+            # shallow update dropped portfolio_capital_after_usd,
+            # instrument_type, slippage_bps and method, and the production
+            # contract then rejected the assembled brief — killing a
+            # publication that had already cost $4.19 in model time, over a
+            # merge bug rather than anything wrong with the idea.
+            #
+            # The red-team is right to send only what it changed; the merge
+            # has to honour that.
+            _deep_update(view, verdict["amended"])
             view["thesis"] = (str(view.get("thesis") or "")
                               + f" [red-team amended: {verdict['reason']}]")
         surviving.append(view)
