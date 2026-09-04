@@ -32,7 +32,7 @@ def test_request_queues_systemd_service_and_audits(tmp_path, monkeypatch):
                                 runner=_runner(["inactive\n"], calls))
     assert row["outcome"] == "accepted"
     assert calls[-1] == ["systemctl", "--user", "start", "--no-block",
-                         "advisor-brief.service"]
+                         "advisor-brief-on-demand.service"]
     assert json.loads(bc.AUDIT.read_text().splitlines()[-1])["actor"] == "portal_operator"
 
 

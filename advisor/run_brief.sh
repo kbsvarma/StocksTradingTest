@@ -84,7 +84,9 @@ cp advisor/data/research/edgar_fundamental_latest.json "$CTX/edgar_fundamental.j
 # single-session fallback, failure Telegram alerts, and post-publish
 # `journal --stamp-ref`. Stage logs: advisor/logs/brief_$DATE_<stage>.log
 export CLAUDE_BIN="$CLAUDE"
-"$PY" -m advisor.orchestrator >> "advisor/logs/brief_$DATE.log" 2>&1
+ORCHESTRATOR_ARGS=()
+if [[ "${ADVISOR_FORCE:-0}" == "1" ]]; then ORCHESTRATOR_ARGS+=(--force); fi
+"$PY" -m advisor.orchestrator "${ORCHESTRATOR_ARGS[@]}" >> "advisor/logs/brief_$DATE.log" 2>&1
 RC=$?
 echo "[run_brief] $(date) exit=$RC" >> advisor/logs/brief_runs.log
 exit $RC

@@ -122,14 +122,15 @@ def request_generation(*, actor: str = "portal_operator",
 
         try:
             active = runner(["systemctl", "--user", "is-active",
-                             "advisor-brief.service"], capture_output=True,
+                             "advisor-brief.service", "advisor-brief-on-demand.service"], capture_output=True,
                             text=True, timeout=10)
-            if active.stdout.strip() in {"active", "activating", "reloading"}:
+            if any(line.strip() in {"active", "activating", "reloading"}
+                   for line in active.stdout.splitlines()):
                 row = {**base, "outcome": "rejected", "reason": "already_running"}
                 _append_audit(row)
                 return row
             result = runner(["systemctl", "--user", "start", "--no-block",
-                             "advisor-brief.service"], capture_output=True,
+                             "advisor-brief-on-demand.service"], capture_output=True,
                             text=True, timeout=15)
         except Exception as exc:
             row = {**base, "outcome": "failed", "reason": "control_error",
