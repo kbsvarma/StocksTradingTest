@@ -170,3 +170,18 @@ def test_pending_publication_can_be_audited_exactly(tmp_path, monkeypatch):
     assert result["findings"][0]["artifact"] == "brief.pending.json"
     with pytest.raises(ValueError, match="contradicted"):
         fa.publication_gate("2026-09-03")
+
+
+def test_draft_validator_surfaces_context_contradiction(tmp_path, monkeypatch):
+    import advisor.brief_check as check
+    ctx = tmp_path / "context" / "2026-09-03"
+    ctx.mkdir(parents=True)
+    (ctx / "candidates.json").write_text(json.dumps({"slate": [
+        {"ticker": "CAKE", "detail": {"px": 108.57}}]}))
+    draft = ctx / "views_draft.json"
+    draft.write_text(json.dumps({"schema_version": 2, "views": [],
+        "rejected": [{"yf_ticker": "CAKE", "idea": "trading at $95.00",
+                      "killed_by": "valuation"}]}))
+    monkeypatch.setattr(fa, "CONTEXT", tmp_path / "context")
+    errors, _ = check.validate(draft)
+    assert any("numeric claim contradicted" in error for error in errors)

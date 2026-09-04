@@ -386,6 +386,21 @@ def validate(path: Path) -> tuple[list[str], list[str]]:
             warns.append("v2 brief without 'calendar' block")
         if "watchlist" not in d:
             warns.append("v2 brief without 'watchlist' block")
+    # Give synthesis immediate deterministic feedback while it can still fix
+    # the draft. Waiting until commit wastes the red-team call and guarantees
+    # a late failed publication for a contradiction visible at draft time.
+    try:
+        from advisor.research import fabrication_audit as fa
+        date = path.parent.name
+        expected = (fa.CONTEXT / date).resolve()
+        if path.parent.resolve() == expected and path.name == "views_draft.json":
+            audit = fa.audit_date(date, artifacts=(path.name,))
+            for finding in audit.get("findings", []):
+                errs.append("numeric claim contradicted by frozen context: "
+                            f"{finding.get('ticker')} {finding.get('kind')} "
+                            f"quoted={finding.get('quoted')} actual={finding.get('actual')}")
+    except Exception as exc:
+        errs.append(f"numeric-claim audit failed: {type(exc).__name__}")
     return errs, warns
 
 
