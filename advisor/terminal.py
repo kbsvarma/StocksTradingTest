@@ -1289,8 +1289,40 @@ def picks_tab():
                  f"top {picks['n_picks']} of {picks['n_slate']} slate · "
                  f"horizon {picks.get('horizon_trading_days')}td · {src}")
     st.markdown(chip(picks.get("class", "research_idea"), AMBER)
+                + chip(f'scoring v{picks.get("scoring_version", "?")}', AMBER)
                 + chip("levels: deterministic ATR — no model-authored numbers", DIM),
                 unsafe_allow_html=True)
+
+    # WHAT WAS ACTUALLY GENERATING TODAY. Without this a momentum-only day
+    # looks identical to a day when the fundamental feeds were down — which is
+    # exactly how .info coverage sat under its gate for a month unnoticed.
+    live = picks.get("generators_live") or []
+    dark = picks.get("generators_dark") or {}
+    if live or dark:
+        chips = "".join(chip(g, BUCKET_COLORS.get(g, GREEN)) for g in live)
+        chips += "".join(
+            f'<span title="{str(why).replace(chr(34), "")}" style="display:inline-block; '
+            f'border:1px dashed {DIM}; color:{DIM}; border-radius:2px; '
+            f'padding:0 5px; margin:1px 3px 1px 0; font-size:10.5px;">'
+            f'{g} · dark</span>' for g, why in dark.items())
+        st.markdown(
+            f'<div style="margin:6px 0;"><span style="color:{DIM}; font-size:11px;">'
+            f'GENERATORS LIVE {len(live)}/{len(live)+len(dark)} '
+            f'· families {", ".join(picks.get("families_live") or []) or "none"}'
+            f'</span><br>{chips}</div>', unsafe_allow_html=True)
+        for g, why in dark.items():
+            st.markdown(f'<span style="color:{DIM}; font-size:10.5px;">'
+                        f'&nbsp;&nbsp;dark <b>{g}</b>: {why}</span>',
+                        unsafe_allow_html=True)
+    if picks.get("breadth_warning"):
+        st.markdown(
+            f'<div style="border:1px solid {RED}; background:#1a1113; padding:6px 10px; '
+            f'border-radius:3px; margin:6px 0; color:{RED}; font-size:11.5px;">'
+            f'⚠ {picks["breadth_warning"]}</div>', unsafe_allow_html=True)
+    if picks.get("n_unpickable"):
+        st.markdown(chip(f'{picks["n_unpickable"]} slate names not pickable '
+                         f'(no standalone directional generator)', DIM),
+                    unsafe_allow_html=True)
 
     # The record panel is not decoration: it is the honest health of this lane.
     rec = load_json(RESEARCH / "pick_record.json") or {}
@@ -1312,7 +1344,24 @@ def picks_tab():
         conf = (f'{p["confidence_pct"]}%' if p.get("confidence_pct") is not None
                 else f'{p["score"]:.2f} <span style="color:{DIM};">uncal</span>')
         dcol = GREEN if p["direction"] == "long" else RED
-        gens = "".join(chip(g, BUCKET_COLORS.get(g, DIM)) for g in p.get("generators", [])[:3])
+        # WHY this name: the generator that won, at what cross-sectional
+        # percentile, over how many INDEPENDENT families. A losing pick has to
+        # point at a generator, not at "the model".
+        sel = p.get("selection") or {}
+        lead, rp = sel.get("lead_bucket"), sel.get("lead_rank_pct")
+        nfam = sel.get("n_families")
+        if lead:
+            why = (f'<span style="color:{BUCKET_COLORS.get(lead, AMBER)}; '
+                   f'font-weight:700;">{lead}</span>'
+                   + (f'<span style="color:#e8e6e3;"> @{rp:.3f}</span>'
+                      if isinstance(rp, (int, float)) else "")
+                   + f'<span style="color:{GREEN if (nfam or 0) > 1 else DIM};'
+                     f' font-size:10.5px;"> · {nfam}fam</span>')
+        else:
+            why = f'<span style="color:{DIM};">legacy v1</span>'
+        support = "".join(chip(g, BUCKET_COLORS.get(g, DIM))
+                          for g in p.get("generators", []) if g != lead)
+        gens = why + ("<br>" + support if support else "")
         rows.append(
             f'<tr style="border-bottom:1px solid #161b22;">'
             f'<td style="padding:3px 8px; color:{DIM};">{i}</td>'
@@ -1329,7 +1378,7 @@ def picks_tab():
     head = "".join(f'<th style="padding:4px 8px; color:{AMBER}; text-align:left; '
                    f'border-bottom:1px solid {PANEL_BORDER};">{h}</th>'
                    for h in ("#", "TKR", "DIR", "CONF", "ENTRY", "STOP", "TARGET",
-                             "ATR20", "GENERATORS", "NEXT EPS"))
+                             "ATR20", "WHY ▸ LEAD @PCTILE · SUPPORT", "NEXT EPS"))
     st.markdown(
         f'<div style="background:{PANEL_BG}; border:1px solid {PANEL_BORDER}; '
         f'border-radius:2px; padding:4px; overflow-x:auto;">'
@@ -1369,6 +1418,50 @@ def record_tab():
         chip(f"{k}: {v}", {"target": GREEN, "stop": RED}.get(k, DIM))
         for k, v in sorted(by.items(), key=lambda kv: -kv[1])),
         unsafe_allow_html=True)
+
+    # ATTRIBUTION — the point of the whole chain. "Picks lost money" is not
+    # actionable; "this generator lost money at this sample size" is.
+    att = rec.get("attribution") or {}
+    by_lead = att.get("by_lead_bucket") or {}
+    if by_lead:
+        st.markdown("<br>", unsafe_allow_html=True)
+        panel_header("ATTRIBUTION — OUTCOME BY LEAD GENERATOR",
+                     "which generator chose the pick that won or lost")
+        rows = []
+        for g, s in by_lead.items():
+            hit, ret, mr = (s.get("hit_rate"), s.get("mean_return_pct"),
+                            s.get("mean_r"))
+            col = DIM if ret is None else (GREEN if ret > 0 else RED)
+            legacy = g == "unattributed_v1"
+            hit_s = "—" if hit is None else f"{hit * 100:.1f}%"
+            ret_s = "—" if ret is None else f"{ret:+.2f}%"
+            mr_s = "—" if mr is None else f"{mr:+.2f}R"
+            rows.append(
+                f'<tr style="border-bottom:1px solid #161b22;">'
+                f'<td style="padding:3px 10px; color:{DIM if legacy else AMBER}; '
+                f'font-weight:700;">{g}</td>'
+                f'<td style="padding:3px 10px; color:{DIM};">n={s.get("n")}</td>'
+                f'<td style="padding:3px 10px; color:#e8e6e3;">{hit_s}</td>'
+                f'<td style="padding:3px 10px; color:{col}; '
+                f'font-weight:700;">{ret_s}</td>'
+                f'<td style="padding:3px 10px; color:{DIM};">{mr_s}</td></tr>')
+        head = "".join(f'<th style="padding:4px 10px; color:{AMBER}; text-align:left; '
+                       f'border-bottom:1px solid {PANEL_BORDER};">{h}</th>'
+                       for h in ("LEAD GENERATOR", "N", "HIT", "MEAN RET", "MEAN R"))
+        st.markdown(
+            f'<div style="background:{PANEL_BG}; border:1px solid {PANEL_BORDER}; '
+            f'padding:6px; border-radius:2px; overflow-x:auto;">'
+            f'<table style="font-size:12px; font-family:Menlo,monospace; '
+            f'border-collapse:collapse; width:100%;"><thead><tr>{head}</tr></thead>'
+            f'<tbody>{"".join(rows)}</tbody></table></div>', unsafe_allow_html=True)
+        if att.get("note"):
+            st.markdown(chip(att["note"], DIM), unsafe_allow_html=True)
+        pri = load_json(RESEARCH / "generator_priors.json") or {}
+        active = {k: v for k, v in (pri.get("priors") or {}).items() if v != 1.0}
+        st.markdown(
+            chip(f'priors active: {active or "none — all neutral"}',
+                 AMBER if active else DIM)
+            + chip(pri.get("policy", ""), DIM), unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     panel_header("CALIBRATION", cal.get("gate", ""))
