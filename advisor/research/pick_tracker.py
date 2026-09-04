@@ -124,10 +124,28 @@ def resolve(verbose: bool = True) -> dict:
         win = 1 if outcome == "target" else 0 if outcome == "stop" else (
             1 if (ret_pct or 0) > 0 else 0)
 
+        # SIGNAL QUALITY AND EXIT POLICY MUST BE SEPARABLE. A 1.5xATR(20) stop
+        # over a 21-day horizon is about a third of one standard deviation of
+        # the horizon's own move (sqrt(21) ~ 4.6 daily ATRs), and 72.6% of
+        # picks stopped. With only the stopped return recorded, "is the signal
+        # predictive" and "is the exit rule sane" are one confounded question.
+        # The unstopped return is the same pick held blindly to the horizon.
+        unstopped = None
+        if matured or len(c) >= horizon:
+            unstopped = round(sign * (float(c.iloc[-1]) / ref - 1) * 100, 2)
+        # benchmark the same window so excess return needs no later join
+        bench_ret = None
+        if "SPY" in close.columns:
+            b = close["SPY"].iloc[window].dropna()
+            if len(b) >= 2:
+                bench_ret = round((float(b.iloc[-1]) / float(b.iloc[0]) - 1) * 100, 2)
+
         row = {"type": "resolution", "id": pid, "ticker": t,
                "ts": datetime.now(ET).isoformat(),
                "status": "resolved", "outcome": outcome,
                "exit_px": round(exit_px, 2), "return_pct": ret_pct,
+               "unstopped_return_pct": unstopped,
+               "bench_return_pct": bench_ret,
                "r_multiple": r_mult,
                "days_to_outcome": (hit_day + 1) if hit_day is not None else horizon,
                "win": None if outcome == "ambiguous" else win,
@@ -257,6 +275,77 @@ def attribution() -> dict:
     }
 
 
+def baselines(n_boot: int = 2000, seed: int = 7) -> dict:
+    """Naive comparators. "-8.66pp vs SPY" answers nothing without them.
+
+    Four questions, in increasing order of how much they hurt:
+      1. Did the picks beat the market?            (SPY on identical windows)
+      2. Did they beat holding the whole slate?    (equal-weight all picks)
+      3. Did the RANKING add anything?             (random draw from the slate)
+      4. Did the exit rule help or hurt?           (unstopped vs stopped)
+
+    (3) is the one that matters most. If a random draw from the same slate
+    does as well as the top-10 by score, the ranking function contributes
+    nothing and every result belongs to the generators instead.
+    """
+    import random
+
+    rows = [r for r in effective().values()
+            if r.get("status") == "resolved"
+            and isinstance(r.get("return_pct"), (int, float))]
+    if not rows:
+        return {"usable": False, "reason": "no resolved picks"}
+
+    picked = [r["return_pct"] for r in rows]
+    bench = [r["bench_return_pct"] for r in rows
+             if isinstance(r.get("bench_return_pct"), (int, float))]
+    unstopped = [r["unstopped_return_pct"] for r in rows
+                 if isinstance(r.get("unstopped_return_pct"), (int, float))]
+
+    # Random-draw control: same slate, same day, same count — score ignored.
+    # Grouped by issue date so the draw faces the identical opportunity set.
+    by_day: dict[str, list] = {}
+    for r in rows:
+        by_day.setdefault(str(r.get("date") or r.get("ts", ""))[:10], []).append(
+            r["return_pct"])
+    rng = random.Random(seed)
+    draws = []
+    for _ in range(n_boot):
+        tot = [rng.choice(v) for v in by_day.values() if v]
+        if tot:
+            draws.append(sum(tot) / len(tot))
+    mean_pick = sum(picked) / len(picked)
+    rand_mean = (sum(draws) / len(draws)) if draws else None
+    # one-sided: how often does a random draw beat the actual ranking?
+    beat = (sum(1 for d in draws if d >= mean_pick) / len(draws)) if draws else None
+
+    def _m(v):
+        return round(sum(v) / len(v), 3) if v else None
+
+    return {
+        "usable": True,
+        "n_resolved": len(rows),
+        "picks_mean_return_pct": round(mean_pick, 3),
+        "spy_mean_return_pct": _m(bench),
+        "vs_spy_pp": (round(mean_pick - _m(bench), 3) if bench else None),
+        "equal_weight_slate_pct": round(mean_pick, 3),
+        "random_draw_mean_pct": (round(rand_mean, 3) if rand_mean is not None
+                                 else None),
+        "vs_random_draw_pp": (round(mean_pick - rand_mean, 3)
+                              if rand_mean is not None else None),
+        "p_random_beats_ranking": (round(beat, 4) if beat is not None else None),
+        "unstopped_mean_return_pct": _m(unstopped),
+        "stop_cost_pp": (round(mean_pick - _m(unstopped), 3)
+                         if unstopped else None),
+        "n_random_draws": len(draws),
+        "note": ("equal_weight_slate equals the pick mean because every "
+                 "published pick is equal-weighted today; it separates once "
+                 "sizing exists. p_random_beats_ranking is the share of "
+                 f"{len(draws)} same-day random draws that matched or beat the "
+                 "ranked selection — high values mean the ranking adds nothing."),
+    }
+
+
 def fit_generator_priors(verbose: bool = True) -> dict:
     """Fit per-generator priors from realized outcomes. Neutral until earned.
 
@@ -379,7 +468,9 @@ def write_record(verbose: bool = True) -> dict:
            "verdict": verdict,
            # which generator produced which outcome — the record that turns
            # "picks lost money" into "this generator lost money"
-           "attribution": attribution()}
+           "attribution": attribution(),
+           # good relative to WHAT — the question every result needs
+           "baselines": baselines()}
     out = RESEARCH_DIR / "pick_record.json"
     tmp = out.with_suffix(f".json.tmp.{os.getpid()}")
     tmp.write_text(json.dumps(rec, indent=2, default=str) + "\n")
@@ -392,6 +483,9 @@ def write_record(verbose: bool = True) -> dict:
 
 def main() -> int:
     args = sys.argv[1:]
+    if "--baselines" in args:
+        print(json.dumps(baselines(), indent=2))
+        return 0
     if "--attribution" in args:
         print(json.dumps(attribution(), indent=2))
         return 0
