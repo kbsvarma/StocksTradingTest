@@ -47,6 +47,31 @@ def _z(s):
     return ((s - s.mean()) / (s.std() or 1)).clip(-3, 3)
 
 
+COVERAGE_TILT_FLOOR = 0.40   # a heavily-covered name is damped, never muted
+
+
+def coverage_tilt(coverage, floor: float = COVERAGE_TILT_FLOOR):
+    """Damp signals on heavily-covered names (Hong, Lim & Stein 2000, JF).
+
+    Momentum and post-earnings drift concentrate in LOW-coverage stocks,
+    consistent with slow information diffusion — the same earnings surprise in
+    a 2-analyst name is a different signal from one in a 30-analyst name.
+
+    Expressed as a DAMPENING of well-covered names, capped at 1.0, rather than
+    a boost of thinly-covered ones. Identical relative ordering, but it keeps
+    the house rule that no layer ever amplifies a signal on thin evidence.
+
+    Returns a Series in [floor, 1.0], or None when coverage is too sparse to
+    establish a median.
+    """
+    if coverage is None or coverage.notna().sum() < 50:
+        return None
+    med = float(coverage.median())
+    if not med or med != med:
+        return None
+    return ((med / coverage.clip(lower=1)) ** 0.5).clip(floor, 1.0)
+
+
 def _latest(dirpath):
     files = sorted(dirpath.glob("dt=*.parquet"))
     return files[-1] if files else None
@@ -105,6 +130,9 @@ def compute_scores():
                         + _z(info.grossMargins)
                         + _z(info.earningsGrowth.where(info.earningsGrowth.abs() < 3))) / 3
         f["short_pct_float"] = info.shortPercentOfFloat * 100
+        # Analyst coverage — present for ~1,498 of 1,515 names and, until now,
+        # never used for anything.
+        f["analyst_coverage"] = info.numberOfAnalystOpinions
 
     if est_p is not None and estimates_usable:
         est = pd.read_parquet(est_p).set_index("ticker")
@@ -118,6 +146,27 @@ def compute_scores():
         ago = est.get("epstrend_0y_30daysAgo", pd.Series(dtype=float)).reindex(f.index)
         delta = (cur / ago - 1).where(ago.abs() > 0.01).clip(-1, 1)
         f["est_revision"] = (_z(breadth) + _z(delta)) / 2
+        # COVERAGE CONDITIONING (Hong, Lim & Stein 2000, JF): momentum and
+        # post-earnings drift are strongest in LOW-coverage names, consistent
+        # with slow information diffusion — the same surprise in a 2-analyst
+        # name is a different signal from one in a 30-analyst name.
+        #
+        # Applied as a DAMPENING of well-covered names, capped at 1.0, rather
+        # than a boost of thinly-covered ones. Same relative ordering, but it
+        # keeps the house rule that no layer ever amplifies a signal.
+        tilt = coverage_tilt(f.get("analyst_coverage"))
+        if tilt is not None:
+            med = float(f["analyst_coverage"].median())
+            f["coverage_tilt"] = tilt
+            f["est_revision"] = f["est_revision"] * tilt.reindex(f.index).fillna(1.0)
+            meta["coverage_tilt"] = {
+                "median_coverage": med,
+                "floor": COVERAGE_TILT_FLOOR,
+                "applied_to": ["est_revision", "pead"],
+                "basis": ("Hong, Lim & Stein (2000): drift concentrates in "
+                          "low-coverage names; well-covered names are damped, "
+                          "never amplified"),
+            }
         f["squeeze_flag"] = (f.get("short_pct_float", 0) > 15) & (breadth > 0)
 
     if hist_p.exists() and len(f):
@@ -146,6 +195,8 @@ def compute_scores():
             pead[t] = max(-3, min(3, zval)) * decay
         f["sue"] = pd.Series(sue).reindex(f.index)
         f["pead"] = pd.Series(pead).reindex(f.index)
+        if "coverage_tilt" in f:
+            f["pead"] = f["pead"] * f["coverage_tilt"].fillna(1.0)
         f["days_since_report"] = pd.Series(days_since).reindex(f.index)
 
     meta["scope"]["n_ranked"] = len(f)

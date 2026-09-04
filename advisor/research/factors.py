@@ -162,6 +162,80 @@ def ic_weight_multipliers() -> dict:
             "ic_as_of": live.get("as_of")}
 
 
+REDUNDANCY_FLOOR = 0.35      # a duplicated factor is shrunk, never removed
+
+
+def redundancy_multipliers(z, active: list) -> dict:
+    """De-weight factors whose information the others already carry.
+
+    The composite sums correlated z-scores. `mom_12_1`, `prox_52w` and
+    `resid_mom` are three ways of measuring trend, so a six-factor composite
+    can carry far less independent information than its factor count suggests
+    — and nobody could say how much, because the correlation was never
+    reported.
+
+      Green, Hand & Zhang (2017) (RFS) — of ~94 documented return
+      characteristics only about a dozen carry independent information once
+      tested jointly.
+      Novy-Marx (2016) — naive combination of multiple signals inflates
+      apparent significance; the correct null is far more demanding.
+
+    Method: for each active factor, R^2 from regressing it on the others,
+    which the correlation-matrix inverse gives directly (VIF_i = (C^-1)_ii =
+    1/(1-R^2_i)). The multiplier is sqrt(1 - R^2_i) = 1/sqrt(VIF_i) — the
+    share of the factor that is its OWN, in standard-deviation units.
+
+    Symmetric (Lowdin) orthogonalization was the alternative. It was rejected
+    because it rewrites what each factor MEANS, which would silently break
+    every `attribution` figure on the factor sheet. This changes only how much
+    independent information a factor is credited with, and leaves its z-score
+    interpretable.
+
+    De-weight only, floored, and inert when the matrix is singular.
+    """
+    import numpy as np
+    import pandas as pd
+
+    cols = [c for c in active if c in z.columns]
+    if len(cols) < 2:
+        return {"enabled": False, "reason": "fewer than 2 active factors",
+                "multipliers": {}}
+    sub = z[cols].dropna()
+    if len(sub) < 50:
+        return {"enabled": False, "reason": f"only {len(sub)} complete rows",
+                "multipliers": {}}
+    corr = sub.corr()
+    try:
+        inv = np.linalg.inv(corr.values)
+    except np.linalg.LinAlgError:
+        return {"enabled": False, "reason": "singular correlation matrix",
+                "multipliers": {}}
+    mults, detail = {}, {}
+    for i, c in enumerate(cols):
+        vif = float(inv[i, i])
+        if not np.isfinite(vif) or vif < 1.0:
+            mults[c] = 1.0
+            detail[c] = {"vif": None, "r2": None, "mult": 1.0}
+            continue
+        r2 = 1.0 - 1.0 / vif
+        mults[c] = round(max(REDUNDANCY_FLOOR, (1.0 - r2) ** 0.5), 4)
+        detail[c] = {"vif": round(vif, 3), "r2": round(r2, 4),
+                     "mult": mults[c]}
+    # participation ratio of the eigenvalues: how many INDEPENDENT factors
+    # this correlated set is actually worth
+    eig = np.linalg.eigvalsh(corr.values)
+    eig = eig[eig > 0]
+    eff = float((eig.sum() ** 2) / (eig ** 2).sum()) if len(eig) else None
+    return {"enabled": True, "multipliers": mults, "detail": detail,
+            "n_active": len(cols),
+            "effective_factor_count": round(eff, 2) if eff else None,
+            "correlations": {c: {d: round(float(corr.at[c, d]), 3)
+                                 for d in cols if d != c} for c in cols},
+            "policy": ("de-weight by sqrt(1 - R^2) against the other active "
+                       f"factors (floor {REDUNDANCY_FLOOR}); z-scores keep "
+                       "their meaning so attribution stays readable")}
+
+
 def detect_regime(close) -> dict:
     """Regime from SPY trend, VIX level + term structure, credit, breadth.
 
@@ -335,14 +409,25 @@ def compute(top: int = 20, score_snapshot_dir: Path | None = None) -> dict:
         vol_fb = {"enabled": False, "reason": f"{type(exc).__name__}: {exc}",
                   "multipliers": {}}
     vmults = vol_fb.get("multipliers") or {}
+    # Third loop: independence. The first two ask whether a factor WORKS (IC)
+    # and how violent it is (volatility); this asks whether the other factors
+    # already say the same thing.
+    try:
+        red_fb = redundancy_multipliers(z, [k for k, v in base_w.items() if v])
+    except Exception as exc:
+        red_fb = {"enabled": False, "reason": f"{type(exc).__name__}: {exc}",
+                  "multipliers": {}}
+    rmults = red_fb.get("multipliers") or {}
     # Deliberately NOT renormalized: shrinking a broken factor must not hand
     # its weight to the survivors (that would amplify them on the same thin
     # evidence). The composite simply gets smaller, and ranking is unaffected
     # because only relative order matters downstream.
-    w = {k: round(wt * mults.get(k, 1.0) * vmults.get(k, 1.0), 4)
+    w = {k: round(wt * mults.get(k, 1.0) * vmults.get(k, 1.0)
+                  * rmults.get(k, 1.0), 4)
          for k, wt in base_w.items()}
     regime = {**regime, "base_weights": base_w, "weights": w,
-              "ic_feedback": ic_fb, "vol_feedback": vol_fb}
+              "ic_feedback": ic_fb, "vol_feedback": vol_fb,
+              "redundancy": red_fb}
     composite = sum(z[k].fillna(0) * wt for k, wt in w.items())
 
     # Cross-sectional percentile of the composite. This is the price side's
