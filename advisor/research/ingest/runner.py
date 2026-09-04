@@ -176,11 +176,19 @@ def run_all(subset: int | None = None, only: list[str] | None = None) -> dict:
     # EDGAR datasets (different call signatures — checkpointed individually)
     if not only or "form4" in (only or []):
         try:
-            from advisor.research import edgar
+            from advisor.research import edgar, form4
             res = edgar.form4_sweep()
             if res.get("ok"):
-                cl = edgar.detect_clusters()
+                # Open the documents the sweep indexes. Without this the
+                # cluster detector had no transactions and fell back to
+                # yfinance text-matching for direction; with it, 833 parsed
+                # transactions showed open-market purchases are 2.2% of Form 4
+                # activity — the other 97.8% is compensation mechanics that
+                # the old filing-count heuristic was treating as signal.
+                res["parsed"] = form4.enrich(days=7, verbose=False)
+                cl = form4.detect_clusters()
                 res["n_clusters"] = len(cl.get("clusters", []))
+                res["n_open_market_buys"] = cl.get("n_open_market_buys")
             res.pop("tickers", None)
         except Exception as exc:
             res = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}

@@ -275,15 +275,29 @@ def build() -> dict:
         cl = json.loads((RESEARCH_DIR / "positioning" /
                          "insider_clusters.json").read_text())
         clusters = cl.get("clusters", [])
-        cl_pop = {c["ticker"]: c.get("net_value_usd") for c in clusters
-                  if c.get("net_value_usd") is not None}
+        # Rank on the OPPORTUNISTIC value where the routine/opportunistic split
+        # is available (Cohen-Malloy-Pomorski: routine trades carry no
+        # information), falling back to total while that history accrues.
+        def _val(c):
+            v = c.get("opportunistic_value_usd")
+            return v if v not in (None, 0) else c.get("net_value_usd")
+        cl_pop = {c["ticker"]: _val(c) for c in clusters if _val(c) is not None}
+        routine = (cl.get("routine_classification") or {})
+        basis_note = ("opportunistic" if routine.get("usable") else
+                      "total (routine split needs "
+                      f"{routine.get('needs_years', '?')}y history)")
         for c in clusters[:CAPS["insider_cluster"]]:
             add(c["ticker"], "insider_cluster",
                 rank_pct=gen.pct_rank(cl_pop, c["ticker"]),
-                metric="insider_net_usd", value=c["net_value_usd"],
-                rank_basis=f"net insider buying percentile within {len(cl_pop)} "
-                           "detected clusters",
-                n_buys=c["n_buys"], insider_net_usd=c["net_value_usd"])
+                metric="insider_buy_usd", value=_val(c),
+                rank_basis=f"{basis_note} open-market insider buying percentile "
+                           f"within {len(cl_pop)} detected signals "
+                           f"[{c.get('tier', 'cluster')}]",
+                n_buys=c["n_buys"], insider_net_usd=c.get("net_value_usd"),
+                insider_tier=c.get("tier"),
+                insider_n_holders=c.get("n_insiders"),
+                insider_top_title=c.get("top_title"),
+                insider_plan_share=c.get("plan_10b5_1_share"))
         mark("insider_cluster", min(len(clusters), CAPS["insider_cluster"]),
              "no Form 4 buy clusters detected in the window")
     except Exception as exc:

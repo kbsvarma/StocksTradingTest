@@ -120,7 +120,10 @@ def test_rank_basis_says_when_a_percentile_is_taken_over_a_nominated_set(env):
                       {"ticker": "DDD", "n_buys": 3, "net_value_usd": 900_000}]}))
     slate = {e["ticker"]: e for e in candidates.build()["slate"]}
     basis = slate["CCC"]["generators"]["insider_cluster"]["rank_basis"]
-    assert "2 detected clusters" in basis
+    assert "within 2 detected signals" in basis
+    # and it must say WHICH value was ranked — the routine/opportunistic
+    # split needs years of history, so until then it is the total
+    assert "routine split needs" in basis
 
 
 def test_confluence_list_counts_families_not_buckets(env):
