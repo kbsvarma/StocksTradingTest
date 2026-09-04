@@ -1419,6 +1419,28 @@ def record_tab():
         for k, v in sorted(by.items(), key=lambda kv: -kv[1])),
         unsafe_allow_html=True)
 
+    # FABRICATION RATE — the headline trust metric. It belongs beside the
+    # track record because it answers a different question: not "were the
+    # ideas good" but "were the claims true".
+    fab = load_json(RESEARCH / "fabrication_audit.json") or {}
+    if fab.get("decidable_denominator"):
+        rate = fab.get("FABRICATION_RATE")
+        col = GREEN if (rate is not None and rate < 0.01) else (
+            AMBER if (rate or 0) < 0.05 else RED)
+        st.markdown(
+            f'<div style="border:1px solid {col}; background:#11151a; '
+            f'padding:8px 12px; border-radius:3px; margin:8px 0;">'
+            f'<span style="color:{col}; font-weight:700;">FABRICATION RATE '
+            f'{"n/a" if rate is None else f"{rate:.2%}"}</span> '
+            f'<span style="color:#c9c7c2; font-size:12px;">'
+            f'{fab["verified"]} verified · {fab["contradicted"]} contradicted '
+            f'· {fab["unverifiable"]} unverifiable (excluded) over '
+            f'{fab["n_days_audited"]} days</span><br>'
+            f'<span style="color:{DIM}; font-size:11px;">model-typed numbers '
+            f'checked against the immutable context snapshot the model was '
+            f'given; ambiguous claims are never counted as fabrication'
+            f'</span></div>', unsafe_allow_html=True)
+
     # ATTRIBUTION — the point of the whole chain. "Picks lost money" is not
     # actionable; "this generator lost money at this sample size" is.
     att = rec.get("attribution") or {}

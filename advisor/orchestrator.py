@@ -507,6 +507,24 @@ def run_pipeline(date: str, skip_preflight: bool = False,
                          note="prior brief preserved", started_at=started_at)
             return 69
 
+    # FABRICATION AUDIT — run at publication time, against the context
+    # snapshot the model was actually given. Retrospective auditing is
+    # unreliable because the live research artifacts get rewritten by later
+    # rebuilds; the snapshot in the context dir does not.
+    try:
+        from advisor.research.fabrication_audit import audit_date, run as fab_run
+        day = audit_date(date)
+        fab_run()
+        if day.get("usable"):
+            rate = day.get("fabrication_rate")
+            _heartbeat("fabrication_audit", 0, 0,
+                       f"{day['verified']}v {day['contradicted']}c "
+                       f"{day['unverifiable']}u — rate "
+                       + ("n/a" if rate is None else f"{rate:.2%}"))
+    except Exception as exc:
+        _heartbeat("fabrication_audit", 1, 0,
+                   f"failed (non-fatal): {type(exc).__name__}: {exc}")
+
     total = _run_cost(date)
     _heartbeat("pipeline", 0, time.time() - t_start,
                f"complete ${total:.4f}" if total else "complete",
