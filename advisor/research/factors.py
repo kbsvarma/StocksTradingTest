@@ -321,13 +321,28 @@ def compute(top: int = 20, score_snapshot_dir: Path | None = None) -> dict:
     base_w = regime["weights"]
     ic_fb = ic_weight_multipliers()
     mults = ic_fb.get("multipliers") or {}
+    # Second, faster feedback loop. IC feedback needs 21 trading days to
+    # mature an observation; realized factor VOLATILITY is measurable today.
+    # Barroso & Santa-Clara (2015) / Daniel & Moskowitz (2016): scaling a
+    # factor by its own volatility, and shrinking harder when it is both in
+    # drawdown and unusually volatile, is what removes the crash tail.
+    # `detect_regime` cannot see this — it reads market regime (VIX, credit,
+    # 200dma), which stayed benign right through the Jul-Aug factor unwind.
+    try:
+        from advisor.research.factor_returns import vol_weight_multipliers
+        vol_fb = vol_weight_multipliers()
+    except Exception as exc:                      # never block the sheet
+        vol_fb = {"enabled": False, "reason": f"{type(exc).__name__}: {exc}",
+                  "multipliers": {}}
+    vmults = vol_fb.get("multipliers") or {}
     # Deliberately NOT renormalized: shrinking a broken factor must not hand
     # its weight to the survivors (that would amplify them on the same thin
     # evidence). The composite simply gets smaller, and ranking is unaffected
     # because only relative order matters downstream.
-    w = {k: round(wt * mults.get(k, 1.0), 4) for k, wt in base_w.items()}
+    w = {k: round(wt * mults.get(k, 1.0) * vmults.get(k, 1.0), 4)
+         for k, wt in base_w.items()}
     regime = {**regime, "base_weights": base_w, "weights": w,
-              "ic_feedback": ic_fb}
+              "ic_feedback": ic_fb, "vol_feedback": vol_fb}
     composite = sum(z[k].fillna(0) * wt for k, wt in w.items())
 
     # Cross-sectional percentile of the composite. This is the price side's

@@ -220,3 +220,93 @@ def test_matching_version_calibration_is_applied(env):
         "revision_leader": {"rank_pct": 0.98, "direction": "long"}})])
     p = picks.build(top_n=10)["picks"][0]
     assert p["confidence_pct"] == 31.0
+
+
+# --- portfolio construction -----------------------------------------------
+
+def _e(ticker, gens, sector=None, detail=None):
+    d = dict(detail or {})
+    if sector:
+        d["sector"] = sector
+    return _entry(ticker, gens, d)
+
+
+def test_sector_cap_limits_concentration(env, monkeypatch):
+    from advisor.research import picks as P
+    monkeypatch.setattr(P, "MAX_PAIR_CORR", 1.01)     # isolate the sector rule
+    _slate(env, [
+        _e(t, {"tactical_long": {"rank_pct": 0.99 - i * 0.01, "direction": "long"}},
+           sector="Information Technology")
+        for i, t in enumerate(["MOMO", "FUND", "BOTH", "NODIR"])])
+    res = P.build(top_n=10)
+    assert len(res["picks"]) == P.MAX_PER_SECTOR
+    assert res["n_constrained_out"] == 1
+    assert "sector cap" in res["constrained_out"][0]["reason"]
+
+
+def test_generator_cap_limits_one_generator(env, monkeypatch):
+    from advisor.research import picks as P
+    monkeypatch.setattr(P, "MAX_PAIR_CORR", 1.01)
+    monkeypatch.setattr(P, "MAX_PER_SECTOR", 99)
+    monkeypatch.setattr(P, "MAX_PER_LEAD", 2)
+    _slate(env, [
+        _e(t, {"tactical_long": {"rank_pct": 0.99 - i * 0.01, "direction": "long"}},
+           sector=f"S{i}") for i, t in enumerate(["MOMO", "FUND", "BOTH", "NODIR"])])
+    res = P.build(top_n=10)
+    assert len(res["picks"]) == 2
+    assert "generator cap" in res["constrained_out"][0]["reason"]
+
+
+def test_every_rejection_names_its_binding_constraint(env, monkeypatch):
+    from advisor.research import picks as P
+    monkeypatch.setattr(P, "MAX_PAIR_CORR", 1.01)
+    _slate(env, [
+        _e(t, {"tactical_long": {"rank_pct": 0.99 - i * 0.01, "direction": "long"}},
+           sector="Energy") for i, t in enumerate(["MOMO", "FUND", "BOTH", "NODIR"])])
+    for d in P.build(top_n=10)["constrained_out"]:
+        assert d["reason"] and d["ticker"] and "lead_bucket" in d
+
+
+def test_constraints_are_published_with_the_slate(env):
+    _slate(env, [_entry("FUND", {
+        "revision_leader": {"rank_pct": 0.9, "direction": "long"}})])
+    c = picks.build(top_n=10)["constraints"]
+    assert c["max_per_sector"] == picks.MAX_PER_SECTOR
+    assert c["max_pairwise_corr"] == picks.MAX_PAIR_CORR
+
+
+# --- cost screen ----------------------------------------------------------
+
+def test_uneconomic_pick_is_dropped_and_explained(env, monkeypatch):
+    from advisor.research import picks as P
+    # a 3*ATR target on a synthetic flat panel is tiny; force a huge cost
+    monkeypatch.setattr("advisor.research.costs.estimate",
+                        lambda tickers=None, **kw: {t: {"round_trip_bps": 50000.0}
+                                                    for t in tickers})
+    _slate(env, [_entry("FUND", {
+        "revision_leader": {"rank_pct": 0.98, "direction": "long"}})])
+    res = P.build(top_n=10)
+    assert res["n_picks"] == 0
+    assert res["n_uneconomic"] == 1
+    assert "round trip" in res["uneconomic"][0]["reason"]
+
+
+def test_cost_is_attached_to_every_published_pick(env, monkeypatch):
+    monkeypatch.setattr("advisor.research.costs.estimate",
+                        lambda tickers=None, **kw: {t: {"round_trip_bps": 5.0}
+                                                    for t in tickers})
+    _slate(env, [_entry("FUND", {
+        "revision_leader": {"rank_pct": 0.98, "direction": "long"}})])
+    p = picks.build(top_n=10)["picks"][0]
+    assert p["cost"]["round_trip_bps"] == 5.0
+    assert p["cost_screen"]["ok"] is True
+
+
+def test_cost_model_failure_does_not_empty_the_slate(env, monkeypatch):
+    def boom(*a, **k):
+        raise RuntimeError("panel unavailable")
+    monkeypatch.setattr("advisor.research.costs.estimate", boom)
+    _slate(env, [_entry("FUND", {
+        "revision_leader": {"rank_pct": 0.98, "direction": "long"}})])
+    res = picks.build(top_n=10)
+    assert res["n_picks"] == 1               # fails OPEN

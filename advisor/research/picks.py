@@ -212,8 +212,29 @@ def build(top_n: int = 10, as_of: str | None = None,
             "next_earnings": e.get("detail", {}).get("next_earnings"),
         })
 
-    scored.sort(key=lambda x: -x["score"])
-    picks = scored[:top_n]
+    # Modelled round-trip cost, and a screen for targets too small to be worth
+    # crossing the spread for. Fails OPEN — an unavailable cost estimate must
+    # not silently empty the slate.
+    try:
+        from advisor.research import costs as cost_mod
+        cost_map = cost_mod.estimate([s["ticker"] for s in scored])
+    except Exception as exc:
+        cost_map, cost_mod = {}, None
+        print(f"[picks] cost model unavailable (non-fatal): {exc}")
+    uneconomic = []
+    priced = []
+    for s in scored:
+        c = cost_map.get(s["ticker"])
+        s["cost"] = c
+        verdict = (cost_mod.screen(s["ticker"], s["ref_px"], s["target"], c)
+                   if cost_mod else {"ok": True, "reason": "cost model unavailable"})
+        s["cost_screen"] = verdict
+        (priced if verdict["ok"] else uneconomic).append(s)
+    for s in uneconomic:
+        print(f"[picks] uneconomic {s['ticker']}: {s['cost_screen']['reason']}")
+
+    priced.sort(key=lambda x: -x["score"])
+    picks, dropped = _select(priced, top_n, close)
     now = datetime.now(ET)
     result = {
         "as_of": now.isoformat(),
@@ -221,6 +242,16 @@ def build(top_n: int = 10, as_of: str | None = None,
         "price_bar": as_of_bar,
         "n_slate": len(entries), "n_picks": len(picks),
         "n_unpickable": len(unpickable), "unpickable": unpickable[:20],
+        "n_uneconomic": len(uneconomic),
+        "uneconomic": [{"ticker": s["ticker"],
+                        "reason": s["cost_screen"].get("reason")}
+                       for s in uneconomic[:20]],
+        "n_constrained_out": len(dropped),
+        "constrained_out": dropped[:20],
+        "constraints": {"max_per_sector": MAX_PER_SECTOR,
+                        "max_per_lead_generator": MAX_PER_LEAD,
+                        "max_pairwise_corr": MAX_PAIR_CORR,
+                        "corr_window_td": CORR_WINDOW},
         "horizon_trading_days": HORIZON_TD,
         "levels_method": (f"deterministic: entry ±0.25*ATR20, stop {STOP_ATR}*ATR20, "
                           f"target {TARGET_ATR}*ATR20 (R:R {TARGET_ATR/STOP_ATR:.1f}); "
@@ -253,6 +284,80 @@ def build(top_n: int = 10, as_of: str | None = None,
         json.dumps(result, indent=2) + "\n")
     _append_ledger(picks, now, as_of_bar, day=day, source=source)
     return result
+
+
+MAX_PER_SECTOR = 3       # ten picks must not be ten semis
+MAX_PER_LEAD = 5         # nor ten expressions of one generator
+MAX_PAIR_CORR = 0.75     # nor ten names that move together
+CORR_WINDOW = 60
+
+
+def _select(scored: list, top_n: int, close) -> tuple:
+    """Greedy selection under exposure constraints.
+
+    Taking `sorted(by score)[:10]` places no limit on how concentrated the
+    slate is: ten names can share one sector, one generator, or one factor.
+    The measured symmetry of the losses (longs -3.00%, shorts -3.62%) is what
+    a single undiversified bet looks like from both sides.
+
+    Every rejection records its BINDING constraint, so the slate can say
+    "dropped: sector cap, 3 Information Technology already held" instead of
+    silently reordering.
+    """
+    import numpy as np
+
+    tickers = [p["ticker"] for p in scored if p["ticker"] in close.columns]
+    corr = None
+    if len(tickers) > 1:
+        try:
+            rets = close[tickers].tail(CORR_WINDOW + 1).pct_change().dropna(how="all")
+            if len(rets) >= 20:
+                corr = rets.corr()
+        except Exception:
+            corr = None
+
+    picks, dropped = [], []
+    by_sector: dict = {}
+    by_lead: dict = {}
+    for p in scored:
+        if len(picks) >= top_n:
+            dropped.append({**_slim(p), "reason": "slate full"})
+            continue
+        sector = p.get("sector") or "unknown"
+        lead = (p.get("selection") or {}).get("lead_bucket") or "legacy"
+        if by_sector.get(sector, 0) >= MAX_PER_SECTOR:
+            dropped.append({**_slim(p), "reason": f"sector cap: {MAX_PER_SECTOR} "
+                                                  f"{sector} already held"})
+            continue
+        if by_lead.get(lead, 0) >= MAX_PER_LEAD:
+            dropped.append({**_slim(p), "reason": f"generator cap: {MAX_PER_LEAD} "
+                                                  f"led by {lead} already held"})
+            continue
+        clash = None
+        if corr is not None and p["ticker"] in corr.columns:
+            for held in picks:
+                h = held["ticker"]
+                if h not in corr.columns:
+                    continue
+                c = corr.at[p["ticker"], h]
+                if c == c and abs(float(c)) > MAX_PAIR_CORR:
+                    clash = (h, round(float(c), 2))
+                    break
+        if clash:
+            dropped.append({**_slim(p),
+                            "reason": f"correlation cap: {clash[1]} with {clash[0]} "
+                                      f"over {CORR_WINDOW}d (max {MAX_PAIR_CORR})"})
+            continue
+        picks.append(p)
+        by_sector[sector] = by_sector.get(sector, 0) + 1
+        by_lead[lead] = by_lead.get(lead, 0) + 1
+    return picks, dropped
+
+
+def _slim(p: dict) -> dict:
+    return {"ticker": p["ticker"], "score": p["score"],
+            "sector": p.get("sector"),
+            "lead_bucket": (p.get("selection") or {}).get("lead_bucket")}
 
 
 def _mix(picks: list) -> dict:
