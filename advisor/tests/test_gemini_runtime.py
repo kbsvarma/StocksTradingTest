@@ -8,8 +8,10 @@ CONFIG={'GEMINI_API_KEY':'private-test-key'}
 
 def test_search_feed_failure_is_not_reported_as_successful_empty_search(monkeypatch):
     def failed(*args,**kwargs):raise OSError('offline')
+    from advisor.investigator import discovery
+    monkeypatch.setattr(discovery,'search',failed)
     monkeypatch.setattr(gemini.collectors,'fetch',failed)
-    with pytest.raises(RuntimeError,match='Both public search feeds failed'):
+    with pytest.raises(RuntimeError,match='no relevant pages'):
         gemini.search('Nvidia earnings')
 
 

@@ -42,3 +42,12 @@ def test_visible_publication_does_not_use_measurement_or_scheduled_call_date():
     assert visible_publication('REDMOND, Wash. — July 29, 2026 — Results for quarter ended June 30, 2026.')[0]=='2026-07-29'
     assert visible_publication('A conference call today, July 14, 2026, discusses results.')[0]=='2026-07-14'
     assert visible_publication('A conference call on July 14, 2026. Quarter ended June 30, 2026.')==(None,None)
+
+
+def test_article_extraction_keeps_metadata_but_excludes_global_menu(monkeypatch):
+    from advisor.investigator import collectors
+    html='<html><head><title>Quarterly results</title><meta property="article:published_time" content="2026-07-29"></head><body><div>Buy Outlook software here</div><main>'+('Cloud revenue increased with demand. '*12)+'</main></body></html>'
+    monkeypatch.setattr(collectors,'fetch',lambda url:html.encode())
+    doc=collectors.document('https://example.com/results')
+    assert 'Buy Outlook' not in doc['text'] and 'Cloud revenue increased' in doc['text']
+    assert doc['published_at'].startswith('2026-07-29')

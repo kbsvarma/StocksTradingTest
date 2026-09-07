@@ -220,7 +220,9 @@ def document(url):
         if node.parent is not None:node.decompose()
     for node in list(soup.find_all(style=True)):
         if node.parent is not None and re.search(r'display\s*:\s*none',node.get('style',''),re.I):node.decompose()
-    text=' '.join(soup.stripped_strings)
+    main=soup.select_one('main, [role=main]')
+    content=main if main and len(main.get_text(' ',strip=True))>=200 else soup
+    text=' '.join(content.stripped_strings)
     from .source_documents import visible_publication
     visible,excerpt=visible_publication(text)
     return {'text':text[:300_000],'links':links,'link_details':link_details,'published_at':min(dates) if dates else visible,'publication_excerpt':excerpt,'title':title}

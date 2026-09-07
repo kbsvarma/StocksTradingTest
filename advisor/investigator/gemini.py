@@ -41,7 +41,7 @@ def generate(prompt,schema,config,timeout,post=None,output_tokens=24000):
                   'response_id':packet.get('responseId'),'search_grounding_enabled':False}
 
 
-def search(query):
+def rss_search(query):
     """Public web and news discovery; snippets are never treated as evidence."""
     def feed(endpoint):
         try:
@@ -68,6 +68,16 @@ def search(query):
         return (int(primary)+int(material)+int(leaf),int(material),int(primary))
     return sorted(items,key=rank,reverse=True)[:6]
 
+
+
+def search(query):
+    from .discovery import search as document_search, relevant
+    try:return document_search(query)
+    except Exception as primary_error:
+        try:rows=[r for r in rss_search(query) if relevant(query,r)]
+        except Exception:rows=[]
+        if not rows:raise RuntimeError('Public discovery found no relevant pages; primary route: '+type(primary_error).__name__) from None
+        return [{**r,'discovery_provider':'Bing RSS fallback'} for r in rows]
 
 def invoke(prompt,schema,*,config,web=False,timeout=180,post=None,searcher=None,reader=None,generate_fn=None):
     generator=generate_fn or generate
@@ -99,7 +109,7 @@ def invoke(prompt,schema,*,config,web=False,timeout=180,post=None,searcher=None,
         except Exception as exc:return q,[],type(exc).__name__
     with ThreadPoolExecutor(max_workers=4) as pool:
         for q,items,error in pool.map(lookup,queries):
-            executed.append(q);results.extend(items[:2]);actions.append({'type':'search','query':q,'results':items,'error':error})
+            executed.append(q);results.extend(items[:3]);actions.append({'type':'search','query':q,'results':items,'error':error})
             if error:errors.append('Search failed: '+error)
     urls=list(dict.fromkeys([x['url'] for x in results]+plan['source_urls'][:2]))[:10]
     def read(url):
@@ -123,6 +133,6 @@ def invoke(prompt,schema,*,config,web=False,timeout=180,post=None,searcher=None,
     return packet,{'provider':last['provider'],'model':last['model'],'calls':[first,last],
                    'queries_observed':executed,'web_actions':actions,'source_urls':list(allowed),
                    'tool_errors':errors,'planning_fallback':planning_error,'search_grounding_enabled':False,
-                   'search_provider':'Bing public web and news RSS; application-fetched pages',
+                   'search_provider':'DDGS Brave with relevance-filtered Bing RSS fallback; application-fetched pages',
                    'limits':{'queries':4,'pages':10,'output_tokens_per_call':4096 if last['provider']=='ollama' else 24000},
                    'cost_basis':'Local inference; no model API quota' if last['provider']=='ollama' else 'Configured Gemini project tier; no paid search grounding or paid-provider fallback'}

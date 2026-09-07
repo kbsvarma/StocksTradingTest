@@ -40,7 +40,7 @@ def passages(text,limit=9000,priority_terms=()):
     lower=text.lower()
     for term in terms:
         start=0
-        for _ in range(1 if compact else 2):
+        for _ in range(3 if compact and term in {'revenue increased','cloud services','remaining performance obligation'} else 1 if compact else 2):
             pos=lower.find(term,start)
             if pos<0:break
             left=max(0,pos-(90 if compact else 250));right=min(len(text),pos+(330 if compact else 1100))
@@ -100,9 +100,11 @@ def evidence_context(rows,limit=None,required_ids=None):
     priority_terms=()
     if any(x in industry for x in ('bank','credit services')):
         priority_terms=('net interest income','common equity tier 1','net charge-off','provision for credit losses','tangible book value')
+    elif any(x in industry for x in ('software','information technology')):
+        priority_terms=('cloud services','remaining performance obligation','capital expenditures','gross margin')
     elif any(x in industry for x in ('drug','biotech','pharma')):
         priority_terms=('biosimilar','patent expir','clinical trial','litigation','innovative medicine')
-    prioritized=sorted(rows,key=lambda r:(compact and r['kind']=='document' and r['payload'].get('document_class') in {'periodic_filing','earnings_release'} and r['temporal']['state']=='current',
+    prioritized=sorted(rows,key=lambda r:(compact and r['kind']=='document' and r['payload'].get('document_class')=='earnings_release' and r['temporal']['state']=='current',compact and r['kind']=='document' and r['payload'].get('document_class') in {'periodic_filing','earnings_release'} and r['temporal']['state']=='current',
         r['id'] in required_ids,r['kind'] in ('price','profile') if compact else False,r['temporal']['state']=='current',r['kind']=='document',r.get('published_at') or ''),reverse=True)
     out=[];size=0
     for r in prioritized:
@@ -173,8 +175,12 @@ def ingest_web(ticker,packet,*,fetcher=document):
             authority='primary' if host=='sec.gov' or host.endswith('.sec.gov') or host.endswith('.gov') else 'reported'
             dimension=source.get('dimension')
             if dimension not in DIMENSIONS:raise ValueError('unknown_dimension')
-            rows.append(record(ticker=ticker,source=route[dimension],kind='document',payload={'text':text,'excerpt':excerpt,'dimension':dimension,'why_material':source.get('why_material'),'date_excerpt':date_excerpt},
-                retrieved_at=utcnow(),published_at=published,event_at=source.get('event_at') or None,url=url,title=source.get('title',''),authority=authority,independence=host))
+            from .source_documents import earnings_metadata
+            actual_title=doc.get('title') or source.get('title','')
+            is_release=bool(re.search(r'earnings|financial results|reports.*results|quarter.*results',actual_title,re.I))
+            metadata,period=earnings_metadata(text,published) if is_release else ({},None)
+            rows.append(record(ticker=ticker,source=route[dimension],kind='document',payload={'text':text,'excerpt':excerpt,'dimension':dimension,'why_material':source.get('why_material'),'date_excerpt':date_excerpt,**metadata,**{k:doc[k] for k in ('format','page_spans') if k in doc}},
+                period_end=period,retrieved_at=utcnow(),published_at=published,event_at=source.get('event_at') or None,url=url,title=actual_title,authority=authority,independence=host))
         except Exception as exc:
             rejected.append({'url':source.get('url',''),'reason':str(exc) if isinstance(exc,ValueError) else type(exc).__name__})
     return rows,rejected
@@ -263,7 +269,8 @@ def local_packet(selected,analysis):
                 f'{payload.get("duration_class","")} {row.get("period_start") or ""}..{row.get("period_end") or ""} | '+
                 f'published={(row.get("published_at") or "unknown")[:10]} | P01 COPY EXACT: "value": '+json.dumps(payload.get('value')))
             continue
-        clock=f'Measurement: {row.get("period_start") or ""} to {row.get("period_end") or row.get("observed_at") or "not specified"}; published {row.get("published_at") or "not specified"}'
+        scope='Annual filing: distinguish full-year figures from explicitly labeled quarter figures.' if payload.get('form') in {'10-K','20-F'} else 'Earnings release: match each figure to its explicitly stated quarter or full-year window.' if payload.get('document_class')=='earnings_release' else ''
+        clock=scope+f' Measurement: {row.get("period_start") or ""} to {row.get("period_end") or row.get("observed_at") or "not specified"}; published {row.get("published_at") or "not specified"}'
         parts=[header,clock,f'{row.get("title","")} | {row.get("url","")} | authority={row.get("authority","")} | origin={row.get("independence","")}']
         if 'text' in payload:parts+=['VERBATIM PASSAGE OPTIONS:']+[f'{key}: {value}' for key,value in citation_options(row).items()]
         else:parts.append('DATA: '+json.dumps(payload,ensure_ascii=False,separators=(',',':')))
@@ -287,6 +294,7 @@ def local_packet(selected,analysis):
     fund=calculated.pop('fundamentals',{})
     cash={k:v for k,v in fund.items() if k.startswith(('cashflow_','prior_cashflow_','cash_conversion','prior_cash_conversion','free_cash_flow','prior_free_cash_flow','fcf_less_sbc'))}
     quarterly={k:v for k,v in fund.items() if k not in cash}
+    calculated['financial_scope']='Computed margins and growth rates are consolidated company figures, not individual product or segment margins. Positive free cash flow remains positive when its growth rate declines; that is not cash burn. Do not compare an annual product growth rate with a quarterly company growth rate without labeling the different periods.'
     calculated['quarterly_and_balance_sheet_metrics']=quarterly
     calculated['matched_cash_flow_window']=cash
     from .conditions import baselines

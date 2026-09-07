@@ -58,3 +58,5 @@ websockets==16.1.1
 yfinance==1.7.0
 
 pypdf==6.18.0
+ddgs==9.16.0
+primp==2.0.0
