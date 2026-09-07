@@ -37,6 +37,10 @@ Its inclusion in the installer is reproducibility support, not a claim that it
 has passed the investment-research acceptance cases. Preserve the selected
 provider and model explicitly during migration.
 
+`gemma4:31b` is pinned as well (approximately 19.9 GB of model files). It is an
+evaluation option and also requires CPU offload on the current 16 GB GPU. Model
+quality and report latency must be checked separately from successful installation.
+
 Put these settings in `~/.advisor_research.env` (mode 600):
 
 ```bash

@@ -43,6 +43,7 @@ def test_gemma_api_output_must_pass_application_schema_even_when_fenced():
     def post(url,**kw):
         assert 'systemInstruction' not in kw['json']
         assert 'thinkingConfig' not in kw['json']['generationConfig']
+        assert kw['json']['generationConfig']['maxOutputTokens']==8192
         assert 'private-test-key' not in url
         return reply
     config={**CONFIG,'ADVISOR_RESEARCH_MODEL':'gemma-4-31b-it'}

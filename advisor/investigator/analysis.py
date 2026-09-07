@@ -95,12 +95,15 @@ def fundamental_metrics(rows):
                     prior_margin=prior_metric['payload']['value']/prior_rev['payload']['value']*100
                     out[metric+'_prior_margin_pct']=prior_margin
                     out[metric+'_margin_change_pp']=out[metric+'_margin_pct']-prior_margin
+                    out[metric+'_amount_change']=r['payload']['value']-prior_metric['payload']['value']
+                    out[metric+'_amount_unit']=r['payload']['unit']
                     citations[metric+'_margin_change_pp']=[rev['id'],r['id'],prior_rev['id'],prior_metric['id']]
     if all(k in out for k in ('gross_profit_margin_change_pp','op_income_margin_change_pp','net_income_margin_change_pp')):
         out['operating_cost_share_pct']=out['gross_profit_margin_pct']-out['op_income_margin_pct']
         out['prior_operating_cost_share_pct']=out['gross_profit_prior_margin_pct']-out['op_income_prior_margin_pct']
         out['operating_cost_leverage_pp']=out['prior_operating_cost_share_pct']-out['operating_cost_share_pct']
         out['below_operating_margin_change_pp']=out['net_income_margin_change_pp']-out['op_income_margin_change_pp']
+        out['below_operating_amount_change']=out['net_income_amount_change']-out['op_income_amount_change']
         citations['earnings_bridge']=list(dict.fromkeys(ident for metric in ('gross_profit','op_income','net_income') for ident in citations[metric+'_margin_change_pp']))
     # Cash-flow statements are often YTD. Pair exact windows and label them as such.
     cashflows=[r for r in facts if r['payload']['metric']=='cfo' and r['temporal']['state']=='current']

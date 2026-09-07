@@ -41,7 +41,7 @@ def generate(prompt,schema,config,timeout,post=None,output_tokens=24000):
         from .ollama import schema_guide
         body={'contents':[{'role':'user','parts':[{'text':SYSTEM+'\n'+prompt+
             '\nReturn only JSON using this output contract (source aliases and passage options are in the evidence cards): '+json.dumps(schema_guide(schema))}]}],
-            'generationConfig':{'maxOutputTokens':min(output_tokens,24000),'temperature':.2}}
+            'generationConfig':{'maxOutputTokens':min(output_tokens,8192),'temperature':.2}}
     try:
         started=time.monotonic()
         for attempt in range(2):

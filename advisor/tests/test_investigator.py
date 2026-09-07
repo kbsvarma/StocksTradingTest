@@ -426,6 +426,9 @@ def test_earnings_bridge_separates_gross_cost_and_below_operating_changes():
     assert result['operating_cost_leverage_pp']==pytest.approx(6)
     assert result['op_income_margin_change_pp']==pytest.approx(1)
     assert result['below_operating_margin_change_pp']==pytest.approx(9)
+    assert result['net_income_amount_change']==10
+    assert result['op_income_amount_change']==1
+    assert result['below_operating_amount_change']==9
     assert len(cites['earnings_bridge'])==8
 
 

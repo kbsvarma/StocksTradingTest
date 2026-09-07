@@ -52,7 +52,7 @@ def export(repo, bundle, include_secrets=False):
             relative=source.relative_to(repo)
             if any(p in OMIT for p in relative.parts) or source.is_dir():continue
             if source.is_symlink():raise ValueError('Refusing symlink in snapshot: '+str(relative))
-            if source.name=='active.json' or (source.name.endswith('.lock') and source.name not in {'requirements.lock','requirements.resolved.lock'}) or source.name.endswith(('-wal','-shm','-journal','.tmp','.pyc')):continue
+            if source.name=='active.json' or (source.name.endswith('.lock') and source.name not in {'requirements.lock','requirements.resolved.lock','requirements.test.lock'}) or source.name.endswith(('-wal','-shm','-journal','.tmp','.pyc')):continue
             target=root/'repo'/relative;target.parent.mkdir(parents=True,exist_ok=True)
             if sqlite_file(source):
                 with closing(sqlite3.connect(source.as_uri()+'?mode=ro',uri=True)) as src, closing(sqlite3.connect(target)) as dst:

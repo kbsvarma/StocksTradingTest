@@ -23,6 +23,12 @@ def reconcile(analysis):
                      'Headline earnings growth therefore overstates the improvement in operating profitability.'
                      if net>0 and below>net/2 else
                      'Operating performance and below-operating items must be distinguished before extrapolating net earnings.')
+        amount=f.get('net_income_amount_change');op_amount=f.get('op_income_amount_change')
+        if all(number(x) for x in (amount,op_amount)) and f.get('net_income_amount_unit')==f.get('op_income_amount_unit')=='USD':
+            consequence+=(f' In dollar terms, net income changed {amount/1e9:+.3f}bn USD and operating income '
+                          f'{op_amount/1e9:+.3f}bn; the below-operating dollar residual is {(amount-op_amount)/1e9:+.3f}bn.')
+            if amount>0:
+                consequence+=f' That residual accounts for {(amount-op_amount)/amount*100:.1f}% of the dollar increase in net income. The share of net-margin expansion is a different calculation.'
         add('earnings','Separate operating improvement from headline profit',
             f'Quarter ended {period}: gross margin {gross:+.2f}pp; operating margin {operating:+.2f}pp; '
             f'net margin {net:+.2f}pp. The below-operating residual is {below:+.2f}pp.',consequence,

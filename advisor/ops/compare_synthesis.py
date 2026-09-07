@@ -55,7 +55,7 @@ def main():
         if args.provider=='gemini':
             from advisor.investigator import gemini,runtime
             config={**runtime.config(),'ADVISOR_RESEARCH_PROVIDER':'gemini','ADVISOR_RESEARCH_MODEL':args.model}
-            value,usage=gemini.generate(prompt,schema,config,min(180,args.timeout))
+            value,usage=gemini.generate(prompt,schema,config,min(900 if args.model.startswith("gemma-") else 180,args.timeout))
         else:
             value,usage=ollama.generate(prompt,schema,{'ADVISOR_RESEARCH_MODEL':args.model,'_local_thinking':args.thinking,'ADVISOR_RESEARCH_SAMPLING':'conservative' if args.conservative_sampling else 'official'},args.timeout,post=post)
         usage.setdefault('elapsed_seconds',round(time.monotonic()-started,2))

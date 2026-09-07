@@ -9,12 +9,16 @@ def test_wal_database_and_files_restore_without_activation(tmp_path,monkeypatch)
     repo=tmp_path/'repo';data=repo/'advisor/data';data.mkdir(parents=True)
     (repo/'advisor/example.py').write_text('code')
     (repo/'advisor/requirements.lock').write_text('requests==2.34.2')
+    (repo/'advisor/requirements.test.lock').write_text('pytest==9.1.1')
+    (data/'investigation.lock').write_text('transient')
     db=sqlite3.connect(data/'state.sqlite');db.execute('PRAGMA journal_mode=WAL')
     db.execute('CREATE TABLE watchlist(ticker TEXT)');db.execute('INSERT INTO watchlist VALUES (?)',('NVDA',));db.commit()
     bundle=tmp_path/'snapshot.tgz';export(repo,bundle)
     destination=tmp_path/'new-host';result=restore(bundle,destination)
     assert result['services_started'] is False
     assert (destination/'advisor/requirements.lock').read_text()=='requests==2.34.2'
+    assert (destination/'advisor/requirements.test.lock').read_text()=='pytest==9.1.1'
+    assert not (destination/'advisor/data/investigation.lock').exists()
     with sqlite3.connect(destination/'advisor/data/state.sqlite') as restored:
         assert restored.execute('SELECT ticker FROM watchlist').fetchall()==[('NVDA',)]
     assert not (destination/'advisor/data/state.sqlite-wal').exists()

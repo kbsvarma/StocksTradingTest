@@ -45,3 +45,14 @@ def test_bank_never_gets_generic_cash_distress_case():
 def test_missing_evidence_cannot_generate_an_authoritative_memo():
     a=microsoft();a['fundamental_evidence']={}
     assert reconcile(a)['items']==[]
+
+
+def test_margin_expansion_does_not_imply_majority_of_profit_dollars():
+    a=microsoft();a['fundamentals'].update(net_income_amount_change=8.533e9,
+        op_income_amount_change=6.280e9,net_income_amount_unit='USD',op_income_amount_unit='USD')
+    item=next(i for i in reconcile(a)['items'] if i['id']=='earnings')
+    assert 'Most of the net-margin improvement' in item['consequence']
+    assert '26.4% of the dollar increase' in item['consequence']
+    a['fundamentals']['net_income_amount_change']=-1e9
+    item=next(i for i in reconcile(a)['items'] if i['id']=='earnings')
+    assert 'of the dollar increase' not in item['consequence']
