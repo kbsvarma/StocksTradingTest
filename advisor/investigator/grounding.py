@@ -65,6 +65,9 @@ def output_schema(base,analysis):
     for field in ('entry_conditions','exit_conditions','next_checks','contradictions'):
         schema['properties'][field]['maxItems']=3
         schema['properties'][field]['items']={**schema['properties'][field]['items'],'maxLength':1000 if field=='contradictions' else 600}
+    from .conditions import schema as condition_schema
+    insight['properties']['invalidation']=condition_schema(analysis)
+    for field in ('entry_conditions','exit_conditions'):schema['properties'][field]['items']=condition_schema(analysis)
     return schema
 
 
@@ -97,9 +100,31 @@ def hydrate(proposal,analysis,rows):
         unique={}
         for c in citations:unique[(c['source_id'],c['excerpt'],c['use'])]=c
         insight['evidence']=list(unique.values())
-    result['_condition_errors']=condition_errors(result,analysis)
+    from .conditions import render
+    verified=set();condition_sources=[];basis=[]
+    def render_one(value):
+        if not isinstance(value,dict):return value
+        text,ids,computed=render(value,analysis)
+        if computed:verified.add(text);condition_sources.extend(ids);basis.append(value)
+        return text
+    for insight in result.get('insights',[]):
+        if 'invalidation' in insight:insight['invalidation']=render_one(insight['invalidation'])
+    for field in ('entry_conditions','exit_conditions'):
+        result[field]=[render_one(value) for value in result.get(field,[])]
+    if condition_sources and result.get('insights'):
+        existing={c['source_id'] for c in result['insights'][0]['evidence']}
+        for ident in dict.fromkeys(condition_sources):
+            if ident in existing:continue
+            row=lookup[ident];payload=row['payload']
+            if 'value' in payload:excerpt='"value": '+json.dumps(payload['value'])
+            elif payload.get('bars'):excerpt=json.dumps(payload['bars'][-1],ensure_ascii=False)[1:-1][:250]
+            else:excerpt=json.dumps(payload,ensure_ascii=False)[:250]
+            result['insights'][0]['evidence'].append({'source_id':ident,'excerpt':excerpt,'use':'current' if row['temporal']['state']=='current' else 'historical_comparison'})
+    result['condition_basis']=basis
+    result['_condition_errors']=condition_errors(result,analysis,verified_baselines=verified)
+
     conditions=result.get('entry_conditions',[])+result.get('exit_conditions',[])+[i.get('invalidation','') for i in result.get('insights',[])]
-    if result.get('insights') and any(re.search(r'\d',x) and re.search(r'high|low|average|breakout|breakdown',x,re.I) for x in conditions):
+    if result.get('insights') and any(x not in verified and re.search(r'\d',x) and re.search(r'\b(?:high|low|average|breakout|breakdown)\b',x,re.I) for x in conditions):
         ticker=analysis.get('issuer_identity',{}).get('ticker')
         history=next((r for r in rows if r['kind']=='technical' and r.get('ticker')==ticker and r['temporal']['state']=='current' and r['payload'].get('bars')),None)
         if history:
@@ -109,13 +134,14 @@ def hydrate(proposal,analysis,rows):
     return result
 
 
-def condition_errors(proposal,analysis):
+def condition_errors(proposal,analysis,*,verified_baselines=()):
     """A model may select dated technical levels, but cannot invent other cutoffs."""
     errors=[]
     technical=analysis.get('technicals',{})
     fields=proposal.get('entry_conditions',[])+proposal.get('exit_conditions',[])+[i.get('invalidation','') for i in proposal.get('insights',[])]
     for condition in fields:
-        remaining=condition
+        if condition in verified_baselines:continue
+        remaining=re.sub(r'\b(?:10-?Q|10-?K|8-?K|6-?K|20-?F)\b','',condition,flags=re.I)
         # Reporting horizons are not valuation/risk thresholds.
         remaining=re.sub(r'\bFY\s*20\d{2}\b|\bQ[1-4](?:\s+(?:FY)?20\d{2})?\b|\b20\d{2}-\d{2}-\d{2}\b|\b\d+[-\s]*(?:quarters?|months?|years?|weeks?|days?|sessions?)\b','',remaining,flags=re.I)
         for key,words in (('prior_20_high',('high','breakout')),('prior_20_low',('low','breakdown')),('ma200',('average','ma')),('ma50',('average','ma'))):

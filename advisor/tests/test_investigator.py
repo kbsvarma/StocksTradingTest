@@ -399,3 +399,16 @@ def test_equity_value_trace_uses_outstanding_not_weighted_diluted_shares():
     assert value['equity_value_proxy']==20000
     assert value['equity_value_inputs']['reported_shares_outstanding']==1000
     assert 'not quarterly' in value['equity_value_inputs']['share_basis']
+
+
+def test_earnings_bridge_separates_gross_cost_and_below_operating_changes():
+    rows=[]
+    for year,values in [(2026,{'revenue':100,'gross_profit':55,'op_income':21,'net_income':30}),
+                        (2025,{'revenue':100,'gross_profit':60,'op_income':20,'net_income':20})]:
+        rows += [fact(metric,value,f'{year}-04-01',f'{year}-06-30') for metric,value in values.items()]
+    result,cites=fundamental_metrics(annotate(rows,NOW))
+    assert result['gross_profit_margin_change_pp']==pytest.approx(-5)
+    assert result['operating_cost_leverage_pp']==pytest.approx(6)
+    assert result['op_income_margin_change_pp']==pytest.approx(1)
+    assert result['below_operating_margin_change_pp']==pytest.approx(9)
+    assert len(cites['earnings_bridge'])==8

@@ -96,6 +96,12 @@ def fundamental_metrics(rows):
                     out[metric+'_prior_margin_pct']=prior_margin
                     out[metric+'_margin_change_pp']=out[metric+'_margin_pct']-prior_margin
                     citations[metric+'_margin_change_pp']=[rev['id'],r['id'],prior_rev['id'],prior_metric['id']]
+    if all(k in out for k in ('gross_profit_margin_change_pp','op_income_margin_change_pp','net_income_margin_change_pp')):
+        out['operating_cost_share_pct']=out['gross_profit_margin_pct']-out['op_income_margin_pct']
+        out['prior_operating_cost_share_pct']=out['gross_profit_prior_margin_pct']-out['op_income_prior_margin_pct']
+        out['operating_cost_leverage_pp']=out['prior_operating_cost_share_pct']-out['operating_cost_share_pct']
+        out['below_operating_margin_change_pp']=out['net_income_margin_change_pp']-out['op_income_margin_change_pp']
+        citations['earnings_bridge']=list(dict.fromkeys(ident for metric in ('gross_profit','op_income','net_income') for ident in citations[metric+'_margin_change_pp']))
     # Cash-flow statements are often YTD. Pair exact windows and label them as such.
     cashflows=[r for r in facts if r['payload']['metric']=='cfo' and r['temporal']['state']=='current']
     if cashflows:
@@ -228,6 +234,13 @@ def analyze(rows,ticker):
     rg=fund.get('revenue_yoy_pct');eg=fund.get('net_income_yoy_pct')
     if number(rg):finding('revenue_growth','fundamentals','bullish' if rg>10 else 'bearish' if rg<0 else 'neutral','Latest comparable-quarter revenue',f'Revenue changed {rg:.1f}% year over year for quarter ending {fund["revenue_period"]}. Growth alone does not establish an expectations beat.',fcites['revenue_yoy_pct'],3)
     if number(eg):finding('profit_growth','fundamentals','bullish' if eg>10 else 'bearish' if eg<0 else 'neutral','Profit growth versus revenue',f'Net income changed {eg:.1f}% year over year. Check one-offs and adjusted/GAAP reconciliation.',fcites['net_income_yoy_pct'],2)
+    if 'operating_cost_leverage_pp' in fund:
+        finding('earnings_bridge','accounting','neutral','Where the profit-margin change comes from',
+            f'For the comparable quarter ending {fund["revenue_period"]}, gross margin changed {fund["gross_profit_margin_change_pp"]:+.1f}pp. '
+            f'The implied operating-cost share of sales moved from {fund["prior_operating_cost_share_pct"]:.1f}% to {fund["operating_cost_share_pct"]:.1f}%, contributing {fund["operating_cost_leverage_pp"]:+.1f}pp to operating margin. '
+            f'Together these explain the {fund["op_income_margin_change_pp"]:+.1f}pp operating-margin change. Net margin changed {fund["net_income_margin_change_pp"]:+.1f}pp; the residual {fund["below_operating_margin_change_pp"]:+.1f}pp arose below operating profit. '
+            'Reconcile interest, taxes and other non-operating items before calling that residual operating efficiency. The operating-cost residual does not identify a specific expense category or prove sustainability.',
+            fcites['earnings_bridge'],3 if abs(fund['below_operating_margin_change_pp'])>=2 else 2)
     operating_growth=fund.get('op_income_yoy_pct')
     if number(eg) and number(operating_growth) and eg-operating_growth>50 and fund.get('net_income_period')==fund.get('op_income_period'):
         finding('earnings_normalization','accounting','neutral','Headline profit growth needs normalization',
@@ -320,7 +333,8 @@ def analyze(rows,ticker):
         for key in ('ttm_fcf_proxy','ttm_fcf_less_sbc','fcf_yield_pct','implied_growth_sensitivity'):valuation_result.pop(key,None)
         valuation_result['cash_flow_model']='not_applicable_financial_institution'
         valuation_result['interpretation']=applicability['cash_flow_valuation']
-    return {'metric_applicability':applicability,'valuation':valuation_result,'technicals':tech,'fundamentals':fund,'fundamental_evidence':fcites,'estimates':est,
+    return {'technical_evidence':[techrows[-1]['id']] if techrows else [],'technical_as_of':techrows[-1].get('observed_at') if techrows else None,
+            'metric_applicability':applicability,'valuation':valuation_result,'technicals':tech,'fundamentals':fund,'fundamental_evidence':fcites,'estimates':est,
             'options':option_metrics(own,tech.get('close')),'news_clusters':deduplicate_news(own),
             'findings':findings,'hypotheses':hypotheses,'coverage':coverage,
             'ranking_basis':'Research attention: materiality first, independently sourced support second. Not return probabilities or an additive buy score.'}
