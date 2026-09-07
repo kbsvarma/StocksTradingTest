@@ -237,9 +237,9 @@ def analyze(rows,ticker):
     if 'operating_cost_leverage_pp' in fund:
         finding('earnings_bridge','accounting','neutral','Where the profit-margin change comes from',
             f'For the comparable quarter ending {fund["revenue_period"]}, gross margin changed {fund["gross_profit_margin_change_pp"]:+.1f}pp. '
-            f'The implied operating-cost share of sales moved from {fund["prior_operating_cost_share_pct"]:.1f}% to {fund["operating_cost_share_pct"]:.1f}%, contributing {fund["operating_cost_leverage_pp"]:+.1f}pp to operating margin. '
+            f'The implied operating-expense share excluding cost of revenue, (gross profit minus operating income) / revenue, moved from {fund["prior_operating_cost_share_pct"]:.1f}% to {fund["operating_cost_share_pct"]:.1f}%, contributing {fund["operating_cost_leverage_pp"]:+.1f}pp to operating margin. '
             f'Together these explain the {fund["op_income_margin_change_pp"]:+.1f}pp operating-margin change. Net margin changed {fund["net_income_margin_change_pp"]:+.1f}pp; the residual {fund["below_operating_margin_change_pp"]:+.1f}pp arose below operating profit. '
-            'Reconcile interest, taxes and other non-operating items before calling that residual operating efficiency. The operating-cost residual does not identify a specific expense category or prove sustainability.',
+            'Reconcile interest, taxes and other non-operating items before calling that residual operating efficiency. This expense share excludes cost of revenue, already captured in gross margin; it does not identify a specific expense category or prove sustainability.',
             fcites['earnings_bridge'],3 if abs(fund['below_operating_margin_change_pp'])>=2 else 2)
     operating_growth=fund.get('op_income_yoy_pct')
     if number(eg) and number(operating_growth) and eg-operating_growth>50 and fund.get('net_income_period')==fund.get('op_income_period'):

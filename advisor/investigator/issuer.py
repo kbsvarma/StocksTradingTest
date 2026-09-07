@@ -7,13 +7,21 @@ from .collectors import document
 from .temporal import record,utcnow
 
 # Verified navigation seeds, not analysis, claims or hardcoded result dates.
-SEEDS={'NVDA':['https://nvidianews.nvidia.com/news','https://investor.nvidia.com/financial-info/quarterly-results/default.aspx']}
+SEEDS={
+    'NVDA':['https://nvidianews.nvidia.com/news','https://investor.nvidia.com/financial-info/quarterly-results/default.aspx'],
+    'MSFT':['https://www.microsoft.com/en-us/investor/default'],
+    'AAPL':['https://investor.apple.com/investor-relations/default.aspx','https://www.apple.com/newsroom/'],
+    'GOOGL':['https://abc.xyz/investor/Earnings/default.aspx'],
+    'GOOG':['https://abc.xyz/investor/Earnings/default.aspx'],
+    'JPM':['https://www.jpmorganchase.com/ir/quarterly-earnings'],
+    'JNJ':['https://investor.jnj.com/','https://investor.jnj.com/financials/quarterly-results/default.aspx'],
+}
 
 
 def collect(ticker,rows,data,*,fetcher=document):
     profiles=[r['payload'] for r in rows if r['ticker']==ticker and r['kind']=='profile']
     website=next((p.get('website') for p in profiles if p.get('website')),None)
-    roots=list(SEEDS.get(ticker,[]));errors=[];output=[];seen=set();queue=[]
+    roots=list(SEEDS.get(ticker,[]));errors=[];output=[];seen=set();queue=[];labels={}
     # Deployment-supplied issuer routes are URL-only. No model instructions or credentials.
     config=Path(data)/'intelligence'/'issuer_sources.json'
     if config.exists():
@@ -24,14 +32,16 @@ def collect(ticker,rows,data,*,fetcher=document):
     if not roots:return [],['Issuer website/IR route unavailable']
     company_host=urlparse(website or roots[0]).hostname or ''
     company_host=company_host.removeprefix('www.')
+    root_hosts={urlparse(url).hostname for url in roots}
     def rank(url):
-        u=url.lower()
+        u=(urlparse(url).path+' '+labels.get(url,'')).lower()
         return sum(weight for word,weight in [('financial-results',8),('earnings',7),('acquire',6),('outlook',6),('quarter',5),('partnership',3),('news',1),('investor',1)] if word in u)
     for root in roots[:4]:
         try:
-            page=fetcher(root);seen.add(root)
-            links=[u for u in page['links'] if re.search(r'(news|press|earnings|investor|financial-results|acquir|collaboration|partnership|outlook)',u,re.I)]
-            queue.extend((u,root) for u in links if urlparse(u).scheme=='https' and not u.lower().endswith(('.pdf','.zip','.png','.jpg')))
+            seen.add(root)
+            page=fetcher(root);labels.update(page.get('link_details',{}))
+            links=[u for u in page['links'] if re.search(r'(news|press|earnings|financial-results|acquir|collaboration|partnership|quarterly|results)',urlparse(u).path+' '+labels.get(u,''),re.I)]
+            queue.extend((u,root) for u in links if urlparse(u).scheme=='https' and not u.lower().endswith(('.zip','.png','.jpg')))
         except Exception as exc:errors.append('Issuer navigation: '+type(exc).__name__)
     # Dedupe navigation, prioritize results and economically meaningful announcements.
     queue=list(dict.fromkeys(queue));queue.sort(key=lambda x:rank(x[0]),reverse=True)
@@ -41,7 +51,7 @@ def collect(ticker,rows,data,*,fetcher=document):
         leaf=urlparse(url).path.rstrip('/').rsplit('/',1)[-1]
         if leaf in {'','news','search','bios','multimedia','in-the-news','contacts','investors','investor-relations','events','press-releases'}:continue
         host=urlparse(url).hostname or ''
-        if not (host==company_host or host.endswith('.'+company_host) or 'investor' in host or host.endswith('.gcs-web.com')):continue
+        if not (host==company_host or host.endswith('.'+company_host) or host in root_hosts or host.endswith(('.gcs-web.com','.q4cdn.com'))):continue
         seen.add(url);fetched+=1
         if fetched>8:break
         try:
@@ -53,7 +63,9 @@ def collect(ticker,rows,data,*,fetcher=document):
             guidance=financial and any(term in excerpt for term in ('outlook','guidance','expects revenue','revenue is expected'))
             material=any(term in title for term in ('acquire','acquisition','merger','partnership','dividend','repurchase'))
             dimension='guidance' if guidance else 'fundamentals' if financial else 'catalysts'
-            output.append(record(ticker=ticker,source='issuer_ir',kind='document',payload={'text':doc['text'],'discovered_from':parent,'dimension':dimension,'relevance':'direct' if financial or material else 'unverified','publication_basis':'page metadata'},
-                retrieved_at=utcnow(),published_at=doc['published_at'],url=url,authority='issuer_statement',independence='issuer:'+ticker,title=doc.get('title') or url.rsplit('/',1)[-1]))
-        except Exception as exc:errors.append('Issuer release: '+type(exc).__name__)
+            from .source_documents import earnings_metadata
+            metadata,period=earnings_metadata(doc['text'],doc['published_at']) if financial else ({},None)
+            output.append(record(ticker=ticker,source='issuer_ir',kind='document',payload={'text':doc['text'],'discovered_from':parent,'dimension':dimension,'relevance':'direct' if financial or material else 'unverified','publication_basis':'visible document dateline' if doc.get('publication_excerpt') else 'page metadata',**metadata,**{k:doc[k] for k in ('format','page_spans') if k in doc}},
+                period_end=period,retrieved_at=utcnow(),published_at=doc['published_at'],url=url,authority='issuer_statement',independence='issuer:'+ticker,title=doc.get('title') or url.rsplit('/',1)[-1]))
+        except Exception as exc:errors.append('Issuer release: '+type(exc).__name__+' ('+(urlparse(url).hostname or '')+urlparse(url).path+')')
     return output,errors

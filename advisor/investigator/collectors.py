@@ -114,7 +114,7 @@ def sec(ticker, data, *, get=getjson):
             if filing_count>=30 and not essential:continue
             acc=recent['accessionNumber'][i];doc=recent['primaryDocument'][i]
             url=f'https://www.sec.gov/Archives/edgar/data/{int(cik)}/{acc.replace("-","")}/{doc}'
-            rows.append(record(ticker=ticker,source='sec_filings',kind='filing',payload={'form':form,'accession':acc,'report_date':recent.get('reportDate',['']*len(recent['form']))[i]},
+            rows.append(record(ticker=ticker,source='sec_filings',kind='filing',payload={'form':form,'accession':acc,'report_date':recent.get('reportDate',['']*len(recent['form']))[i],'items':recent.get('items',['']*len(recent['form']))[i]},
                 published_at=accepted.get(acc) or filed,retrieved_at=utcnow(),url=url,authority='primary',
                 title=f'{form} filed {filed}',independence=f'sec:{acc}'))
             filing_count+=1
@@ -157,7 +157,9 @@ def sec(ticker, data, *, get=getjson):
     for form in ('10-Q','10-K','20-F'):
         latest=next((r for r in eligible if r['payload']['form']==form),None)
         if latest:selected.append(latest)
-    selected+=( [r for r in eligible if r not in selected][:max(0,4-len(selected))] )
+    earnings=next((r for r in eligible if r['payload']['form']=='8-K' and '2.02' in r['payload'].get('items','')),None)
+    if earnings and earnings not in selected:selected.append(earnings)
+    selected+=( [r for r in eligible if r not in selected][:max(0,5-len(selected))] )
     for r in selected:
         try:
             body=document(r['url']);now=utcnow()
@@ -171,8 +173,10 @@ def sec(ticker, data, *, get=getjson):
                 exhibit_links=[u for u in body['links'] if u.startswith(base) and re.search(r'(ex.?99|exhibit.?99|earn|release)',u,re.I)][:2]
                 for url in exhibit_links:
                     doc=document(url)
-                    rows.append(record(ticker=ticker,source='sec_exhibits',kind='document',payload={'text':doc['text']},
-                        retrieved_at=utcnow(),published_at=r['published_at'],url=url,authority='primary',independence=r['independence'],title='8-K release exhibit'))
+                    from .source_documents import earnings_metadata
+                    metadata,period=earnings_metadata(doc['text'],r['published_at']) if '2.02' in r['payload'].get('items','') else ({},None)
+                    rows.append(record(ticker=ticker,source='sec_exhibits',kind='document',payload={'text':doc['text'],**metadata,**{k:doc[k] for k in ('format','page_spans') if k in doc}},
+                        period_end=period,retrieved_at=utcnow(),published_at=r['published_at'],url=url,authority='primary',independence=r['independence'],title='8-K earnings release exhibit' if metadata else '8-K release exhibit'))
         except Exception as exc:errors.append('SEC document: '+type(exc).__name__)
     return rows,errors
 
@@ -180,7 +184,11 @@ def sec(ticker, data, *, get=getjson):
 def document(url):
     from bs4 import BeautifulSoup
     raw=fetch(url)
+    if raw.lstrip().startswith(b'%PDF-'):
+        from .source_documents import pdf_document
+        return pdf_document(raw,url)
     soup=BeautifulSoup(raw,'html.parser')
+    link_details={urljoin(url,a['href']):a.get_text(' ',strip=True) for a in soup.find_all('a',href=True)}
     links=list(dict.fromkeys(urljoin(url,a['href']) for a in soup.find_all('a',href=True) if a['href'] and not a['href'].startswith('#')))[:500]
     dates=[]
     title=soup.title.get_text(' ',strip=True) if soup.title else ''
@@ -213,7 +221,9 @@ def document(url):
     for node in list(soup.find_all(style=True)):
         if node.parent is not None and re.search(r'display\s*:\s*none',node.get('style',''),re.I):node.decompose()
     text=' '.join(soup.stripped_strings)
-    return {'text':text[:300_000],'links':links,'published_at':min(dates) if dates else None,'title':title}
+    from .source_documents import visible_publication
+    visible,excerpt=visible_publication(text)
+    return {'text':text[:300_000],'links':links,'link_details':link_details,'published_at':min(dates) if dates else visible,'publication_excerpt':excerpt,'title':title}
 
 
 def yahoo(ticker, *, factory=None):

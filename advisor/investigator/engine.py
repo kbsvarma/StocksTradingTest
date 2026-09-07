@@ -153,6 +153,22 @@ def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=re
             update('challenge','Checking the strongest counter-thesis and every load-bearing source')
             review,usage=reasoner.review(ticker,proposal,stamped,runner=invoke_model,analysis=analysis);model_usage.append(usage)
             synthesis=reasoner.finalize(proposal,review,stamped)
+            follow_up=list(dict.fromkeys(review.get('missed_questions',[])+proposal.get('next_checks',[])))[:3]
+            if synthesis.get('review_status')!='model_challenged' and follow_up:
+                update('follow_up','Investigating the material questions raised by the draft and source review')
+                try:
+                    packet,usage=reasoner.research(ticker,analysis,round_number=len(research_packets)+1,
+                        previous=research_packets,runner=invoke_model,follow_up=follow_up)
+                    packet['purpose']='post_synthesis_follow_up';packet['target_questions']=follow_up
+                    model_usage.append(usage);research_packets.append(packet);searches.extend(packet.get('queries_run',[]))
+                    received,rejected=reasoner.ingest_web(ticker,packet);rejections.extend(rejected)
+                    seen={r['url'] for r in rows};novel=[]
+                    for row in received:
+                        if row['url'] not in seen:novel.append(row);seen.add(row['url'])
+                    rows.extend(novel);stamped,analysis=refresh()
+                    update('follow_up',f'Follow-up retrieved {len(novel)} new verified documents; the revised report must still pass review')
+                except Exception as exc:
+                    errors.append('Targeted follow-up: '+type(exc).__name__+': '+str(exc)[:120])
             if synthesis.get('review_status')!='model_challenged':
                 update('revise','Correcting failed source checks and reconsidering the proposed action')
                 atomic(root/'first_review.json',{'proposal':proposal,'review':review,'checks':synthesis.get('rejected_insights',[])})
@@ -171,7 +187,7 @@ def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=re
               'sources':inventory(),'collection':source_results,'errors':errors,'source_rejections':rejections,
               'search':{'queries_run':list(dict.fromkeys(searches)),'rounds_completed':len(research_packets),
                         'relationships':relationships,'unresolved':list(dict.fromkeys(q for p in research_packets for q in p.get('unresolved',[]))),
-                        'stop_reason':'research_limit_reached' if len(research_packets)==4 else 'questions_resolved_or_no_new_verified_evidence' if len(research_packets)>=2 else 'model_unavailable_or_incomplete' if deep else 'evidence_scan_requested',
+                        'stop_reason':'bounded_follow_up_completed' if any(p.get('purpose')=='post_synthesis_follow_up' for p in research_packets) else 'research_limit_reached' if len(research_packets)>=4 else 'questions_resolved_or_no_new_verified_evidence' if len(research_packets)>=2 else 'model_unavailable_or_incomplete' if deep else 'evidence_scan_requested',
                         'universal_exhaustion_claimed':False},
               'model_usage':model_usage,'stages':stages,'methodology_version':'investigator-2',
               'investigator_code_sha256':source_revision,

@@ -412,3 +412,34 @@ def test_earnings_bridge_separates_gross_cost_and_below_operating_changes():
     assert result['op_income_margin_change_pp']==pytest.approx(1)
     assert result['below_operating_margin_change_pp']==pytest.approx(9)
     assert len(cites['earnings_bridge'])==8
+
+
+def test_failed_synthesis_researches_missing_fact_before_revision(tmp_path,monkeypatch):
+    from advisor.investigator import reasoner
+    from advisor.investigator.temporal import utcnow
+    now=utcnow()
+    original=record(ticker='TEST',source='issuer_ir',kind='document',payload={'text':'Revenue increased 20 percent in the latest fiscal quarter.'},url='https://example.com/release',published_at=now,retrieved_at=now)
+    additional=record(ticker='TEST',source='issuer_ir',kind='document',payload={'text':'Collections lagged because customers received longer payment terms.'},url='https://example.com/terms',published_at=now,retrieved_at=now)
+    reviews=0;research_calls=[];revised_with=[]
+    def research(*a,follow_up=None,**kw):
+        research_calls.append(follow_up)
+        return {'sources':[{'url':additional['url']}] if follow_up else [],'queries_run':['customer payment terms'] if follow_up else [],'unresolved':[]},{}
+    monkeypatch.setattr(reasoner,'research',research)
+    monkeypatch.setattr(reasoner,'ingest_web',lambda t,p:([additional] if p['sources'] else [],[]))
+    monkeypatch.setattr(reasoner,'synthesize',lambda *a,**kw:(proposal(original),{}))
+    def review(*a,**kw):
+        nonlocal reviews
+        reviews+=1
+        return {'insights':[{'id':'one','supported':reviews>1,'reason':'Check payment terms'}],
+                'action_supported':reviews>1,'missed_questions':['What are customer payment terms?'] if reviews==1 else []},{}
+    monkeypatch.setattr(reasoner,'review',review)
+    def revise(t,p,f,rows,a,**kw):
+        revised_with.extend(r['url'] for r in rows)
+        return proposal(original),{}
+    monkeypatch.setattr(reasoner,'revise',revise)
+    report=run('TEST',tmp_path,deep=True,collect={'fixture':lambda:([original],[])},model=lambda *a,**kw:None)
+    assert research_calls==[None,None,['What are customer payment terms?']]
+    assert additional['url'] in revised_with
+    assert report['search']['stop_reason']=='bounded_follow_up_completed'
+    assert report['search']['queries_run']==['customer payment terms']
+    assert report['synthesis']['review_status']=='model_challenged' and reviews==2

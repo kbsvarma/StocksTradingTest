@@ -40,6 +40,14 @@ def record(*, ticker, source, kind, payload, retrieved_at, published_at=None,
     row['id']=digest(row)[:24]
     return row
 
+def periodic_document(row):
+    payload=row.get('payload',{})
+    if row.get('kind')!='document':return False
+    if payload.get('document_class')=='periodic_filing':return payload.get('form') in {'10-Q','10-K','20-F'}
+    excerpt=payload.get('period_basis_excerpt','')
+    return payload.get('document_class')=='earnings_release' and bool(excerpt) and excerpt in payload.get('text','')
+
+
 def assess(row, as_of):
     at=timestamp(iso(as_of)); reasons=[]
     retrieved=timestamp(row['retrieved_at'])
@@ -49,8 +57,7 @@ def assess(row, as_of):
     if pub and pub>at: reasons.append('published_after_cutoff')
     if obs and obs>at: reasons.append('observation_after_cutoff')
     kind=row['kind']
-    periodic=(kind=='document' and row.get('payload',{}).get('document_class')=='periodic_filing'
-              and row.get('payload',{}).get('form') in {'10-Q','10-K','20-F'})
+    periodic=periodic_document(row)
     max_age=150 if periodic else MAX_AGE.get(kind,7)
     if kind in {'news','filing','document'} and not pub: reasons.append('publication_unknown')
     if kind=='news' and not row.get('payload',{}).get('body_verified'): reasons.append('headline_discovery_only')
@@ -68,7 +75,7 @@ def assess(row, as_of):
         if period_age>max_age: reasons.append('old_measurement_period')
         if end>at: reasons.append('future_measurement_period')
     # Republishing old news does not refresh the economic event.
-    if kind in {'news','document'} and row.get('event_at'):
+    if kind in {'news','document'} and row.get('event_at') and not periodic:
         if (at-timestamp(row['event_at'])).days>MAX_AGE[kind]: reasons.append('old_event_recirculated')
     blocked=any(x.endswith('after_cutoff') or x=='future_measurement_period' for x in reasons)
     return {'state':'excluded' if blocked else 'context_only' if reasons else 'current',
@@ -88,10 +95,10 @@ def annotate(rows, as_of):
             r['temporal']={'state':'context_only','age_days':r['temporal']['age_days'],'reasons':['superseded_measurement_period']}
     latest_filing={}
     for r in rows:
-        if r['kind']=='document' and r['payload'].get('document_class')=='periodic_filing' and r['temporal']['state']=='current':
+        if periodic_document(r) and r['temporal']['state']=='current':
             latest_filing[r['ticker']]=max(latest_filing.get(r['ticker'],''),r.get('period_end') or '')
     for r in rows:
-        if (r['kind']=='document' and r['payload'].get('document_class')=='periodic_filing' and
+        if (periodic_document(r) and
             r['temporal']['state']=='current' and (r.get('period_end') or '')<latest_filing.get(r['ticker'],'')):
             r['temporal']={'state':'context_only','age_days':r['temporal']['age_days'],'reasons':['superseded_measurement_period']}
     return rows

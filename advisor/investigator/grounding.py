@@ -59,6 +59,7 @@ def output_schema(base,analysis):
     insight['properties']['evidence']['maxItems']=min(3,insight['properties']['evidence'].get('maxItems',3))
     for field,limit in (('title',180),('mechanism',1500),('counterargument',1000),('invalidation',600),('horizon',80)):
         insight['properties'][field]={**insight['properties'][field],'maxLength':limit}
+    insight['properties']['horizon']={'type':'string','enum':['1 week','1 month','3 months','6 months','12 months','24 months','2 quarters','next quarterly earnings']}
     insight['properties']['mechanism']['minLength']=40
     insight['properties']['counterargument']['minLength']=20
     schema['properties']['action_reason']={**schema['properties']['action_reason'],'maxLength':1500}
