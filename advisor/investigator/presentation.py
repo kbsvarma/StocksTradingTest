@@ -80,10 +80,32 @@ def decision_brief(report, now=None):
             conditions.append(('Upside confirmation',f'A daily close above {high:,.2f}, the preceding 20-session high, with stronger volume and supportive earnings evidence. A price breakout alone is insufficient.'))
             conditions.append(('Downside checkpoint',f'A daily close below {low:,.2f}, the preceding 20-session low, weakens the recovery/continuation case. This is a scenario threshold, not an executable stop.'))
         if ma:conditions.append(('Long-term trend',f'The 200-session average is {ma:,.2f}; reassess trend support if price loses it. Refresh the investigation before using these historical levels.'))
+    synthesis=report.get('synthesis',{})
+    reviewed=[];basis='Evidence-based rules assessment · No model review'
+    if synthesis.get('review_status')=='model_challenged':
+        from .reasoner import validate_synthesis
+        reviewed,rejected=validate_synthesis(synthesis,rows)
+        if rejected or not reviewed:
+            reviewed=[]
+            basis='Prior synthesis needs fresh evidence · Current rules assessment shown'
+        else:
+            action=synthesis.get('action','investigate_further')
+            verdict,tone={
+                'buy_candidate':('BUY CANDIDATE · CONDITIONAL','green'),
+                'wait_for_trigger':('WAIT FOR TRIGGER','amber'),
+                'avoid_new_entry':('AVOID NEW ENTRY','red'),
+                'reduce_candidate':('REDUCE CANDIDATE · REVIEW','red'),
+                'no_edge_found':('NO EDGE FOUND','cyan'),
+            }.get(action,('FURTHER INVESTIGATION','amber'))
+            summary=synthesis.get('summary') or synthesis.get('action_reason') or summary
+            drivers=[synthesis.get('action_reason',''),*synthesis.get('contradictions',[])]
+            drivers=[x for x in drivers if x]
+            conditions=[('Entry / confirmation',x) for x in synthesis.get('entry_conditions',[])]+[('Exit / invalidation',x) for x in synthesis.get('exit_conditions',[])]+[('Next check',x) for x in synthesis.get('next_checks',[])]
+            basis='Source-checked synthesis · Adversarial model review'
     gaps=[]
     for name,r in report.get('collection',{}).items():
         if r.get('status') in {'failed','partial'}:
             issues='; '.join(r.get('errors',[])) or 'Some requests did not return evidence'
             gaps.append((name.replace('_',' ').title(),issues))
     if not findings:gaps.insert(0,('Company evidence','No current findings from the company’s fundamentals, market data or earnings expectations. Verify the ticker and rerun.'))
-    return dict(verdict=verdict,tone=tone,summary=summary,drivers=drivers,findings=findings,historical=historical,bull=bull,bear=bear,conditions=conditions,gaps=gaps,identified=identified,technicals=tech,lookup=lookup)
+    return dict(insights=reviewed,basis=basis,verdict=verdict,tone=tone,summary=summary,drivers=drivers,findings=findings,historical=historical,bull=bull,bear=bear,conditions=conditions,gaps=gaps,identified=identified,technicals=tech,lookup=lookup)

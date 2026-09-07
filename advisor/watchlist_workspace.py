@@ -96,7 +96,7 @@ def render(data,principal):
                 st.caption('Quote · '+clock(p.get('regularMarketTime')))
                 st.markdown(f'<div class="ad-watch-summary"><b>{escape(verdict)}</b><p>{escape(note)}</p></div>',unsafe_allow_html=True)
                 if st.button('Investigate '+ticker,key='watch_open_'+ticker,use_container_width=True):
-                    st.session_state['ad_requested_page']='INT';st.session_state['ad_symbol']=ticker;st.session_state['investigator_ticker']=ticker;st.session_state['ad_market_requested']=ticker;st.rerun()
+                    st.session_state['ad_requested_page']='INT';st.session_state['ad_symbol']=ticker;st.session_state['investigator_ticker']=ticker;st.session_state['ad_market_requested']=ticker;st.session_state['ad_investigate_requested']=ticker;st.rerun()
             rows.append({'Ticker':ticker,'Company':p.get('shortName',ticker),'Price':p.get('regularMarketPrice'),'Day %':change,'1M %':month,'Market cap':fmt(p.get('marketCap'),'money'),'Forward P/E':p.get('forwardPE'),'Research':verdict,'Research as of':report_date,'Quote as of':clock(p.get('regularMarketTime'))})
     st.markdown('### Watchlist snapshot')
     st.dataframe(pd.DataFrame(rows),hide_index=True,use_container_width=True,column_config={'Day %':st.column_config.NumberColumn(format='%+.2f%%'),'1M %':st.column_config.NumberColumn(format='%+.2f%%'),'Price':st.column_config.NumberColumn(format='%.2f')})

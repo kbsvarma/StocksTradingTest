@@ -29,6 +29,9 @@ def benchmark(ticker):
 
 
 def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=reasoner.invoke):
+    if deep and model is reasoner.invoke:
+        from .runtime import require_config
+        require_config()
     ticker=collectors.symbol(ticker);data=Path(data);started=utcnow();run_id=run_id or uuid.uuid4().hex
     if not run_id.isalnum() or len(run_id)>64:raise ValueError('Invalid run identifier')
     root=data/'intelligence'/'investigations'/ticker/run_id;root.mkdir(parents=True,exist_ok=True)
@@ -64,7 +67,9 @@ def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=re
         rows.extend(received);errors.extend(issues)
         source_results['issuer_ir']={'records':len(received),'errors':issues,'status':'partial' if issues else 'complete' if received else 'no_dated_releases'}
     def refresh():
-        stamped=annotate(list({r['id']:r for r in rows}.values()),utcnow())
+        from .quarters import derive
+        now=utcnow()
+        stamped=annotate(derive(list({r['id']:r for r in rows}.values()),now),now)
         result=analyze(stamped,ticker)
         from .planner import plan
         result['investigation_plan']=plan(stamped,result,ticker)
@@ -77,7 +82,7 @@ def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=re
                'entry_conditions':[],'exit_conditions':[],'next_checks':[],'contradictions':[],'review_status':'not_run'}
     research_packets=[];proposal={};review={}
     if deep:
-        for round_number in (1,2):
+        for round_number in range(1,5):
             update('research',f'Research round {round_number}: follow material leads and challenge the strongest thesis')
             try:
                 packet,usage=reasoner.research(ticker,analysis,round_number=round_number,previous=research_packets,runner=model)
@@ -100,6 +105,8 @@ def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=re
                 stamped,analysis=refresh()
                 # Stop only when the second targeted round produces no new verified source.
                 update('research',f'Round {round_number}: {len(novel)} new verified documents; {len(rejected)} source checks failed')
+                # Follow unresolved material questions while sources are still adding evidence.
+                if round_number>=2 and (not novel or not packet.get('unresolved')):break
             except Exception as exc:
                 errors.append('Research round '+str(round_number)+': '+type(exc).__name__+': '+str(exc)[:120]);break
         update('synthesize','Connecting evidence, expectations, contradictions and actionable conditions')
@@ -118,7 +125,7 @@ def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=re
               'sources':inventory(),'collection':source_results,'errors':errors,'source_rejections':rejections,
               'search':{'queries_run':list(dict.fromkeys(searches)),'rounds_completed':len(research_packets),
                         'relationships':relationships,'unresolved':list(dict.fromkeys(q for p in research_packets for q in p.get('unresolved',[]))),
-                        'stop_reason':'bounded_two_round_investigation' if len(research_packets)==2 else 'model_unavailable_or_incomplete' if deep else 'evidence_scan_requested',
+                        'stop_reason':'research_limit_reached' if len(research_packets)==4 else 'questions_resolved_or_no_new_verified_evidence' if len(research_packets)>=2 else 'model_unavailable_or_incomplete' if deep else 'evidence_scan_requested',
                         'universal_exhaustion_claimed':False},
               'model_usage':model_usage,'stages':stages,'methodology_version':'investigator-1',
               'execution_authority':False}

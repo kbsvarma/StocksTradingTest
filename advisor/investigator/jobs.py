@@ -11,8 +11,11 @@ from .engine import atomic
 from .temporal import utcnow
 
 
-def start(data,ticker,principal,*,deep=False):
+def start(data,ticker,principal,*,deep=True):
     principal.require('propose');ticker=symbol(ticker)
+    if deep:
+        from .runtime import require_config
+        require_config()
     data=Path(data).resolve();root=data/'intelligence'/'investigations'/ticker;root.mkdir(parents=True,exist_ok=True)
     with (root/'launch.lock').open('a') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX)

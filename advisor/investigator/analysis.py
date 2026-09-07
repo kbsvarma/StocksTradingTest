@@ -230,7 +230,13 @@ def analyze(rows,ticker):
             'challenge':[f['id'] for f in related if f['direction']=='bearish'],'context':[f['id'] for f in related if f['direction']=='neutral'],
             'attention_priority':max([f['materiality'] for f in related] or [0]),'status':'investigate' if related else 'evidence_gap'})
     hypotheses.sort(key=lambda h:h['attention_priority'],reverse=True)
-    covered={s.dimension for s in SOURCES for r in own if r['source']==s.id and r['temporal']['state']=='current'}
+    covered={f['dimension'] for f in findings}
+    kinds={'fundamental':'fundamentals','technical':'technicals','short_interest':'positioning','borrow':'positioning','macro':'macro'}
+    for r in own:
+        if r['temporal']['state']!='current':continue
+        if r['kind'] in kinds:covered.add(kinds[r['kind']])
+        if r['kind']=='document' and r['payload'].get('dimension') in DIMENSIONS:covered.add(r['payload']['dimension'])
+        if r['kind']=='news' and r['payload'].get('body_verified'):covered.add('news')
     coverage=[{'dimension':k,'question':v,'status':'current_inputs' if k in covered else 'needs_investigation',
                'sources':[s.id for s in SOURCES if s.dimension==k]} for k,v in DIMENSIONS.items()]
     from .valuation import valuation

@@ -582,6 +582,7 @@ def render_terminal(base, *, legacy, controls):
             st.session_state['ad_symbol']=searched
             st.session_state['investigator_ticker']=searched
             st.session_state['ad_market_requested']=searched
+            st.session_state['ad_investigate_requested']=searched
         except ValueError as exc:
             st.warning(str(exc))
             st.session_state['ad_search_choices']=getattr(exc,'choices',[])
@@ -593,6 +594,7 @@ def render_terminal(base, *, legacy, controls):
             st.session_state['ad_symbol']=picked['ticker']
             st.session_state['investigator_ticker']=picked['ticker']
             st.session_state['ad_market_requested']=picked['ticker']
+            st.session_state['ad_investigate_requested']=picked['ticker']
             st.session_state['ad_search_choices']=[]
             st.rerun()
     with st.expander('Terminal commands & workspace controls'):

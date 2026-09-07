@@ -68,7 +68,7 @@ def test_save_workspace_is_functional_and_has_valid_toast(app):
 def test_on_demand_investigator_accepts_an_uncovered_ticker_without_fetching(app,monkeypatch):
     from advisor.investigator import jobs
     def unexpected(*args,**kwargs):raise AssertionError('Rendering must not launch research')
-    monkeypatch.setattr(jobs,'start',unexpected)
+    monkeypatch.setattr('advisor.investigator.workspace.start',unexpected)
     next(x for x in app.text_input if x.label=='COMMAND').set_value('NVDA INT')
     next(b for b in app.button if b.label=='GO ↵').click().run()
     assert not app.exception
@@ -84,15 +84,21 @@ def test_refresh_preserves_investigator_workspace(app):
 
 
 @pytest.mark.parametrize('query',['Nividia','Nvidia','Nvda','NVDIA'])
-def test_company_search_resolves_names_without_launching_job(app,monkeypatch,query):
+def test_company_search_launches_one_full_investigation(app,monkeypatch,query):
     from advisor.investigator import jobs
-    def unexpected(*args,**kwargs):raise AssertionError('Search must not launch research')
-    monkeypatch.setattr(jobs,'start',unexpected)
+    calls=[]
+    def launch(*args,**kwargs):
+        calls.append((args[1],kwargs))
+        return {'ticker':'NVDA','run_id':'testjob'}
+    monkeypatch.setattr('advisor.investigator.workspace.start',launch)
     app.text_input(key='ad_stock_search').set_value(query)
     next(b for b in app.button if b.label=='Investigate →').click().run()
     assert not app.exception
     assert app.session_state['investigator_ticker']=='NVDA'
     assert app.radio(key='ad_nav').value=='09  INVESTIGATE'
+    assert calls==[('NVDA',{'deep':True})]
+    app.run()
+    assert len(calls)==1
 
 
 def test_watchlist_defaults_render_and_empty_selection_persists(app):

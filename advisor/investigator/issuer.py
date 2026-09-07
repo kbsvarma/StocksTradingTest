@@ -47,7 +47,13 @@ def collect(ticker,rows,data,*,fetcher=document):
         try:
             doc=fetcher(url)
             if not doc.get('published_at'):continue # directory pages are navigation, not current evidence
-            output.append(record(ticker=ticker,source='issuer_ir',kind='document',payload={'text':doc['text'],'discovered_from':parent,'dimension':'guidance','publication_basis':'page metadata'},
+            title=doc.get('title','').lower()
+            excerpt=doc['text'][:20000].lower()
+            financial=any(term in title for term in ('financial results','earnings','quarterly results','full year results','fiscal'))
+            guidance=financial and any(term in excerpt for term in ('outlook','guidance','expects revenue','revenue is expected'))
+            material=any(term in title for term in ('acquire','acquisition','merger','partnership','dividend','repurchase'))
+            dimension='guidance' if guidance else 'fundamentals' if financial else 'catalysts'
+            output.append(record(ticker=ticker,source='issuer_ir',kind='document',payload={'text':doc['text'],'discovered_from':parent,'dimension':dimension,'relevance':'direct' if financial or material else 'unverified','publication_basis':'page metadata'},
                 retrieved_at=utcnow(),published_at=doc['published_at'],url=url,authority='issuer_statement',independence='issuer:'+ticker,title=doc.get('title') or url.rsplit('/',1)[-1]))
         except Exception as exc:errors.append('Issuer release: '+type(exc).__name__)
     return output,errors

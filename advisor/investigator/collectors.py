@@ -104,16 +104,20 @@ def sec(ticker, data, *, get=getjson):
         rows.append(record(ticker=ticker,source='sec_filings',kind='profile',payload=identity,
             retrieved_at=utcnow(),observed_at=utcnow(),url=sub_url,authority='primary',title='Issuer identity'))
         keep={'10-Q','10-K','8-K','6-K','20-F','4','144','SC 13D','SC 13D/A','SC 13G','SC 13G/A','S-3','S-3ASR','424B5','NT 10-Q','NT 10-K'}
+        essential_seen=set();filing_count=0
         for i,form in enumerate(recent.get('form',[])):
             if form not in keep:continue
             filed=recent['filingDate'][i]
-            if filed<(started-timedelta(days=120)).date().isoformat(): continue
+            essential=form in {'10-K','10-Q','20-F'} and form not in essential_seen
+            if essential:essential_seen.add(form)
+            if filed<(started-timedelta(days=120)).date().isoformat() and not essential:continue
+            if filing_count>=30 and not essential:continue
             acc=recent['accessionNumber'][i];doc=recent['primaryDocument'][i]
             url=f'https://www.sec.gov/Archives/edgar/data/{int(cik)}/{acc.replace("-","")}/{doc}'
             rows.append(record(ticker=ticker,source='sec_filings',kind='filing',payload={'form':form,'accession':acc,'report_date':recent.get('reportDate',['']*len(recent['form']))[i]},
                 published_at=accepted.get(acc) or filed,retrieved_at=utcnow(),url=url,authority='primary',
                 title=f'{form} filed {filed}',independence=f'sec:{acc}'))
-            if sum(r['kind']=='filing' for r in rows)>=30:break
+            filing_count+=1
     except Exception as exc:errors.append('SEC submissions: '+type(exc).__name__)
     try:
         raw=get(facts_url);retrieved=utcnow()
@@ -148,7 +152,12 @@ def sec(ticker, data, *, get=getjson):
                         authority='primary',independence=f'sec:{o.get("accn")}',title=f'{metric} {o.get("start","")} to {o["end"]}'))
     except Exception as exc:errors.append('SEC facts: '+type(exc).__name__)
     # Read actual latest quarterly/annual filing plus recent material releases, not just metadata.
-    selected=[r for r in rows if r['kind']=='filing' and r['payload']['form'] in {'10-Q','10-K','8-K','6-K','20-F'}][:4]
+    eligible=[r for r in rows if r['kind']=='filing' and r['payload']['form'] in {'10-Q','10-K','8-K','6-K','20-F'}]
+    selected=[]
+    for form in ('10-Q','10-K','20-F'):
+        latest=next((r for r in eligible if r['payload']['form']==form),None)
+        if latest:selected.append(latest)
+    selected+=( [r for r in eligible if r not in selected][:max(0,4-len(selected))] )
     for r in selected:
         try:
             body=document(r['url']);now=utcnow()

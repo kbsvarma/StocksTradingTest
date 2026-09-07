@@ -10,6 +10,7 @@ WorkingDirectory=%h/stockstest
 Environment=PYTHONPATH=%h/stockstest
 Environment=ADVISOR_ALLOW_UI_REGEN=1
 EnvironmentFile=%h/.advisor_terminal_env
+EnvironmentFile=-%h/.advisor_research.env
 ExecStart=%h/stockstest/.venv/bin/python -m streamlit run advisor/terminal.py --server.port 8505 --server.address 192.168.3.36 --server.headless true --server.enableCORS true --server.enableXsrfProtection true --server.maxUploadSize 1 --browser.gatherUsageStats false --theme.base dark --theme.backgroundColor #0b0e11 --theme.secondaryBackgroundColor #11151a --theme.primaryColor #ff9f0a --theme.textColor #e8e6e3
 Restart=always
 RestartSec=15

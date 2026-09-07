@@ -25,13 +25,19 @@ def render(data,principal,selected=None):
     a,b=st.columns([5,1],vertical_alignment='center')
     with a:rich(f'<div class="ad-kicker">ON-DEMAND RESEARCH</div><div class="ad-section-title">{safe(LABELS.get(ticker,ticker))} <span class="ad-security-symbol">{safe(ticker)}</span></div>')
     with b:
-        if st.button('Run fresh investigation',type='primary',use_container_width=True,disabled=principal.role not in {'analyst','admin'}):
-            try:
-                verified=resolve(ticker,data)
-                job=start(data,verified,principal,deep=False)
-                st.session_state['investigation_job']=job
-                st.toast('Collecting current company evidence')
-            except ValueError as exc:st.error(str(exc))
+        requested=st.button('Run fresh investigation',type='primary',use_container_width=True,disabled=principal.role not in {'analyst','admin'})
+    pending=st.session_state.pop('ad_investigate_requested',None)
+    if requested or pending==ticker:
+        try:
+            verified=resolve(ticker,data)
+            job=start(data,verified,principal,deep=True)
+            st.session_state['investigation_job']=job
+            st.toast('Investigating evidence, expectations and counterarguments')
+        except (ValueError,RuntimeError,PermissionError) as exc:st.error(str(exc))
+    from .runtime import status as runtime_status
+    runtime=runtime_status()
+    if not runtime['configured']:
+        st.warning('Research engine setup required: the application model credential is missing. Saved reports and charts remain available; a new full investigation cannot run yet.')
     from advisor.market_view import render_market
     render_market(data,ticker)
     job=st.session_state.get('investigation_job')
@@ -52,7 +58,7 @@ def render(data,principal,selected=None):
         st.info(f'Run a fresh investigation to examine {ticker} fundamentals, expectations, price structure and dated sources.');return
     except (ValueError,KeyError) as exc:st.error(str(exc));return
     brief=decision_brief(report);lookup=brief['lookup'];analysis=report['analysis'];s=report['synthesis']
-    rich(f'<div class="ad-verdict {brief["tone"]}"><div class="ad-kicker">{safe(brief["verdict"])}</div><p>{safe(brief["summary"])}</p><small>AS OF {safe(report["as_of"][:19].replace("T"," "))} UTC · Evidence-based rules assessment · No model review</small></div>')
+    rich(f'<div class="ad-verdict {brief["tone"]}"><div class="ad-kicker">{safe(brief["verdict"])}</div><p>{safe(brief["summary"])}</p><small>AS OF {safe(report["as_of"][:19].replace("T"," "))} UTC · {safe(brief["basis"])}</small></div>')
     overview,evidence,sources=st.tabs(['DECISION BRIEF','EVIDENCE & DATES','SOURCES & GAPS'])
     with overview:
         if brief['drivers']:
@@ -87,12 +93,17 @@ def render(data,principal,selected=None):
             neutral=[f for f in brief['findings'] if f['direction'] not in {'bullish','bearish'}]
             for f in neutral:
                 st.markdown('**'+f['title']+'**');st.write(f['detail']);st.caption(MEANING.get(f['id'],('', ''))[1])
-        if s.get('insights'):
+        if brief['insights']:
             st.subheader('Reviewed research insights')
-            for i in s['insights']:
+            for i in brief['insights']:
                 with st.container(border=True):
                     st.markdown('#### '+i['title'])
-                    for name,key in [('What changed','what_changed'),('Why it matters','mechanism'),('Priced-in expectations','what_is_priced_in'),('Counterargument','counterargument'),('Invalidation','invalidation')]:st.markdown(f'**{name}:** {i[key]}')
+                    for name,key in [('What changed','what_changed'),('Why it matters','mechanism'),('Priced-in expectations','what_is_priced_in'),('Counterargument','counterargument'),('Invalidation','invalidation'),('Horizon','horizon')]:st.markdown(f'**{name}:** {i[key]}')
+                    for citation in i.get('evidence',[]):
+                        source=lookup.get(citation['source_id'])
+                        if source:
+                            st.caption(f"{source['title']} · published {source.get('published_at')} · period {source.get('period_end') or source.get('observed_at')}")
+                            st.link_button('Original evidence',source['url'])
         value=analysis.get('valuation',{})
         with st.expander('Valuation · what the price requires',expanded=bool(value.get('fcf_yield_pct'))):
             if value.get('fcf_yield_pct') is not None:
@@ -156,11 +167,15 @@ def render(data,principal,selected=None):
         st.markdown('#### Unresolved research dimensions')
         missing=[label(c['dimension']) for c in analysis.get('coverage',[]) if c['status']!='current_inputs']
         st.write(', '.join(missing) or 'All tracked dimensions have current inputs; input coverage does not establish a conclusion.')
-        st.caption('Calculated findings and conditional scenarios are available without an assistant login. Model synthesis is disconnected. Verified article-level interpretation and independent review are not supplied by the rules assessment.')
+        st.caption(brief['basis'])
+        st.write('Research rounds completed: '+str(report.get('search',{}).get('rounds_completed',0)))
+        for query in report.get('search',{}).get('queries_run',[]):st.caption('Searched: '+query)
+        for failure in report.get('errors',[]):st.caption('Run issue: '+str(failure))
         st.download_button('Export full audit data',json.dumps(report,indent=2),file_name=ticker+'-evidence.json',mime='application/json')
 
 
 def readable_markdown(report,brief):
+    if brief.get('insights'):return markdown({**report,'synthesis':{**report['synthesis'],'insights':brief['insights']}})
     lines=[f'# {report["ticker"]} — decision brief',f'As of {report["as_of"]}',f'## {brief["verdict"]}',brief['summary'],*brief['drivers']]
     for f in brief['findings']:
         meaning,check=MEANING.get(f['id'],('','Read the original source.'))

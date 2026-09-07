@@ -45,3 +45,20 @@ def test_future_evidence_cannot_enter_a_current_brief():
     r=record(ticker='TEST',source='sec_facts',kind='fundamental',payload={'value':10,'metric':'revenue','unit':'USD','duration_class':'quarter'},retrieved_at=NOW,published_at=NOW+timedelta(days=1),period_end='2026-06-30')
     f={'id':'revenue_growth','title':'Growth','direction':'bullish','evidence_ids':[r['id']]}
     assert not decision_brief(report([r],[f]),NOW)['findings']
+
+
+def test_reviewed_synthesis_drives_decision_until_its_premise_expires():
+    r=record(ticker='TEST',source='issuer_ir',kind='document',payload={'text':'Revenue guidance increased by ten percent.'},retrieved_at=NOW,published_at=NOW)
+    insight={'id':'guidance','title':'Demand revision','direction':'bullish','what_changed':'Higher guidance',
+             'mechanism':'Higher expected revenue','what_is_priced_in':'Requires valuation confirmation',
+             'counterargument':'Execution risk','invalidation':'Guidance cut','horizon':'Next quarter',
+             'evidence':[{'source_id':r['id'],'excerpt':'Revenue guidance increased','use':'current'}]}
+    raw=report([r]);raw['synthesis']={'review_status':'model_challenged','insights':[insight],
+        'action':'wait_for_trigger','summary':'Demand improved; wait for valuation confirmation.',
+        'action_reason':'Demand alone does not establish an attractive entry.',
+        'entry_conditions':['Confirm valuation'],'exit_conditions':['Guidance cut'],'next_checks':[]}
+    b=decision_brief(raw,NOW)
+    assert b['verdict']=='WAIT FOR TRIGGER' and b['summary']==raw['synthesis']['summary']
+    assert b['insights']==[insight]
+    expired=decision_brief(raw,NOW+timedelta(days=31))
+    assert not expired['insights'] and expired['summary']!=raw['synthesis']['summary']

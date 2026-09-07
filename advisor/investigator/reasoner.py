@@ -25,13 +25,9 @@ REVIEW_SCHEMA=obj({'insights':arr(obj({'id':S,'supported':{'type':'boolean'},'re
                    'action_supported':{'type':'boolean'},'action_reason':S,'missed_questions':arr(S)})
 
 
-def invoke(prompt,schema,*,web=False,timeout=240,budget=2.5):
-    """No implicit connection to a personal coding-assistant account.
-
-    A future explicitly configured provider can implement this interface.
-    Evidence collection and deterministic analysis run without a model.
-    """
-    raise RuntimeError('No research model connected; automatic assistant-account access is disabled')
+def invoke(prompt,schema,*,web=False,timeout=240,budget=None):
+    from .runtime import invoke as api_invoke
+    return api_invoke(prompt,schema,web=web,timeout=timeout,budget=budget)
 
 
 def passages(text,limit=9000):
@@ -73,13 +69,13 @@ def evidence_context(rows,limit=95_000,required_ids=None):
 
 def research(ticker,analysis,*,round_number=1,previous=None,runner=invoke):
     prompt=f'''Investigate {ticker} as of {utcnow().isoformat()}. Round {round_number}.
-Use web search and read sources. Investigate recent quarterly results/guidance, valuation expectations, news/catalysts, short positioning, narrative excess, and customer/supplier/competitor read-through. Resolve ticker/company identity first. Follow the most consequential contradictions and gaps below. For sector-specific issues use original regulators, trial records, contracts or industry releases. Prioritize the latest relevant fiscal quarter and events in the last 30 days. Old comparative periods must be labeled. Search bullish AND bearish evidence; check whether old events are being recirculated. Seek original releases and Q&A beyond news summaries. Return up to 10 genuinely useful source pages, not search-result links. Each must include an exact short excerpt (max 300 chars), source publication ISO timestamp/date and an exact date excerpt visible on the page. event_at is empty when unknown, never guess. Return actual queries run, unresolved questions, and up to 3 economically important related tickers with source-backed relationship. A search snippet alone cannot verify a claim. Do not repeat already-read pages unless resolving a material omission.
+Use web search and read sources. Investigate recent quarterly results/guidance, valuation expectations, news/catalysts, short positioning, narrative excess, and customer/supplier/competitor read-through. Resolve ticker/company identity first. Follow the most consequential contradictions and gaps below. For sector-specific issues use original regulators, trial records, contracts or industry releases. Prioritize the latest relevant fiscal quarter and events in the last 30 days. Old comparative periods must be labeled. Search bullish AND bearish evidence; check whether old events are being recirculated. Seek original releases and Q&A beyond news summaries. Return up to 10 genuinely useful source pages, not search-result links. For every unresolved item, state the exact missing premise and the next source that could resolve it. Do not repeat a generic question when the evidence already answers it. Seek numbers that can change a revenue, margin, per-share cash-flow or valuation scenario. Explain why the strongest bullish and bearish explanations differ economically; do not count indicators as votes. Each must include an exact short excerpt (max 300 chars), source publication ISO timestamp/date and an exact date excerpt visible on the page. event_at is empty when unknown, never guess. Return actual queries run, unresolved questions, and up to 3 economically important related tickers with source-backed relationship. A search snippet alone cannot verify a claim. Do not repeat already-read pages unless resolving a material omission.
 DIMENSIONS: {json.dumps(DIMENSIONS)}
 HYPOTHESES: {json.dumps(QUESTIONS)}
 COMPUTED ANALYSIS: {json.dumps(analysis,default=str)[:35000]}
 PREVIOUS: {json.dumps(previous or {},default=str)[:20000]}
 '''
-    packet,usage=runner(prompt,RESEARCH_SCHEMA,web=True)
+    packet,usage=runner(prompt,RESEARCH_SCHEMA,web=True,timeout=150)
     packet['queries_reported_by_model']=packet.get('queries_run',[])
     packet['queries_run']=usage.get('queries_observed',[])
     return packet,usage
@@ -118,10 +114,10 @@ def ingest_web(ticker,packet,*,fetcher=document):
 
 
 def synthesize(ticker,rows,analysis,runner=invoke):
-    prompt=f'''Produce an investment intelligence report for {ticker} as of {utcnow().isoformat()} using ONLY the supplied evidence and computed results. Find up to 5 substantial insights, not article summaries. Each insight must connect what changed, economic mechanism, priced-in expectations (or explicitly unknown), strongest competing explanation, horizon and falsifier. Combine independent evidence, identify conflicts, and avoid double counting correlated technicals or syndicated headlines. Rank insights by material consequence; no invented confidence probabilities or price targets. Every factual premise needs source_id and an exact excerpt from its payload text (or an exact substring of JSON payload for structured data). Evidence with context_only may only be historical_comparison and cannot supply a current premise. At least one current premise per insight. Sources without adequate evidence must become next_checks. The investment action is a research suggestion: choose a buy candidate only when fresh fundamentals/expectations, a reason the opportunity is not priced in and clear entry/invalidation support it. Avoid or reduce can be justified by adverse evidence. Prefer a specific conditional setup to vague bullishness. Admit no edge when the evidence is balanced; do not use missing performance calibration as a reason to avoid doing the analysis. Summaries/action/conditions must contain no factual claims absent from the cited insights. Do not turn relative fiscal labels into invented quarter dates.
+    prompt=f'''Produce an investment intelligence report for {ticker} as of {utcnow().isoformat()} using ONLY the supplied evidence and computed results. Find up to 5 substantial insights, not article summaries. The central task is adjudication: identify which business drivers dominate the decision and why. Bullish and bearish observations coexist in most companies; do not default to mixed simply because both exist. Quantify operating and valuation consequences when source numbers support calculation; label assumptions and show the arithmetic. Explain whether the same company would be attractive at a different valuation. Distinguish business quality, price attractiveness and entry timing. An unresolved peripheral concern must not block a well-supported main conclusion; a material missing premise must be named specifically. Each insight must connect what changed, economic mechanism, priced-in expectations (or explicitly unknown), strongest competing explanation, horizon and falsifier. Combine independent evidence, identify conflicts, and avoid double counting correlated technicals or syndicated headlines. Rank insights by material consequence; no invented confidence probabilities or price targets. Every factual premise needs source_id and an exact excerpt from its payload text (or an exact substring of JSON payload for structured data). Evidence with context_only may only be historical_comparison and cannot supply a current premise. At least one current premise per insight. Sources without adequate evidence must become next_checks. The investment action is a research suggestion: choose a buy candidate only when fresh fundamentals/expectations, a reason the opportunity is not priced in and clear entry/invalidation support it. Avoid or reduce can be justified by adverse evidence. Prefer a specific conditional setup to vague bullishness. Admit no edge when the evidence is balanced; do not use missing performance calibration as a reason to avoid doing the analysis. Summaries/action/conditions must contain no factual claims absent from the cited insights. Do not turn relative fiscal labels into invented quarter dates.
 ANALYSIS: {json.dumps(analysis,default=str)[:35000]}
 EVIDENCE: {json.dumps(evidence_context(rows,required_ids=[i for f in analysis['findings'] for i in f['evidence_ids']]),default=str)}'''
-    return runner(prompt,SYNTHESIS_SCHEMA)
+    return runner(prompt,SYNTHESIS_SCHEMA,timeout=180)
 
 
 def validate_synthesis(proposal,rows):
@@ -148,7 +144,7 @@ def review(ticker,proposal,rows,runner=invoke):
     prompt=f'''Independently challenge this proposed {ticker} report. Test every factual premise against source excerpts and dates, old-quarter leakage, same-origin duplication, adjusted/GAAP mismatch, causal leaps, priced-in assertions and whether the recommended action follows. A correctly copied excerpt can still fail to support a claim. Reject unsupported material claims. Reject a directional action if a crucial insight is rejected or its entry/invalidation/valuation rationale does not follow. Check the summary, action_reason and entry/exit conditions too; reject the action if any adds unsupported facts. Return a supported decision for EACH insight ID and concrete reasons, action_supported and missed questions. This is an adversarial model check, not human independent approval.
 PROPOSAL: {json.dumps(proposal)}
 EVIDENCE: {json.dumps(evidence_context(rows,required_ids=[e['source_id'] for i in proposal.get('insights',[]) for e in i.get('evidence',[])]))}'''
-    return runner(prompt,REVIEW_SCHEMA)
+    return runner(prompt,REVIEW_SCHEMA,timeout=180)
 
 
 def finalize(proposal,reviewed,rows):
