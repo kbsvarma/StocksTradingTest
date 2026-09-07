@@ -1,0 +1,10 @@
+[Unit]
+Description=Reassess Advisor research calls every minute
+
+[Timer]
+OnBootSec=60
+OnUnitInactiveSec=60
+Unit=advisor-intelligence.service
+
+[Install]
+WantedBy=timers.target

@@ -518,6 +518,19 @@ def run_pipeline(date: str, skip_preflight: bool = False,
                          note="prior brief preserved", started_at=started_at)
             return 69
 
+    # Optional rich intelligence packets are a downstream projection of the
+    # attested brief. Their failure cannot retroactively unpublish a brief.
+    try:
+        from advisor.intelligence.publication_bridge import export_packets
+        from advisor.intelligence.worker import run as run_intelligence
+        data_root = REPO / "advisor" / "data"
+        intelligence = export_packets(data_root / "context" / date, data_root)
+        intelligence_status = run_intelligence(data_root)
+        _heartbeat("intelligence", 1 if intelligence["blocked"] or intelligence_status["errors"] else 0,
+                   0, f"packets={len(intelligence['exported'])}; blocked={len(intelligence['blocked'])}")
+    except Exception as exc:
+        _heartbeat("intelligence", 1, 0, f"downstream projection failed: {type(exc).__name__}: {exc}")
+
     # FABRICATION AUDIT — run at publication time, against the context
     # snapshot the model was actually given. Retrospective auditing is
     # unreliable because the live research artifacts get rewritten by later

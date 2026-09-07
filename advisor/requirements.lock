@@ -1,6 +1,7 @@
 # Direct Advisor runtime dependencies captured from the verified Linux release.
 # Re-resolve and re-test deliberately; do not broad-upgrade in place.
 beautifulsoup4==4.15.0
+exchange-calendars==4.13.2
 ib-insync==0.9.86
 lxml==6.1.3
 numpy==2.5.2

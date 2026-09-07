@@ -95,10 +95,8 @@ def _track_excursion(exc: dict, eid: str, px: float) -> None:
 
 def market_open(now: datetime | None = None) -> bool:
     now = now or datetime.now(ET)
-    if now.weekday() > 4:
-        return False
-    hm = now.strftime("%H:%M")
-    return "09:30" <= hm <= "16:00"
+    from advisor.suggestion_policy import exchange_session_open
+    return exchange_session_open(now)
 
 
 def watchable_calls() -> list[dict]:
@@ -128,16 +126,14 @@ def store_prices(tickers: list[str]) -> dict[str, tuple]:
         snap = json.loads((_data_dir() / "quotes" / "latest.json").read_text())
         now = datetime.now(ET)
         snap_age = (now - datetime.fromisoformat(snap["as_of"])).total_seconds()
-        if snap_age > STORE_FRESH_S:
+        if not 0 <= snap_age <= STORE_FRESH_S:
             return out
         for t in tickers:
             q = snap.get("quotes", {}).get(t)
             if not q:
                 continue
-            q_age = (now - datetime.fromisoformat(q["ts"])).total_seconds()
-            # delayed feeds carry ~15min embedded lag; the row ts is write
-            # time — accept writes ≤STORE_FRESH_S and label the lag honestly
-            if q_age > STORE_FRESH_S:
+            from advisor.suggestion_policy import quote_is_fresh
+            if not quote_is_fresh(q, now):
                 continue
             out[t] = (round(float(q["px"]), 4),
                       f"quoted:{q['src']} ({q['kind']})")
@@ -173,9 +169,12 @@ def batch_prices(tickers: list[str]) -> dict[str, tuple]:
                 ts = closes.index[-1]
                 ts = ts.tz_convert(ET) if ts.tzinfo else ts.tz_localize("UTC").tz_convert(ET)
                 age_min = (now - ts).total_seconds() / 60
-                if age_min > STALE_MINUTES:
+                if not 0 <= age_min <= STALE_MINUTES:
                     print(f"[watcher] {t}: quote stale ({age_min:.0f}min) — skipping",
                           flush=True)
+                    continue
+                from advisor.suggestion_policy import finite
+                if not finite(float(closes.iloc[-1])) or float(closes.iloc[-1]) <= 0:
                     continue
                 out[t] = (round(float(closes.iloc[-1]), 4),
                           f"yfinance 1m (bar {ts.strftime('%H:%M')} ET, ~15min delay)")
@@ -225,8 +224,10 @@ def check_call(e: dict, px: float, src: str, alerted: dict) -> list[str]:
     tick = e["yf_ticker"]
     stop, target = float(e["stop_px"]), float(e["target_px"])
 
-    stop_hit = px <= stop if long_ else px >= stop
-    tgt_hit = px >= target if long_ else px <= target
+    from advisor.suggestion_policy import lifecycle
+    state = lifecycle(e, px)
+    stop_hit = state == "invalidated"
+    tgt_hit = state == "target_observed"
 
     if stop_hit and not st.get("stop"):
         st["stop"] = datetime.now(ET).isoformat()
@@ -250,7 +251,7 @@ def check_call(e: dict, px: float, src: str, alerted: dict) -> list[str]:
         )
     lo, hi = e.get("entry_px_low"), e.get("entry_px_high")
     if isinstance(lo, (int, float)) and isinstance(hi, (int, float)) \
-            and lo <= px <= hi and not st.get("entry") \
+            and state == "entry_zone" and not st.get("entry") \
             and not st.get("stop") and not st.get("target"):
         st["entry"] = datetime.now(ET).isoformat()
         _journal_entry(eid, px, src)

@@ -63,10 +63,10 @@ the position in the GOOD outcome for the other side, and what that costs.
 5. **Bound hypothetical risk by policy:** a single event scenario loss is
    capped by the configured research-risk policy; total tracked exposure is
    visible in every brief. This is not personalized position sizing.
-6. **Shares with fair-value exits are the default expression.** A
+6. **Shares with underwritten scenario exits are the default expression.** A
    single-name research view tests a valuation/catalyst gap around a stated
-   scenario range (advisor/research/fair_value.py — range with
-   methods disclosed, confidence graded). Options are the exception that
+   scenario range. advisor/research/fair_value.py supplies heuristic assumption
+   sensitivity, not a validated target or statistical confidence. Options are the exception that
    must earn its place via vol_check. Factor rank alone is never a thesis —
    it nominates candidates; the analyst loops must find WHY the gap exists
    and why it should close.
@@ -77,8 +77,8 @@ the position in the GOOD outcome for the other side, and what that costs.
 (fresh context, tries to kill each view: evidence audit, mandatory
 disconfirmation, quant cross-check, level stress, crowding) → publish
 (mechanical merge, journals views AND rejects, sends). Loop D inside one
-session is preliminary only; the red-team verdict is the real bar. A healthy
-kill/amend rate is 20-60%. Rejected ideas are journaled with code-stamped
+session is preliminary only; the red-team verdict is the real bar. No kill/amend quota is targeted; review value is measured against
+matched outcomes, including rejected winners. Rejected ideas are journaled with code-stamped
 reference prices — kills have a measurable counterfactual cost.
 
 **Facts persist, opinions re-earn.** Dossiers
@@ -138,3 +138,38 @@ must degrade trust and cannot be papered over by an LLM web search.
   precedent to flag concentration before adding a second directional
   trade on the same factor. Signal health baseline established
   (ic_validation.json); scipy needed for automated reruns.
+
+## Suggestions v3 doctrine (2026-09-04)
+
+The deterministic daily suggestion lane now uses the contract in
+`SUGGESTIONS_RUNBOOK.md`. It is distinct from the separately validated brief
+publication/actionability workflow. Opposing or directionless signals cannot
+increase directional confluence. Priority research requires current evidence,
+explicit thesis fields and operational checks; at most three ideas qualify,
+and zero is valid. It is never a calibrated probability or execution approval.
+
+Every issue and revision is immutable and bound to its source/panel release.
+Outcomes distinguish gross reference-bar signal returns from entry-policy
+simulations. Missing entry/borrow/open-price evidence cannot be invented.
+Only first revisions of live episodes enter learning; generator priors require
+nonoverlapping issue-date clusters. Replay and prior scoring versions stay
+separate. Model promotion and independent probability validation remain
+external evidence gates, even when all software regressions pass.
+
+
+## Accountable intelligence contract (2026-09-06)
+
+The versioned engine in `advisor/intelligence/` adds a common call episode,
+source-bound claims, expectations-gap packets, three registered playbooks,
+scenario economics, independent review, and event reassessment. See
+`intelligence/PACKET_SPEC.md` and `INTELLIGENCE_RUNBOOK.md`. Its v1 supported
+call expressions are long equities/ETFs and watch/hold/reduce/exit/avoid
+research intent. Unsupported instruments cannot impersonate equity sizing.
+New-engine calls retain the research classification until separate evidence
+supports a future promotion contract. Neither a software test nor a small
+pooled Brier sample establishes a profitable decision rule.
+
+New filings and quote observations include new-engine tracked symbols.
+Material events hold new entry for review while already active risk crossings
+remain observable. Outcomes distinguish quote observations, policy simulations
+and actual fills. Terminal commands and research controls never place orders.

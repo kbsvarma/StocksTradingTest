@@ -86,6 +86,12 @@ def compute_scores():
     meta = {"as_of": datetime.now(ET).isoformat(), "inputs": {},
             "input_quality": {}, "scope": {}}
     f = pd.DataFrame()
+    def read_frame(path):
+        import hashlib
+        from io import BytesIO
+        raw = path.read_bytes()
+        meta.setdefault("input_fingerprints", {})[str(path.relative_to(RESEARCH_DIR))] = hashlib.sha256(raw).hexdigest()
+        return pd.read_parquet(BytesIO(raw))
 
     info_coverage_p = RESEARCH_DIR / "snapshots" / "info" / "latest_coverage.parquet"
     info_p = info_coverage_p if info_coverage_p.exists() else _latest(
@@ -118,7 +124,7 @@ def compute_scores():
     }
 
     if info_p is not None and info_usable:
-        info = pd.read_parquet(info_p).set_index("ticker")
+        info = read_frame(info_p).set_index("ticker")
         meta["inputs"]["info"] = info_p.stem
         f = pd.DataFrame(index=info.index)
         # value: earnings yield + FCF yield
@@ -135,7 +141,7 @@ def compute_scores():
         f["analyst_coverage"] = info.numberOfAnalystOpinions
 
     if est_p is not None and estimates_usable:
-        est = pd.read_parquet(est_p).set_index("ticker")
+        est = read_frame(est_p).set_index("ticker")
         meta["inputs"]["estimates"] = est_p.stem
         if not len(f):
             f = pd.DataFrame(index=est.index)
@@ -170,7 +176,7 @@ def compute_scores():
         f["squeeze_flag"] = (f.get("short_pct_float", 0) > 15) & (breadth > 0)
 
     if hist_p.exists() and len(f):
-        hist = pd.read_parquet(hist_p)
+        hist = read_frame(hist_p)
         meta["inputs"]["earnings_history"] = "yes"
         today = datetime.now(ET).date()
         sue, pead, days_since = {}, {}, {}

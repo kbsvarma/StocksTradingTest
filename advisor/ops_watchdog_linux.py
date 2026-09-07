@@ -102,9 +102,15 @@ def check_trust(state: dict) -> None:
         _recover(state, "trust")
 
 
+def check_suggestions(state):
+    from advisor.research.suggestion_health import check_alert
+    from advisor.telegram_io import send
+    check_alert(state, DATA / "research", send, _now())
+
+
 def main() -> int:
     state = _load()
-    for fn in (check_services, check_pipeline_stuck, check_trust):
+    for fn in (check_services, check_pipeline_stuck, check_trust, check_suggestions):
         try:
             fn(state)
         except Exception as exc:

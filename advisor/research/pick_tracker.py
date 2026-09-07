@@ -38,15 +38,21 @@ BUCKETS = [(0.0, 0.25), (0.25, 0.40), (0.40, 0.55), (0.55, 0.70), (0.70, 1.01)]
 
 
 def _rows() -> list[dict]:
-    if not LEDGER.exists():
-        return []
-    out = []
-    for line in LEDGER.read_text().splitlines():
-        try:
-            out.append(json.loads(line))
-        except json.JSONDecodeError:
-            continue
-    return out
+    from advisor.research.suggestion_store import read_rows, committed_ids
+    rows = read_rows(LEDGER)
+    research = LEDGER.parent / "research"
+    committed = committed_ids(research)
+    result = [r for r in rows if not r.get("release_id") or r["release_id"] in committed]
+    # Immutable release issue rows are authoritative, even if the legacy
+    # journal mirror was lost. Append only missing issues, before resolutions.
+    present = {r.get("id") for r in result if r.get("type") == "pick"}
+    recovered = []
+    for release in sorted(committed):
+        doc = json.loads((research / "suggestion_releases" / f"{release}.json").read_text())
+        for row in doc.get("issue_rows", []):
+            if row["id"] not in present:
+                recovered.append({**row, "release_id": release}); present.add(row["id"])
+    return recovered + result
 
 
 def effective() -> dict[str, dict]:
@@ -61,6 +67,13 @@ def effective() -> dict[str, dict]:
 
 
 def resolve(verbose: bool = True) -> dict:
+    from advisor.research.suggestion_store import writer_lock
+    from advisor.research.datastore import pinned_build
+    with writer_lock(LEDGER.parent / "research"), pinned_build():
+        return _resolve(verbose)
+
+
+def _resolve(verbose: bool = True) -> dict:
     """Path-aware resolution of every still-open pick whose horizon allows."""
     import pandas as pd
     from advisor.research.datastore import load_panel
@@ -69,8 +82,13 @@ def resolve(verbose: bool = True) -> dict:
     counts = {"resolved": 0, "still_open": 0, "ambiguous": 0, "skipped": 0}
     resolutions = []
 
+    try:
+        opens = load_panel("open")
+    except (OSError, KeyError):
+        opens = None
     for pid, p in effective().items():
-        if p.get("status") != "open":
+        needs_comparator = p.get("unstopped_return_pct") is None
+        if p.get("status") != "open" and not needs_comparator:
             continue
         t, issued = p.get("ticker"), p.get("price_bar")
         if t not in close.columns or not issued:
@@ -101,6 +119,42 @@ def resolve(verbose: bool = True) -> dict:
             continue
 
         long_ = p.get("direction", "long") != "short"
+        matured = (start + horizon) <= len(idx)
+        if p.get("status") != "open":
+            if matured and needs_comparator:
+                resolutions.append({"type": "comparator", "id": pid,
+                    "unstopped_return_pct": round((1 if long_ else -1) * (float(c.iloc[-1]) / float(p["ref_px"]) - 1) * 100, 2)})
+            continue
+        if p.get("outcome_policy") == "entry_band_daily_v1":
+            from advisor.research.entry_simulation import simulate
+            import pandas as pd
+            # A morning issue may use today's forward bar; an intraday issue
+            # may not use the already elapsed portion of that bar.
+            issue = pd.Timestamp(p["issued_ts"])
+            forward = pd.DataFrame({"high": h, "low": l, "close": c})
+            if opens is not None and t in opens:
+                forward["open"] = opens[t].reindex(forward.index)
+            if issue.tzinfo is None:
+                counts["skipped"] += 1
+                continue
+            local_issue = issue.tz_convert(ET)
+            first_allowed = local_issue.date()
+            if (local_issue.hour, local_issue.minute) >= (9, 30):
+                from datetime import timedelta
+                first_allowed += timedelta(days=1)
+            forward = forward[[d.date() >= first_allowed for d in forward.index]]
+            if forward.empty:
+                counts["still_open"] += 1
+                continue
+            sim = simulate(p, forward, matured=matured)
+            if sim.get("status") == "resolved":
+                sim.update({"type": "resolution", "id": pid, "ts": datetime.now(ET).isoformat(),
+                            "unstopped_return_pct": round((1 if long_ else -1) * (float(c.iloc[-1]) / float(p["ref_px"]) - 1) * 100, 2) if matured else None})
+                resolutions.append(sim)
+                counts["ambiguous" if sim.get("outcome") == "ambiguous" else "resolved"] += 1
+            else:
+                counts["still_open"] += 1
+            continue
         stop, target = float(p["stop"]), float(p["target"])
         hit_day = None
         outcome = None
@@ -169,9 +223,8 @@ def resolve(verbose: bool = True) -> dict:
         counts["ambiguous" if outcome == "ambiguous" else "resolved"] += 1
 
     if resolutions:
-        with LEDGER.open("a", encoding="utf-8") as f:
-            for r in resolutions:
-                f.write(json.dumps(r) + "\n")
+        from advisor.research.suggestion_store import append_rows
+        append_rows(LEDGER, resolutions)
     if verbose:
         print(f"pick_tracker resolve: {counts}")
     return counts
@@ -199,11 +252,12 @@ def calibrate(verbose: bool = True) -> dict:
     # versions are not the same quantity, so pooling them would fabricate a
     # mapping for a system that never produced those outcomes. Rows predating
     # the field are v1 by definition.
-    scored = [r for r in effective().values()
-              if r.get("status") == "resolved" and r.get("calibration_eligible")
-              and r.get("win") is not None and r.get("score") is not None
-              and int(r.get("scoring_version") or 1) == SCORING_VERSION
-              and r.get("source") == "live"]
+    population = _independent_episodes([r for r in effective().values()
+                  if int(r.get("scoring_version") or 1) == SCORING_VERSION
+                  and r.get("source") == "live"])
+    scored = [r for r in population if r.get("status") == "resolved"
+              and r.get("calibration_eligible") is True
+              and r.get("win") is not None and r.get("score") is not None]
     n = len(scored)
     raw = []
     for lo, hi in BUCKETS:
@@ -239,6 +293,15 @@ def calibrate(verbose: bool = True) -> dict:
             print(f"  score {b['lo']:.2f}-{b['hi']:.2f}: "
                   f"hit {b['hit_rate']*100:.1f}% (n={b['n']})")
     return payload
+
+
+def _independent_episodes(rows):
+    first = {}
+    for row in sorted(rows, key=lambda r: (r.get("issued_ts", ""), r.get("id", ""))):
+        key = row.get("episode_id") or row.get("id")
+        if key is not None:
+            first.setdefault(key, row)
+    return list(first.values())
 
 
 def _agg(rows: list) -> dict:
@@ -293,7 +356,7 @@ def attribution() -> dict:
     }
 
 
-def baselines(n_boot: int = 2000, seed: int = 7) -> dict:
+def baselines(n_boot: int = 2000, seed: int = 7, rows=None) -> dict:
     """Naive comparators. "-8.66pp vs SPY" answers nothing without them.
 
     Four questions, in increasing order of how much they hurt:
@@ -308,7 +371,7 @@ def baselines(n_boot: int = 2000, seed: int = 7) -> dict:
     """
     import random
 
-    rows = [r for r in effective().values()
+    rows = [r for r in (effective().values() if rows is None else rows)
             if r.get("status") == "resolved"
             and isinstance(r.get("return_pct"), (int, float))]
     if not rows:
@@ -371,22 +434,45 @@ def fit_generator_priors(verbose: bool = True) -> dict:
     # Learning may use only observed live outcomes from this scoring policy.
     # Attribution's all-history totals intentionally include historical replays
     # for reporting, but they must never feed back into the live policy.
-    live = [r for r in effective().values() if r.get("source") == "live"
-            and r.get("status") == "resolved" and r.get("win") is not None
-            and r.get("scoring_version") == SCORING_VERSION]
+    population = _independent_episodes([r for r in effective().values()
+                  if r.get("source") == "live" and r.get("scoring_version") == SCORING_VERSION])
+    live = [r for r in population if r.get("status") == "resolved"
+            and r.get("win") is not None and r.get("calibration_eligible") is True]
+    # Use disjoint issue windows. Multiple tickers issued together are one
+    # sampling cluster, not independent confirmations of generator skill.
+    groups = {}
+    for row in live:
+        if row.get("date") and row.get("expires_on"):
+            groups.setdefault(row["date"], []).append(row)
+    selected, last_end = [], ""
+    for day, group in sorted(groups.items()):
+        if day > last_end:
+            selected.extend(group)
+            last_end = max(r["expires_on"] for r in group)
+    live = selected
     grouped = {}
     for row in live:
         bucket = row.get("lead_bucket")
         if bucket in gen.ALL_BUCKETS:
             grouped.setdefault(bucket, []).append(row)
-    cells = {key: _agg(rows) for key, rows in grouped.items()}
-    base = _agg(live).get("hit_rate")
+    def cluster_cell(rows):
+        days = {}
+        for row in rows:
+            days.setdefault(row["date"], []).append(row)
+        cells = [_agg(group) for group in days.values()]
+        return {"n": len(cells), "n_rows": len(rows),
+                "hit_rate": sum(c["hit_rate"] for c in cells) / len(cells) if cells else None,
+                "mean_return_pct": _agg(rows)["mean_return_pct"]}
+    cells = {key: cluster_cell(rows) for key, rows in grouped.items()}
+    base = cluster_cell(live).get("hit_rate")
     priors = gen.fit_priors(cells, base) if base else {}
     active = {k: v for k, v in priors.items() if v != 1.0}
     payload = {
         "schema_version": 1, "fitted_at": datetime.now(ET).isoformat(),
         "source": "live", "scoring_version": SCORING_VERSION,
         "n_live_resolved": len(live),
+        "n_nonoverlapping_issue_windows": len({r["date"] for r in live}),
+        "sampling_unit": "nonoverlapping issue-date clusters; first revision per episode",
         "baseline_hit_rate": base,
         "min_n": gen.PRIOR_MIN_N, "shrinkage_k": gen.PRIOR_K,
         "clip": [gen.PRIOR_LO, gen.PRIOR_HI],
@@ -409,8 +495,8 @@ def fit_generator_priors(verbose: bool = True) -> dict:
     return payload
 
 
-def stats() -> dict:
-    st = effective().values()
+def stats(rows=None) -> dict:
+    st = list(effective().values()) if rows is None else list(rows)
     res = [r for r in st if r.get("status") == "resolved"]
     dec = [r for r in res if r.get("win") is not None]
     wins = sum(r["win"] for r in dec)
@@ -420,6 +506,9 @@ def stats() -> dict:
         by_outcome[r.get("outcome", "?")] = by_outcome.get(r.get("outcome", "?"), 0) + 1
     return {"as_of": datetime.now(ET).isoformat(),
             "total_picks": len(st),
+            "unique_episodes": len({r.get("episode_id") or r.get("id") for r in st}),
+            "unique_issue_dates": len({r.get("date") for r in st}),
+            "independence_note": "Daily revisions overlap; row count is not independent sample size",
             "open": sum(1 for r in st if r.get("status") == "open"),
             "resolved": len(res), "decided": len(dec),
             "hit_rate": round(wins / len(dec), 3) if dec else None,
@@ -439,11 +528,14 @@ def write_record(verbose: bool = True) -> dict:
     import pandas as pd
     from advisor.research.datastore import load_panel
 
-    st = stats()
+    from advisor.research.picks import SCORING_VERSION
+    current_rows = [r for r in effective().values() if r.get("source") == "live"
+                    and r.get("scoring_version") == SCORING_VERSION]
+    st = stats(current_rows)
     close = load_panel("close")
     idx = close.index
-    picks_r, bench_r = [], []
-    for p in effective().values():
+    picks_r, bench_r, paired_windows = [], [], []
+    for p in _independent_episodes(current_rows):
         if not (p.get("ref_px") and p.get("price_bar") and p.get("ticker")):
             continue
         t = p["ticker"]
@@ -451,40 +543,35 @@ def write_record(verbose: bool = True) -> dict:
             continue
         s0 = idx.searchsorted(pd.Timestamp(p["price_bar"]), side="right")
         horizon = int(p.get("horizon_td", 21))
-        if s0 + horizon >= len(idx) or s0 < 1:
+        if s0 + horizon > len(idx) or s0 < 1:
             continue
         a, b = float(close[t].iloc[s0 - 1]), float(close[t].iloc[s0 + horizon - 1])
-        if not (a > 0 and b > 0):
+        from advisor.suggestion_policy import finite
+        if not (finite(a) and finite(b) and a > 0 and b > 0) or close[t].iloc[s0 - 1:s0 + horizon].isna().any():
             continue
         sign = 1 if p.get("direction", "long") != "short" else -1
-        picks_r.append(sign * (b / a - 1) * 100)
         if "SPY" in close.columns:
             sa, sb = float(close["SPY"].iloc[s0 - 1]), float(close["SPY"].iloc[s0 + horizon - 1])
-            bench_r.append((sb / sa - 1) * 100)
+            if finite(sa) and finite(sb) and sa > 0 and sb > 0:
+                picks_r.append(sign * (b / a - 1) * 100)
+                bench_r.append((sb / sa - 1) * 100)
+                paired_windows.append((s0 - 1, s0 + horizon - 1))
 
     mean_pick = sum(picks_r) / len(picks_r) if picks_r else None
     mean_bench = sum(bench_r) / len(bench_r) if bench_r else None
     vs_spy = round(mean_pick - mean_bench, 2) if (mean_pick is not None
                                                   and mean_bench is not None) else None
-    n_ind = max(1, len(set(p.get("date") for p in effective().values()
-                           if p.get("date"))) // 21)
-    if vs_spy is None:
-        verdict = "insufficient data to benchmark"
-    elif vs_spy < 0:
-        verdict = (
-            f"NO EDGE IN THIS SAMPLE. Directional return {mean_pick:+.2f}% vs SPY "
-            f"{mean_bench:+.2f}% over {st['resolved']} resolved picks — "
-            f"{vs_spy:+.1f}pp. Stops are not the cause: the gap holds with no stop "
-            f"applied. Caveat: these windows overlap and span roughly {n_ind} "
-            f"independent period(s) in one regime (the Jul-Aug momentum unwind), "
-            f"so this is absence of evidence for an edge, not proof of a "
-            f"permanent one against.")
-    else:
-        verdict = (f"Outperformed SPY by {vs_spy:+.1f}pp over {st['resolved']} "
-                   f"picks, but only ~{n_ind} independent period(s) — not yet "
-                   f"significant.")
+    n_ind, last_end = 0, -1
+    for start, end in sorted(paired_windows):
+        if start >= last_end:
+            n_ind += 1
+            last_end = end
+    verdict = ("Insufficient data to benchmark" if vs_spy is None else
+               f"Gross directional signal return versus SPY: {vs_spy:+.2f}pp. "
+               "This is a descriptive sample with overlapping windows; it does not establish tradable alpha.")
 
-    rec = {**st, "horizon_td": 21,
+    rec = {**st, "horizon_td": "per idea", "source": "live", "scoring_version": SCORING_VERSION,
+           "scope": "current live scorer; one issue per episode in signal benchmark",
            "mean_pick_return_pct": round(mean_pick, 2) if mean_pick is not None else None,
            "mean_spy_return_pct": round(mean_bench, 2) if mean_bench is not None else None,
            "vs_spy_pp": vs_spy, "independent_periods": n_ind,
@@ -493,7 +580,7 @@ def write_record(verbose: bool = True) -> dict:
            # "picks lost money" into "this generator lost money"
            "attribution": attribution(),
            # good relative to WHAT — the question every result needs
-           "baselines": baselines()}
+           "baselines": baselines(rows=current_rows)}
     out = RESEARCH_DIR / "pick_record.json"
     tmp = out.with_suffix(f".json.tmp.{os.getpid()}")
     tmp.write_text(json.dumps(rec, indent=2, default=str) + "\n")

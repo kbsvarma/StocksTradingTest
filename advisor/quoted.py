@@ -52,7 +52,8 @@ def _data() -> Path:
 
 def market_open(now: datetime | None = None) -> bool:
     now = now or datetime.now(ET)
-    return now.weekday() <= 4 and "09:25" <= now.strftime("%H:%M") <= "16:05"
+    from advisor.suggestion_policy import exchange_session_open
+    return exchange_session_open(now)
 
 
 def yf_quote_fresh(row: dict, now: datetime | None = None) -> bool:
@@ -81,6 +82,19 @@ def watch_symbols() -> list[str]:
         syms += [t for t, e in wl_load().items()
                  if e.get("state") in ("watchlist", "active_view")]
     except Exception:
+        pass
+    try:
+        from advisor.suggestion_policy import release_freshness
+        research = _data().parent / "research"
+        picks = json.loads((research / "picks_latest.json").read_text())
+        if release_freshness(picks)["ok"]:
+            syms += [p["ticker"] for p in picks.get("picks", [])[:100]]
+    except (OSError, ValueError, KeyError):
+        pass
+    try:
+        from advisor.intelligence.adapters import tracked_symbols
+        syms += tracked_symbols(_data().parent)
+    except (OSError, ValueError):
         pass
     return list(dict.fromkeys(syms))
 
@@ -129,7 +143,7 @@ def _tick_px(t) -> tuple:
     """(px, kind) preferring last, then mid, then close."""
     import math
     def ok(v):
-        return isinstance(v, (int, float)) and not math.isnan(v) and v > 0
+        return isinstance(v, (int, float)) and math.isfinite(v) and v > 0
     if ok(t.last):
         return t.last, "last"
     if ok(t.bid) and ok(t.ask):
@@ -145,13 +159,21 @@ class Daemon:
         self.tickers: dict[str, object] = {}
         self.last_update_mono: dict[str, float] = {}
         self.last_update_ts: dict[str, str] = {}
+        self.price_updates = {}
         self.yf_cache: dict[str, dict] = {}
         self.yf_last = 0.0
+        self._yf_pool = None
+        self._yf_jobs = {}
+        self._yf_due = {}
 
     def connect(self) -> bool:
         try:
             from ib_insync import IB
             self.ib = IB()
+            self.tickers.clear()
+            self.last_update_mono.clear()
+            self.last_update_ts.clear()
+            self.price_updates.clear()
             self.ib.connect(HOST, PORT, clientId=CLIENT_ID, timeout=12,
                             readonly=True)
             self.ib.reqMarketDataType(3)     # live where entitled, else delayed
@@ -164,6 +186,16 @@ class Daemon:
     def subscribe(self, syms: list[str]) -> None:
         if not self.ib:
             return
+        for old in set(self.tickers) - set(syms):
+            try:
+                self.ib.cancelMktData(self.tickers[old].contract)
+            except Exception:
+                continue  # retain ownership until cancellation can be retried
+            self.tickers.pop(old, None)
+            self.last_update_mono.pop(old, None)
+            self.last_update_ts.pop(old, None)
+            self.price_updates.pop(old, None)
+            self.yf_cache.pop(old, None)
         for s in syms:
             if s in self.tickers:
                 continue
@@ -176,78 +208,106 @@ class Daemon:
                 self.ib.qualifyContracts(c)
                 ticker = self.ib.reqMktData(c, "", False, False)
                 self.tickers[s] = ticker
-                def _mark_update(*_args, symbol=s):
-                    self.last_update_mono[symbol] = time.monotonic()
-                    self.last_update_ts[symbol] = datetime.now(ET).isoformat()
+                def _mark_update(*_args, symbol=s, record=ticker):
+                    self.record_price_update(symbol, record)
                 ticker.updateEvent += _mark_update
             except Exception:
                 continue
 
+    def record_price_update(self, symbol, ticker):
+        """Size/volume/close updates cannot freshen an old last price."""
+        from advisor.suggestion_policy import finite
+        fields = {1: "bid", 66: "bid", 2: "ask", 67: "ask", 4: "last", 68: "last"}
+        for tick in getattr(ticker, "ticks", []):
+            field = fields.get(tick.tickType)
+            if field and finite(tick.price) and tick.price > 0:
+                stamp = datetime.now(ET).isoformat()
+                mono = time.monotonic()
+                self.price_updates.setdefault(symbol, {})[field] = (tick.price, mono, stamp)
+                self.last_update_mono[symbol] = mono
+                self.last_update_ts[symbol] = stamp
+
+    def _ib_price(self, symbol):
+        now = time.monotonic()
+        fields = {k: v for k, v in self.price_updates.get(symbol, {}).items()
+                  if 0 <= now - v[1] <= IB_UPDATE_FRESH_S}
+        if "last" in fields:
+            return fields["last"][0], "last", fields["last"][2], now - fields["last"][1]
+        if "bid" in fields and "ask" in fields and fields["bid"][0] <= fields["ask"][0]:
+            oldest = min((fields["bid"], fields["ask"]), key=lambda v: v[1])
+            return (fields["bid"][0] + fields["ask"][0]) / 2, "mid", oldest[2], now - oldest[1]
+        return None, None, None, None
+
     def ib_quote_fresh(self, symbol: str) -> bool:
-        last = self.last_update_mono.get(symbol)
-        return last is not None and time.monotonic() - last <= IB_UPDATE_FRESH_S
+        return self._ib_price(symbol)[0] is not None
+
+    @staticmethod
+    def _fetch_yahoo(symbol):
+        import yfinance as yf
+        hist = yf.Ticker(symbol).history(period="5d", interval="1m",
+                                        prepost=True, auto_adjust=True, timeout=10)
+        closes = hist["Close"].dropna()
+        if closes.empty:
+            raise ValueError("no timestamped intraday bars")
+        event = closes.index[-1].to_pydatetime()
+        if event.tzinfo is None:
+            raise ValueError("quote event timezone is missing")
+        event = event.astimezone(ET)
+        session = hist.loc[hist.index.date == event.date()]
+        prior = hist.loc[hist.index.date < event.date(), "Close"].dropna()
+        return {"px": round(float(closes.iloc[-1]), 4),
+                "prev_close": round(float(prior.iloc[-1]), 4) if len(prior) else None,
+                "day_low": round(float(session["Low"].min()), 4),
+                "day_high": round(float(session["High"].max()), 4),
+                "market_ts": event.isoformat(), "ts": event.isoformat(),
+                "retrieved_at": datetime.now(ET).isoformat(),
+                "kind": "last", "type": "delayed", "src": "yfinance timestamped intraday bar"}
 
     def yf_fill(self, syms: list[str]) -> None:
-        """Fallback quotes for symbols IBKR can't serve (throttled to 60s)."""
-        if time.time() - self.yf_last < 60:
+        """Bounded fallback workers cannot block IB event processing/publication."""
+        from concurrent.futures import ThreadPoolExecutor
+        now = time.time()
+        for symbol, future in list(self._yf_jobs.items()):
+            if not future.done():
+                continue
+            self._yf_jobs.pop(symbol)
+            try:
+                row = future.result()
+                if symbol in syms and yf_quote_fresh(row):
+                    self.yf_cache[symbol] = row
+                else:
+                    self.yf_cache.pop(symbol, None)
+            except Exception:
+                self.yf_cache.pop(symbol, None)
+        if not syms:
             return
-        self.yf_last = time.time()
-        try:
-            import yfinance as yf
-            for s in syms:
-                try:
-                    # Intraday bars carry an exchange timestamp.  fast_info's
-                    # last_price does not, so stamping it at retrieval time can
-                    # make a stale quote look current.
-                    hist = yf.Ticker(s).history(period="5d", interval="1m",
-                                                prepost=True, auto_adjust=True)
-                    closes = hist["Close"].dropna()
-                    if closes.empty:
-                        raise ValueError("no timestamped intraday bars")
-                    event = closes.index[-1].to_pydatetime()
-                    if event.tzinfo is None:
-                        event = event.replace(tzinfo=ET)
-                    event = event.astimezone(ET)
-                    session = hist.loc[hist.index.date == event.date()]
-                    prior = hist.loc[hist.index.date < event.date(), "Close"].dropna()
-                    row = {
-                        "px": round(float(closes.iloc[-1]), 4),
-                        "prev_close": round(float(prior.iloc[-1]), 4) if len(prior) else None,
-                        "day_low": round(float(session["Low"].min()), 4),
-                        "day_high": round(float(session["High"].max()), 4),
-                        "market_ts": event.isoformat(),
-                        "ts": event.isoformat(),
-                        "retrieved_at": datetime.now(ET).isoformat(),
-                        "kind": "last", "type": "delayed",
-                        "src": "yfinance timestamped intraday bar"}
-                    if not yf_quote_fresh(row):
-                        self.yf_cache.pop(s, None)
-                        continue
-                    self.yf_cache[s] = row
-                except Exception:
-                    self.yf_cache.pop(s, None)
-                    continue
-        except Exception as exc:
-            print(f"[quoted] yf fill failed: {exc}", flush=True)
+        if self._yf_pool is None:
+            self._yf_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="advisor-yahoo")
+        for symbol in sorted(syms, key=lambda s: self._yf_due.get(s, 0)):
+            if len(self._yf_jobs) >= 4:
+                break
+            if symbol not in self._yf_jobs and self._yf_due.get(symbol, 0) <= now:
+                self._yf_due[symbol] = now + 60
+                self._yf_jobs[symbol] = self._yf_pool.submit(self._fetch_yahoo, symbol)
 
     def snapshot(self, syms: list[str]) -> dict:
+        from advisor.suggestion_policy import finite
         quotes: dict[str, dict] = {}
         ib_alive = bool(self.ib and self.ib.isConnected())
         for s in syms:
             t = self.tickers.get(s)
             if ib_alive and t is not None and self.ib_quote_fresh(s):
-                px, kind = _tick_px(t)
+                px, kind, event_ts, received_age = self._ib_price(s)
                 if px is not None:
                     mdt = getattr(t, "marketDataType", 3)
                     quotes[s] = {
                         "px": round(float(px), 4),
-                        "bid": round(float(t.bid), 4) if t.bid and t.bid > 0 else None,
-                        "ask": round(float(t.ask), 4) if t.ask and t.ask > 0 else None,
+                        "bid": round(float(t.bid), 4) if finite(t.bid) and t.bid > 0 else None,
+                        "ask": round(float(t.ask), 4) if finite(t.ask) and t.ask > 0 else None,
                         "prev_close": round(float(t.close), 4)
-                        if t.close and t.close > 0 else None,
-                        "ts": self.last_update_ts[s],
-                        "received_age_s": round(
-                            time.monotonic() - self.last_update_mono[s], 1),
+                        if finite(t.close) and t.close > 0 else None,
+                        "ts": event_ts,
+                        "received_age_s": round(received_age, 1),
                         "kind": kind,
                         "type": "live" if mdt == 1 else "delayed",
                         "src": f"IBKR {'live' if mdt == 1 else 'delayed ~15min'}"}
@@ -262,7 +322,7 @@ class Daemon:
     def write(self, snap: dict) -> None:
         p = _data() / "latest.json"
         tmp = p.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(snap))
+        tmp.write_text(json.dumps(snap, allow_nan=False))
         os.replace(tmp, p)
 
     def run(self, once: bool = False, interval: float | None = None) -> None:
@@ -280,7 +340,7 @@ class Daemon:
         last_resub = 0.0
         while True:
             try:
-                if self.ib and not self.ib.isConnected():
+                if self.ib is None or not self.ib.isConnected():
                     print("[quoted] IBKR dropped — reconnecting", flush=True)
                     self.tickers.clear()
                     self.last_update_mono.clear()
@@ -289,13 +349,12 @@ class Daemon:
                 if not self.ib:
                     time.sleep(15)
                     self.connect()
-                # refresh symbol set every 5 min (open calls change)
-                if time.time() - last_resub > 300:
+                # refresh symbol set every 30s (new suggestion releases)
+                if time.time() - last_resub > 30:
                     last_resub = time.time()
                     syms = watch_symbols()
-                    if syms != last_syms:
-                        last_syms = syms
-                        self.subscribe(syms)
+                    last_syms = syms
+                    self.subscribe(syms)  # also resubscribe after reconnect or retry a failure
                 if self.ib and self.ib.isConnected():
                     self.ib.sleep(0.5)       # let ticks flow
                 ib_served = {s for s in last_syms if s in self.tickers

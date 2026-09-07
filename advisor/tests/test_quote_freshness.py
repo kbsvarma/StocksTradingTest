@@ -25,6 +25,7 @@ def test_frozen_ib_tick_is_not_retimestamped(monkeypatch):
     d.last_update_mono["XYZ"] = clock["now"]
     original_ts = datetime.now(ZoneInfo("America/New_York")).isoformat()
     d.last_update_ts["XYZ"] = original_ts
+    d.price_updates["XYZ"] = {"last": (100.0, clock["now"], original_ts)}
 
     first = d.snapshot(["XYZ"])["quotes"]["XYZ"]
     assert first["ts"] == original_ts

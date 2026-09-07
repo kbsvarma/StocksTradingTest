@@ -103,6 +103,8 @@ def build() -> dict:
     return {"schema_version": 1, "as_of": datetime.now(ET).isoformat(),
             "source": "SEC EDGAR Company Facts (as-filed; latest annual periods)",
             "n_files": len(frames), "n_eligible": len(eligible), "leaders": leaders,
+            "scored": [{"ticker": ticker, "edgar_quality_growth": float(row.edgar_quality_growth)}
+                       for ticker, row in eligible.iterrows()],
             "gate": "PROSPECTIVE/DISCOVERY-ONLY — zero model weight until forward IC promotion",
             "method": "revenue growth + operating margin + ROE + FCF margin - debt/CFO; winsorized cross-sectional z"}
 

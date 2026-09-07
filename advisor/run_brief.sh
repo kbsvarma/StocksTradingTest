@@ -72,6 +72,9 @@ cp advisor/data/research/fundamental_latest.json "$CTX/fundamental.json" 2>/dev/
 cp advisor/data/research/technical_latest.json "$CTX/technical.json" 2>/dev/null || true
 cp advisor/data/research/macro/fred_latest.json "$CTX/fred_macro.json" 2>/dev/null || true
 cp advisor/data/research/edgar_fundamental_latest.json "$CTX/edgar_fundamental.json" 2>/dev/null || true
+# Refresh the bounded analyst hypothesis queue without external model calls.
+"$PY" -m advisor.intelligence.worker >>advisor/logs/intelligence.log 2>&1 || true
+cp advisor/data/intelligence/research_queue.json "$CTX/intelligence_queue.json" 2>/dev/null || true
 # watchlist: expire stale entries, evaluate price triggers (deterministic —
 # synthesis reads the ⚡ triggered flags as its warmest leads)
 "$PY" -m advisor.watchlist --sweep 2>>advisor/logs/watchlist.err || true

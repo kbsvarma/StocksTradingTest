@@ -16,6 +16,8 @@ import shutil
 import sys
 import time
 import warnings
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 
 warnings.filterwarnings("ignore")
@@ -27,7 +29,19 @@ PANEL_DIR = RESEARCH_DIR / "panels"
 BUILDS_DIR = PANEL_DIR / "builds"
 CURRENT = PANEL_DIR / "CURRENT"
 BATCH = 200
-FIELDS = ["Close", "High", "Low", "Volume"]
+FIELDS = ["Close", "High", "Low", "Volume", "Open"]
+_PINNED_BUILD = ContextVar("advisor_panel_build", default=None)
+
+
+@contextmanager
+def pinned_build():
+    """All nested panel/cost/factor readers share one immutable release."""
+    path = _PINNED_BUILD.get() or current_build_dir()
+    token = _PINNED_BUILD.set(path)
+    try:
+        yield path
+    finally:
+        _PINNED_BUILD.reset(token)
 
 
 def code_version() -> dict:
@@ -160,7 +174,8 @@ def build(subset: int | None = None) -> dict:
             path = temp_dir / f"{f.lower()}.parquet"
             panels[f].to_parquet(path)
             hashes[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
-        meta = {"schema_version": 3, "build_id": build_id,
+        meta = {"schema_version": 4, "build_id": build_id,
+                "price_bar": str(panels["Close"].index[-1].date()),
                 "code_version": code_version(),
                 "built_unix": built_unix, "n_tickers_requested": len(set(tickers)),
                 "provider": "Yahoo Finance via yfinance",
@@ -186,6 +201,8 @@ def build(subset: int | None = None) -> dict:
 
 def current_build_dir() -> Path:
     """Resolve the immutable current build; support pre-v2 caches for rollout."""
+    if _PINNED_BUILD.get() is not None:
+        return _PINNED_BUILD.get()
     try:
         build_id = CURRENT.read_text().strip()
         if not build_id or Path(build_id).name != build_id:
@@ -200,7 +217,18 @@ def current_build_dir() -> Path:
 
 def load_panel(field: str):
     import pandas as pd
-    return pd.read_parquet(current_build_dir() / f"{field.lower()}.parquet")
+    from io import BytesIO
+    directory = current_build_dir()
+    name = f"{field.lower()}.parquet"
+    if field.lower() not in {f.lower() for f in FIELDS}:
+        raise ValueError("Unknown panel field")
+    raw = (directory / name).read_bytes()
+    meta_path = directory / "meta.json"
+    if meta_path.exists():
+        expected = json.loads(meta_path.read_text()).get("sha256", {}).get(name)
+        if expected and hashlib.sha256(raw).hexdigest() != expected:
+            raise ValueError(f"Panel integrity mismatch: {name}")
+    return pd.read_parquet(BytesIO(raw))
 
 
 def current_meta() -> dict:

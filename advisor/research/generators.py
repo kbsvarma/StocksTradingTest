@@ -28,7 +28,7 @@ then compete on equal footing.
 
 DESIGN RULES (each one is load-bearing)
   * A generator that cannot state a direction is NOT standalone. It may add
-    confluence but may never lead a pick. We do not guess a direction.
+    context but may never lead or provide directional corroboration in v3.
   * Confluence counts DISTINCT FAMILIES, not buckets. tactical_long +
     new_entrant + technical_setup are three views of one price series; counting
     them as three rewarded momentum crowding.
@@ -39,6 +39,7 @@ DESIGN RULES (each one is load-bearing)
     computed over 1,400.
 """
 from __future__ import annotations
+import math
 
 # --- families -------------------------------------------------------------
 # Confluence is only meaningful across INDEPENDENT evidence. Two buckets in the
@@ -165,13 +166,15 @@ def pct_rank(values: dict, ticker: str, higher_is_stronger: bool = True) -> floa
         target = float(v)
     except (TypeError, ValueError):
         return None
+    if not math.isfinite(target):
+        return None
     pool = []
     for x in values.values():
         try:
             fx = float(x)
         except (TypeError, ValueError):
             continue
-        if fx == fx:                      # NaN check without importing math
+        if math.isfinite(fx):
             pool.append(fx)
     n = len(pool)
     if n < 2:
@@ -191,12 +194,12 @@ def resolve_direction(bucket: str, metric_value=None) -> str | None:
         v = float(metric_value)
     except (TypeError, ValueError):
         return None
-    if v == 0 or v != v:
+    if v == 0 or not math.isfinite(v):
         return None
     return "long" if v > 0 else "short"
 
 
-def score_candidate(gens: dict, priors: dict | None = None) -> dict | None:
+def score_candidate(gens: dict, priors: dict | None = None, *, scoring_version: int = 3) -> dict | None:
     """Score one candidate from its per-generator evidence.
 
     `gens` maps bucket -> {"rank_pct": float, "direction": str|None,
@@ -209,10 +212,18 @@ def score_candidate(gens: dict, priors: dict | None = None) -> dict | None:
     priors = priors or {}
     contributions = {}
     lead, lead_strength = None, -1.0
-    for b, g in gens.items():
+    for b, g in (gens.items() if scoring_version == 2 else sorted(gens.items())):
+        if not isinstance(g, dict):
+            continue
         rp = g.get("rank_pct")
-        prior = float(priors.get(b, 1.0))
-        eligible = bool(STANDALONE.get(b) and rp is not None and g.get("direction"))
+        if isinstance(rp, bool) or not isinstance(rp, (int, float)) or not math.isfinite(rp) or not 0 <= rp <= 1:
+            rp = None
+        try:
+            prior = float(priors.get(b, 1.0))
+        except (TypeError, ValueError):
+            prior = 1.0
+        prior = max(PRIOR_LO, min(PRIOR_HI, prior)) if math.isfinite(prior) else 1.0
+        eligible = bool(STANDALONE.get(b) and rp is not None and g.get("direction") in ("long", "short"))
         strength = round(rp * prior, 6) if rp is not None else None
         contributions[b] = {
             "rank_pct": rp, "prior": round(prior, 4), "strength": strength,
@@ -220,28 +231,44 @@ def score_candidate(gens: dict, priors: dict | None = None) -> dict | None:
             "direction": g.get("direction"), "eligible_to_lead": eligible,
             "metric": g.get("metric"), "value": g.get("value"),
             "rank_basis": g.get("rank_basis"),
+            "rank_population_n": g.get("rank_population_n"),
+            "rank_population_scope": g.get("rank_population_scope"),
         }
         if eligible and strength > lead_strength:
             lead, lead_strength = b, strength
     if lead is None:
         return None
-    fam = families(gens.keys())
-    conf = confluence(gens.keys())
+    direction = gens[lead]["direction"]
+    # Context and disagreement never manufacture corroboration. A low-ranked
+    # signal is recorded, but does not earn independent-family support.
+    support = [b for b, c in contributions.items()
+               if c["eligible_to_lead"] and c["direction"] == direction
+               and c["rank_pct"] >= 0.5]
+    opposing = [b for b, c in contributions.items()
+                if c["eligible_to_lead"] and c["direction"] != direction]
+    context = [b for b in contributions if b not in support and b not in opposing]
+    fam = families(support)
+    conf = confluence(support)
+    if scoring_version == 2:  # frozen historical policy; never fit new v3 priors to it
+        fam, conf = families(gens), confluence(gens)
     score = round(STRENGTH_W * lead_strength + CONFLUENCE_W * conf, 6)
     return {
         "score": min(score, 1.0),
         "lead_bucket": lead,
         "lead_strength": round(lead_strength, 6),
         "lead_rank_pct": gens[lead].get("rank_pct"),
-        "lead_prior": round(float(priors.get(lead, 1.0)), 4),
+        "lead_prior": contributions[lead]["prior"],
         "direction": gens[lead].get("direction"),
         "direction_source": lead,
         "families": fam,
         "n_families": len(fam),
         "confluence": conf,
+        "supporting": support, "opposing": opposing, "context": context,
+        "conflicted": any(contributions[b]["strength"] >= lead_strength - 0.10
+                          for b in opposing),
         "formula": (f"{STRENGTH_W}*lead_strength + {CONFLUENCE_W}*confluence; "
                     "lead_strength = rank_pct * prior; confluence over "
-                    "DISTINCT FAMILIES (0 for one family)"),
+                    "qualified, directionally aligned DISTINCT FAMILIES (0 for one family)"),
         "contributions": contributions,
     }
 

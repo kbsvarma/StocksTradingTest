@@ -3,9 +3,9 @@ from pathlib import Path
 
 def test_daily_picks_do_not_label_signal_strength_as_confidence():
     source = (Path(__file__).resolve().parents[1] / "terminal.py").read_text()
-    assert '"SIGNAL", "CAL P"' in source
+    assert '"Signal strength (not probability)"' in source
     assert '"TKR", "DIR", "CONF"' not in source
-    assert "NOT CALIBRATED" in source
+    assert "Priority does not imply calibrated profitability" in source
     assert "'CAL' if calibrated else 'UNCAL'" in source
 
 

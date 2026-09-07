@@ -63,9 +63,18 @@ def assess(panels: Mapping[str, object], requested: int, now=None) -> dict:
     if expected_coverage < 0.70:
         errors.append(f"Close: only {len(common_cols)}/{requested} requested tickers survived")
 
+    opens = panels.get("Open")
+    if opens is not None:
+        if not opens.index.equals(common_dates) or not opens.columns.equals(common_cols):
+            errors.append("Open: dates/tickers not aligned with Close")
+        opens = opens.reindex(index=common_dates, columns=common_cols)
     nonpositive = ((close <= 0) | (high <= 0) | (low <= 0)).any(axis=0)
+    if opens is not None:
+        nonpositive |= (opens <= 0).any(axis=0)
     negative_volume = (volume < 0).any(axis=0)
     ohlc_bad = ((low > high) | (close < low) | (close > high)).any(axis=0)
+    if opens is not None:
+        ohlc_bad |= ((opens < low) | (opens > high) | opens.isna()).any(axis=0)
     returns = close.pct_change(fill_method=None).tail(90)
     extreme = (returns.abs() > 0.50).any(axis=0)
     stale = close.tail(10).notna().sum(axis=0) < 5

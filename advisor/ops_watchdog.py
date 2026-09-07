@@ -243,6 +243,9 @@ def run_once(send: bool = True) -> None:
     check_brief_slo(state, send)
     check_librarian_selfheal(state, send)
     check_signals(state, send)
+    from advisor.research.suggestion_health import check_alert
+    from advisor.telegram_io import send as notify
+    check_alert(state, DATA / "research", notify if send else lambda msg: print(msg), _now())
     log_hygiene()
     state["last_run"] = _now().isoformat()
     _save(state)

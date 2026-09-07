@@ -9,6 +9,8 @@ silently degraded to momentum-only.
 A day's picks must be readable against what was actually generating that day.
 """
 import json
+from datetime import datetime
+from advisor.suggestion_policy import ET
 
 import pandas as pd
 import pytest
@@ -22,6 +24,10 @@ def env(tmp_path, monkeypatch):
     research.mkdir(parents=True)
     monkeypatch.setattr(candidates, "RESEARCH_DIR", research)
     monkeypatch.setattr(candidates, "OUT", research / "candidates_latest.json")
+    (research / "_meta").mkdir()
+    (research / "_meta" / "ingest_manifest.json").write_text(json.dumps({
+        "as_of": datetime.now(ET).isoformat(),
+        "datasets": {"form4": {"ok": True, "as_of": datetime.now(ET).isoformat()}}}))
 
     # fundamental stores absent -> empty frame, exactly as on a throttled night
     import advisor.research.factors_fundamental as ff
@@ -41,7 +47,7 @@ def _signals(research, longs=("AAA",), shorts=("ZZZ",)):
                 "score": score, "rank_pct": rank_pct,
                 "rank_basis": "composite percentile within 1440 liquid names",
                 "raw": {"mom_12_1_pct": 50.0}}
-    doc = {"longs": [row(t, 1.9, 0.99) for t in longs],
+    doc = {"as_of": datetime.now(ET).isoformat(), "longs": [row(t, 1.9, 0.99) for t in longs],
            "shorts": [row(t, -1.9, 0.99) for t in shorts],
            "n_liquid": 1440, "n_universe": 1502}
     (research / "signals_latest.json").write_text(json.dumps(doc))
@@ -78,7 +84,7 @@ def test_no_breadth_warning_when_two_families_are_live(env):
     _signals(env)
     (env / "positioning").mkdir()
     (env / "positioning" / "insider_clusters.json").write_text(json.dumps(
-        {"clusters": [{"ticker": "AAA", "n_buys": 4, "net_value_usd": 2_500_000},
+        {"as_of": datetime.now(ET).isoformat(), "clusters": [{"ticker": "AAA", "n_buys": 4, "net_value_usd": 2_500_000},
                       {"ticker": "BBB", "n_buys": 3, "net_value_usd": 900_000}]}))
     res = candidates.build()
     assert "insider_cluster" in res["generators_live"]
@@ -116,7 +122,7 @@ def test_rank_basis_says_when_a_percentile_is_taken_over_a_nominated_set(env):
     _signals(env)
     (env / "positioning").mkdir()
     (env / "positioning" / "insider_clusters.json").write_text(json.dumps(
-        {"clusters": [{"ticker": "CCC", "n_buys": 4, "net_value_usd": 2_500_000},
+        {"as_of": datetime.now(ET).isoformat(), "clusters": [{"ticker": "CCC", "n_buys": 4, "net_value_usd": 2_500_000},
                       {"ticker": "DDD", "n_buys": 3, "net_value_usd": 900_000}]}))
     slate = {e["ticker"]: e for e in candidates.build()["slate"]}
     basis = slate["CCC"]["generators"]["insider_cluster"]["rank_basis"]
@@ -134,7 +140,7 @@ def test_confluence_list_counts_families_not_buckets(env):
                 "rank_pct": 0.99, "rank_basis": "b", "new_entrant": new,
                 "raw": {"mom_12_1_pct": 1.0}}
     (research / "signals_latest.json").write_text(json.dumps(
-        {"longs": [row("AAA", 1.9, True)], "shorts": [], "n_liquid": 1440}))
+        {"as_of": datetime.now(ET).isoformat(), "longs": [row("AAA", 1.9, True)], "shorts": [], "n_liquid": 1440}))
     res = candidates.build()
     aaa = res["slate"][0]
     assert set(aaa["buckets"]) == {"tactical_long", "new_entrant"}

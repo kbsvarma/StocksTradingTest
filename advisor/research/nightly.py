@@ -32,6 +32,25 @@ ET = ZoneInfo("America/New_York")
 
 
 def run(subset: int | None = None, ingest: bool = True) -> int:
+    import fcntl
+    from advisor.research.suggestion_store import atomic_json
+    RESEARCH_DIR.mkdir(parents=True, exist_ok=True)
+    with (RESEARCH_DIR / '.nightly.lock').open('a') as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            print('[nightly] another research run is active')
+            return 1
+        try:
+            return _run(subset, ingest)
+        except Exception as exc:
+            atomic_json(RESEARCH_DIR / 'nightly_status.json', {
+                'as_of': datetime.now(ET).isoformat(), 'status': 'failed',
+                'required_output_ok': False, 'error': f'{type(exc).__name__}: {exc}'})
+            raise
+
+
+def _run(subset: int | None = None, ingest: bool = True) -> int:
     t0 = time.time()
     print(f"[nightly] start {datetime.now(ET).isoformat()}", flush=True)
     u = load_universe()
@@ -39,6 +58,16 @@ def run(subset: int | None = None, ingest: bool = True) -> int:
     panel_meta = build(subset=subset)
     print(f"[nightly] panel {panel_meta.get('build_id', 'legacy')} quality gate passed; "
           f"quarantined={panel_meta.get('quality', {}).get('n_quarantined', 0)}")
+    from advisor.research.datastore import pinned_build
+    with pinned_build():
+        return _downstream(panel_meta, subset, ingest, t0)
+
+
+def _downstream(panel_meta, subset, ingest, t0):
+    from advisor.research.suggestion_store import atomic_json
+    failures = []
+    candidates_ok = False
+    picks_ok = False
     s = compute(top=20, score_snapshot_dir=RESEARCH_DIR / "factor_history")
     RESEARCH_DIR.mkdir(parents=True, exist_ok=True)
     day = datetime.now(ET).date().isoformat()
@@ -54,6 +83,7 @@ def run(subset: int | None = None, ingest: bool = True) -> int:
         n_new = sum(1 for x in s.get("longs", []) if x.get("new_entrant"))
         print(f"[nightly] new long-sheet entrants vs prior run: {n_new}")
     except Exception as exc:
+        failures.append({"error": str(exc), "stage": '[nightly] new-entrant diff failed (non-fatal)'})
         print(f"[nightly] new-entrant diff failed (non-fatal): {exc}")
     # Latest artifacts are consumed concurrently by the morning pipeline.  A
     # temp+replace prevents it from observing truncated JSON/text mid-write.
@@ -74,6 +104,7 @@ def run(subset: int | None = None, ingest: bool = True) -> int:
         with (RESEARCH_DIR / "regime_history.jsonl").open("a", encoding="utf-8") as f:
             f.write(json.dumps({"date": day, "ts": s.get("as_of"), **reg}) + "\n")
     except Exception as exc:
+        failures.append({"error": str(exc), "stage": '[nightly] regime-history append failed (non-fatal)'})
         print(f"[nightly] regime-history append failed (non-fatal): {exc}")
 
     print(f"[nightly] signals done in {time.time()-t0:.0f}s", flush=True)
@@ -88,6 +119,7 @@ def run(subset: int | None = None, ingest: bool = True) -> int:
         print(f"[nightly] technical state: {technical['n_profiled']} names, "
               f"{len(technical['setups'])} setups")
     except Exception as exc:
+        failures.append({"error": str(exc), "stage": '[nightly] technical state failed (non-fatal)'})
         print(f"[nightly] technical state failed (non-fatal): {exc}")
 
     if ingest:
@@ -97,11 +129,13 @@ def run(subset: int | None = None, ingest: bool = True) -> int:
             write_fred(fred)
             print(f"[nightly] FRED macro: {fred['fresh_series']}/{fred['required_series']} fresh")
         except Exception as exc:
+            failures.append({"error": str(exc), "stage": '[nightly] FRED macro failed (non-fatal)'})
             print(f"[nightly] FRED macro failed (non-fatal): {exc}")
         try:
             from advisor.research.ingest.runner import run_all
             run_all(subset=subset)
         except Exception as exc:
+            failures.append({"error": str(exc), "stage": '[nightly] ingest failed (non-fatal — signals already written)'})
             print(f"[nightly] ingest failed (non-fatal — signals already written): {exc}")
 
     # Downstream of BOTH signals and (when it ran) the ingest. Deliberately OUTSIDE `if ingest:` —
@@ -117,6 +151,7 @@ def run(subset: int | None = None, ingest: bool = True) -> int:
         write_result(render_top(f, meta))
         print(f"[nightly] fundamental scores → {FOUT.name}")
     except Exception as exc:
+        failures.append({"error": str(exc), "stage": '[nightly] fundamental scores failed (non-fatal)'})
         print(f"[nightly] fundamental scores failed (non-fatal): {exc}")
     try:
         from advisor.research.factors_edgar import build as build_edgar_factors, write as write_edgar_factors
@@ -124,11 +159,13 @@ def run(subset: int | None = None, ingest: bool = True) -> int:
         write_edgar_factors(edgar_factors)
         print(f"[nightly] EDGAR factors: {edgar_factors['n_eligible']} eligible")
     except Exception as exc:
+        failures.append({"error": str(exc), "stage": '[nightly] EDGAR factors failed (non-fatal)'})
         print(f"[nightly] EDGAR factors failed (non-fatal): {exc}")
     try:
         from advisor.research.candidates import main as candidates_main
-        candidates_main()
+        candidates_ok = candidates_main() == 0
     except Exception as exc:
+        failures.append({"error": str(exc), "stage": '[nightly] candidates failed (non-fatal)'})
         print(f"[nightly] candidates failed (non-fatal): {exc}")
     try:
         from advisor.research.ic_monitor import mature
@@ -136,6 +173,7 @@ def run(subset: int | None = None, ingest: bool = True) -> int:
         print(f"[nightly] ic_monitor: {res['n_matured']} matured "
               f"(+{res['n_new_this_run']})")
     except Exception as exc:
+        failures.append({"error": str(exc), "stage": '[nightly] ic_monitor failed (non-fatal)'})
         print(f"[nightly] ic_monitor failed (non-fatal): {exc}")
     # Resolve BEFORE issuing: today's picks must not be resolvable by
     # today's own bar, and the refit that follows must inform the scores
@@ -150,10 +188,14 @@ def run(subset: int | None = None, ingest: bool = True) -> int:
         print(f"[nightly] pick_tracker: resolved {counts.get('resolved', 0)}, "
               f"still open {counts.get('still_open', 0)}")
     except Exception as exc:
+        failures.append({"error": str(exc), "stage": '[nightly] pick_tracker failed (non-fatal)'})
         print(f"[nightly] pick_tracker failed (non-fatal): {exc}")
     try:
         from advisor.research.picks import build as build_picks
+        if not candidates_ok:
+            raise RuntimeError("candidate refresh failed; refusing stale candidate reuse")
         res = build_picks(top_n=10)
+        picks_ok = "error" not in res
         if "error" in res:
             print(f"[nightly] picks: {res['error']}")
         else:
@@ -166,10 +208,38 @@ def run(subset: int | None = None, ingest: bool = True) -> int:
             for b, why in (res.get("generators_dark") or {}).items():
                 print(f"[nightly]   dark {b}: {why}")
     except Exception as exc:
+        failures.append({"error": str(exc), "stage": '[nightly] picks failed (non-fatal)'})
         print(f"[nightly] picks failed (non-fatal): {exc}")
 
+    try:
+        from advisor.research.ranking_evaluation import evaluate
+        from advisor.research.datastore import load_panel
+        evaluate(RESEARCH_DIR, load_panel("close"))
+    except Exception as exc:
+        failures.append({"stage": "ranking evaluation", "error": str(exc)})
+
+    # Intelligence is a separately observable downstream deliverable. Never
+    # issue a call by bypassing the candidate/pick release checks above.
+    try:
+        from advisor.intelligence.worker import run as run_intelligence
+        intelligence_status = run_intelligence(RESEARCH_DIR.parent)
+        if intelligence_status["errors"]:
+            failures.append({"stage": "intelligence", "error": "packet or event processing degraded"})
+    except Exception as exc:
+        failures.append({"stage": "intelligence", "error": str(exc)})
+
     print(f"[nightly] done in {time.time()-t0:.0f}s", flush=True)
-    return 0
+    required_ok = candidates_ok and picks_ok
+    status = {"as_of": datetime.now(ET).isoformat(),
+              "status": "failed" if not required_ok else "degraded" if failures else "healthy",
+              "panel_build_id": panel_meta.get("build_id"),
+              "required_output_ok": required_ok,
+              "stages": {"panel": "passed", "signals": "passed",
+                         "candidates": "passed" if candidates_ok else "failed",
+                         "picks": "passed" if picks_ok else "failed"},
+              "optional_failures": failures, "duration_seconds": round(time.time() - t0, 2)}
+    atomic_json(RESEARCH_DIR / "nightly_status.json", status)
+    return 0 if required_ok else 1
 
 
 if __name__ == "__main__":

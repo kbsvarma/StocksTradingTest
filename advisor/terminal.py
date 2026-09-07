@@ -32,10 +32,11 @@ from advisor.production_status import assess as production_assess
 from advisor.brief_control import arm_remaining_s, request_generation
 from advisor.brief_control import status as brief_control_status
 from advisor.actionability import is_actionable
+from advisor.suggestion_policy import lifecycle, release_freshness, quote_is_fresh
 
 ET = ZoneInfo("America/New_York")
 REPO = Path(__file__).resolve().parent.parent
-DATA = REPO / "advisor" / "data"
+DATA = Path(os.environ.get("ADVISOR_DATA_DIR", REPO / "advisor" / "data"))
 CTX = DATA / "context"
 RESEARCH = DATA / "research"
 KNOW = DATA / "knowledge"
@@ -51,7 +52,7 @@ st.set_page_config(page_title="ADVISOR TERMINAL", layout="wide",
 # optional token gate (TUNING_NOTES: posture decision) — set
 # ADVISOR_PORTAL_TOKEN in the service env to require ?token=... in the URL
 _TOKEN = os.environ.get("ADVISOR_PORTAL_TOKEN", "")
-if _TOKEN and not secret_equal(st.query_params.get("token"), _TOKEN):
+if os.environ.get("ADVISOR_AUTH_MODE", "local") == "local" and _TOKEN and not secret_equal(st.query_params.get("token"), _TOKEN):
     st.markdown("<h3 style='color:#ff9f0a;font-family:Menlo,monospace;'>"
                 "ADVISOR TERMINAL — locked</h3>"
                 "<p style='color:#8a8f98;font-family:Menlo,monospace;'>append "
@@ -173,7 +174,7 @@ def quote_store() -> dict:
         return {}
     try:
         age = (datetime.now(ET) - datetime.fromisoformat(snap["as_of"])).total_seconds()
-        if age > 120:
+        if not 0 <= age <= 120:
             return {}
         snap["age_s"] = age
         return snap
@@ -181,41 +182,11 @@ def quote_store() -> dict:
         return {}
 
 
-@st.cache_data(ttl=55)
-def yf_quotes(tickers: tuple) -> dict[str, dict]:
-    """yfinance fallback for symbols the daemon doesn't serve."""
-    import yfinance as yf
-    out = {}
-    for t in tickers:
-        try:
-            fi = yf.Ticker(t).fast_info
-            px = fi.last_price
-            prev = fi.previous_close
-            try:
-                dlo, dhi = fi.day_low, fi.day_high
-            except Exception:
-                dlo = dhi = None
-            out[t] = {"px": px, "prev_close": prev, "day_low": dlo,
-                      "day_high": dhi, "src": "yfinance ~15min", "type": "delayed"}
-        except Exception:
-            continue
-    return out
-
-
 def get_quotes(tickers: list[str]) -> dict[str, dict]:
-    """Merged view: quote store first, yfinance for the rest."""
+    """Timestamp-validated daemon quotes only; no network in decision UI."""
     snap = quote_store()
-    out = {}
-    missing = []
-    for t in tickers:
-        q = (snap.get("quotes") or {}).get(t)
-        if q:
-            out[t] = q
-        else:
-            missing.append(t)
-    if missing:
-        out.update(yf_quotes(tuple(missing)))
-    return out
+    return {t: q for t in tickers
+            if (q := (snap.get("quotes") or {}).get(t)) and quote_is_fresh(q)}
 
 
 @st.cache_data(ttl=900)
@@ -356,7 +327,7 @@ def active_recommendations():
         px = q.get("px")
         long_ = (e.get("direction") or "long").lower() != "short"
         conv = (e.get("conviction") or "?").upper()
-        actionable = is_actionable(e)
+        actionable = is_actionable(e) and q.get("type") == "live"
 
         if e.get("resolve_pending"):
             hit = e.get("hit_level")
@@ -369,9 +340,17 @@ def active_recommendations():
                       f'no position or execution is inferred')
         else:
             color = GREEN if conv == "HIGH" else AMBER
+            live_state = lifecycle(e, px)
             lo, hi = e.get("entry_px_low"), e.get("entry_px_high")
             sp, tp = e.get("stop_px"), e.get("target_px")
-            if isinstance(px, (int, float)) and isinstance(lo, (int, float)) \
+            if live_state in ("invalidated", "target_observed", "expired", "blocked", "quote_unavailable"):
+                state = {"invalidated": "🛑 RESEARCH VIEW INVALIDATED — stop observed",
+                         "target_observed": "🎯 RESEARCH TARGET OBSERVED",
+                         "expired": "EXPIRED", "blocked": "BLOCKED — invalid levels",
+                         "quote_unavailable": "WAIT — fresh quote unavailable"}[live_state]
+                color = RED if live_state in ("invalidated", "blocked") else AMBER
+                detail = "No position or execution is inferred"
+            elif isinstance(px, (int, float)) and isinstance(lo, (int, float)) \
                     and isinstance(hi, (int, float)) and not (lo <= px <= hi) \
                     and ((px > hi) if long_ else (px < lo)):
                 state = f"⏳ WAIT — outside entry zone {lo}–{hi}"
@@ -626,7 +605,7 @@ def open_calls_and_charts():
                 fig.update_xaxes(showspikes=True, spikecolor=DIM, spikemode="across",
                                  spikethickness=1, spikedash="dot")
                 fig.update_yaxes(title_text="RSI", row=3, col=1, range=[0, 100])
-                st.plotly_chart(fig, width="stretch",
+                st.plotly_chart(fig, use_container_width=True,
                                 key=f"chart_{eid}")
             except Exception as exc:
                 st.warning(f"{tkr}: chart unavailable ({exc})")
@@ -995,7 +974,7 @@ def factor_sheets():
                      "FCF margin": r.get("fcf_margin"), "debt/CFO": r.get("debt_to_cfo"),
                      "latest filed": r.get("latest_filed")}
                     for r in edgar_fund.get("leaders", [])]
-            st.dataframe(rows, width="stretch", hide_index=True)
+            st.dataframe(rows, use_container_width=True, hide_index=True)
         else:
             st.info("SEC fundamental factors build after the next EDGAR sweep.")
     with tabs[6]:
@@ -1012,7 +991,7 @@ def factor_sheets():
                      "DD126%": r.get("drawdown126_pct")}
                     for r in technical.get("setups", [])]
             if rows:
-                st.dataframe(rows, width="stretch", hide_index=True)
+                st.dataframe(rows, use_container_width=True, hide_index=True)
             else:
                 st.info("No technically coherent setup cleared the descriptive screen.")
         else:
@@ -1031,7 +1010,7 @@ def factor_sheets():
                      "redistribution": item.get("commercial_redistribution"),
                      "detail": item.get("detail")}
                     for name, item in health.get("sources", {}).items()]
-            st.dataframe(rows, width="stretch", hide_index=True)
+            st.dataframe(rows, use_container_width=True, hide_index=True)
         except Exception as exc:
             st.warning(f"Source-health inventory unavailable: {type(exc).__name__}")
 
@@ -1205,7 +1184,7 @@ def scorecard_doctrine():
         c4.metric("REJECTED TRACKED",
                   int((df.type == "rejected").sum()) if "type" in df else 0,
                   "counterfactual-scored")
-        st.dataframe(df, width="stretch", hide_index=True, height=240)
+        st.dataframe(df, use_container_width=True, hide_index=True, height=240)
 
     cal = load_json(RESEARCH / "calibration_latest.json")
     att = load_json(RESEARCH / "attribution_latest.json")
@@ -1319,11 +1298,26 @@ def scorecard_doctrine():
 
 # ── DAILY PICKS + TRACK RECORD ───────────────────────────────────────────────
 
+@st.fragment(run_every="30s")
 def picks_tab():
     picks = load_json(RESEARCH / "picks_latest.json")
-    if not picks or not picks.get("picks"):
-        st.info("No picks yet — run `python -m advisor.research.picks`.")
+    if not picks:
+        st.info("No suggestion release is available yet.")
         return
+    fresh = release_freshness(picks)
+    from advisor.research.suggestion_health import assess as assess_suggestions
+    integrity = assess_suggestions(RESEARCH)
+    if not integrity["ok"]:
+        fresh = {"ok": False, "reasons": integrity["reasons"]}
+    health = load_json(RESEARCH / "suggestion_health.json") or {}
+    nightly = load_json(RESEARCH / "nightly_status.json") or {}
+    operational_failure = health.get("status") == "failed" or nightly.get("status") == "failed"
+    if not fresh["ok"] or operational_failure:
+        st.error("Suggestions are stale or the latest refresh failed. Prior research is shown for reference.")
+        for reason in fresh["reasons"]:
+            st.caption(reason)
+    if not picks.get("picks"):
+        st.info("No candidates qualified for this release. An empty list is a valid research result.")
     src = picks.get("source", "live")
     if picks.get("n_cost_unverified"):
         st.warning(f"{picks['n_cost_unverified']} picks have unverified trading costs; "
@@ -1331,10 +1325,10 @@ def picks_tab():
     panel_header("DAILY RANKED PICKS",
                  f"{picks['as_of'][:16]} · bar {picks.get('price_bar')} · "
                  f"top {picks['n_picks']} of {picks['n_slate']} slate · "
-                 f"horizon {picks.get('horizon_trading_days')}td · {src}")
+                 f"horizons disclosed per idea · {src}")
     st.markdown(chip(picks.get("class", "research_idea"), AMBER)
                 + chip(f'scoring v{picks.get("scoring_version", "?")}', AMBER)
-                + chip("levels: deterministic ATR — no model-authored numbers", DIM),
+                + chip("levels: disclosed baseline or reviewed thesis plan", DIM),
                 unsafe_allow_html=True)
 
     # WHAT WAS ACTUALLY GENERATING TODAY. Without this a momentum-only day
@@ -1384,56 +1378,53 @@ def picks_tab():
             f'</span><br><span style="color:{DIM}; font-size:11px;">'
             f'{rec.get("verdict","")}</span></div>', unsafe_allow_html=True)
 
-    rows = []
-    for i, p in enumerate(picks["picks"], 1):
-        signal = f'{p["score"]:.2f}'
-        probability = (f'{p["confidence_pct"]}%' if p.get("confidence_pct") is not None
-                       else f'<span style="color:{DIM};">NOT CALIBRATED</span>')
-        dcol = GREEN if p["direction"] == "long" else RED
-        # WHY this name: the generator that won, at what cross-sectional
-        # percentile, over how many INDEPENDENT families. A losing pick has to
-        # point at a generator, not at "the model".
-        sel = p.get("selection") or {}
-        lead, rp = sel.get("lead_bucket"), sel.get("lead_rank_pct")
-        nfam = sel.get("n_families")
-        if lead:
-            why = (f'<span style="color:{BUCKET_COLORS.get(lead, AMBER)}; '
-                   f'font-weight:700;">{lead}</span>'
-                   + (f'<span style="color:#e8e6e3;"> @{rp:.3f}</span>'
-                      if isinstance(rp, (int, float)) else "")
-                   + f'<span style="color:{GREEN if (nfam or 0) > 1 else DIM};'
-                     f' font-size:10.5px;"> · {nfam}fam</span>')
-        else:
-            why = f'<span style="color:{DIM};">legacy v1</span>'
-        support = "".join(chip(g, BUCKET_COLORS.get(g, DIM))
-                          for g in p.get("generators", []) if g != lead)
-        gens = why + ("<br>" + support if support else "")
-        rows.append(
-            f'<tr style="border-bottom:1px solid #161b22;">'
-            f'<td style="padding:3px 8px; color:{DIM};">{i}</td>'
-            f'<td style="padding:3px 8px; color:{AMBER}; font-weight:700;">{p["ticker"]}</td>'
-            f'<td style="padding:3px 8px; color:{dcol}; font-weight:700;">{p["direction"].upper()}</td>'
-            f'<td style="padding:3px 8px; color:#e8e6e3;">{signal}</td>'
-            f'<td style="padding:3px 8px; color:{DIM};">{probability}</td>'
-            f'<td style="padding:3px 8px;">{p["entry_low"]}–{p["entry_high"]}</td>'
-            f'<td style="padding:3px 8px; color:{RED};">{p["stop"]}</td>'
-            f'<td style="padding:3px 8px; color:{GREEN};">{p["target"]}</td>'
-            f'<td style="padding:3px 8px; color:{DIM};">{p.get("atr20")}</td>'
-            f'<td style="padding:3px 8px;">{gens}</td>'
-            f'<td style="padding:3px 8px; color:{DIM}; font-size:11px;">'
-            f'{p.get("next_earnings") or "—"}</td></tr>')
-    head = "".join(f'<th style="padding:4px 8px; color:{AMBER}; text-align:left; '
-                   f'border-bottom:1px solid {PANEL_BORDER};">{h}</th>'
-                   for h in ("#", "TKR", "DIR", "SIGNAL", "CAL P", "ENTRY", "STOP", "TARGET",
-                             "ATR20", "WHY ▸ LEAD @PCTILE · SUPPORT", "NEXT EPS"))
-    st.markdown(
-        f'<div style="background:{PANEL_BG}; border:1px solid {PANEL_BORDER}; '
-        f'border-radius:2px; padding:4px; overflow-x:auto;">'
-        f'<table style="font-size:12px; font-family:Menlo,monospace; color:#e8e6e3; '
-        f'border-collapse:collapse; width:100%;"><thead><tr>{head}</tr></thead>'
-        f'<tbody>{"".join(rows)}</tbody></table></div>', unsafe_allow_html=True)
-    st.markdown(chip(picks.get("score_method", ""), DIM)
-                + chip(picks.get("disclaimer", ""), DIM), unsafe_allow_html=True)
+    quotes = get_quotes([p["ticker"] for p in picks.get("picks", [])])
+    groups = {"Priority research": [], "Waiting / needs research": [], "Blocked / stale / completed": []}
+    for p in picks.get("picks", []):
+        q = quotes.get(p["ticker"]) or {}
+        state = lifecycle(p, q.get("px"))
+        triage = p.get("triage") or {"group": "watchlist", "blockers": ["Legacy suggestion; refresh required"]}
+        blocked = (not fresh["ok"] or operational_failure or triage["group"] == "blocked"
+                   or state in ("invalidated", "target_observed", "expired", "blocked"))
+        group = ("Blocked / stale / completed" if blocked else "Priority research"
+                 if triage["group"] == "priority_research" and state == "entry_zone" and q.get("type") == "live"
+                 else "Waiting / needs research")
+        groups[group].append((p, q, state, triage))
+    st.caption("Research triage only. Priority does not imply calibrated profitability or permission to trade.")
+    st.caption(picks.get("exposure_scope", "Portfolio context unavailable"))
+    for label, items in groups.items():
+        st.subheader(f"{label} · {len(items)}")
+        if not items:
+            st.caption("None in this release.")
+            continue
+        st.dataframe([{
+            "Ticker": p["ticker"], "Direction": p["direction"],
+            "Change": p.get("change", "legacy"), "State": state.replace("_", " "),
+            "Observed price": q.get("px"), "Quote source": q.get("src", "unavailable"),
+            "Quote timestamp": q.get("market_ts") or q.get("ts"),
+            "Quote status": q.get("type", "unavailable"), "Entry": f'{p["entry_low"]}–{p["entry_high"]}',
+            "Stop": p["stop"], "Target": p["target"],
+            "Why now": p.get("why_now", "Underwriting required"),
+            "Next earnings": p.get("next_earnings"),
+            "Blockers": "; ".join(triage.get("blockers") or []),
+        } for p, q, state, triage in items], hide_index=True, use_container_width=True)
+        for p, q, state, triage in items:
+            with st.expander(f'{p["ticker"]} — evidence, risks and revision history'):
+                sel = p.get("selection") or {}
+                st.write({"Supporting": sel.get("supporting", []),
+                          "Opposing": sel.get("opposing", []), "Context": sel.get("context", []),
+                          "Signal strength (not probability)": p.get("score"),
+                          "Thesis": (p.get("evidence") or {}).get("thesis", {}),
+                          "Sources": (p.get("evidence") or {}).get("sources", {}),
+                          "Template": p.get("template"), "Cost model": p.get("cost"),
+                          "Revision": p.get("revision_id"), "Previous revision": p.get("previous_revision_id"),
+                          "Episode": p.get("episode_id"), "Expires": p.get("expires_on")})
+                st.json(sel)
+    with st.expander("Why other candidates were excluded"):
+        st.write(picks.get("constrained_out", []) + picks.get("uneconomic", []) + picks.get("unpickable", []))
+    with st.expander("Removed since the previous release"):
+        st.write(picks.get("removed_from_daily_list", []))
+    st.caption(picks.get("disclaimer", "Research ideas only"))
 
 
 def record_tab():
@@ -1571,39 +1562,6 @@ def _regime_chip() -> str:
             f'TERM {esc(reg.get("vix_term", "?"))}</span>')
 
 
-st.markdown(
-    f'<div style="display:flex; justify-content:space-between; align-items:center; '
-    f'background:{PANEL_BG}; border:1px solid {PANEL_BORDER}; padding:4px 12px; '
-    f'border-radius:2px; margin-bottom:4px;">'
-    f'<span style="color:{AMBER}; font-size:19px; font-weight:800; '
-    f'letter-spacing:3px; font-family:Menlo,monospace;">ADVISOR TERMINAL'
-    f'<span style="color:{DIM}; font-size:10px; letter-spacing:1px;"> '
-    f'READ-ONLY RESEARCH CONSOLE · NO EXECUTION PATHS</span></span>'
-    f'{_regime_chip()}</div>',
-    unsafe_allow_html=True)
-
-st.markdown(
-    f'<div style="background:#151109; border:1px solid {AMBER}; padding:4px 10px; '
-    f'color:#d7d2c8; font-size:10px; letter-spacing:.4px;">'
-    f'<b style="color:{AMBER};">RESEARCH IDEAS — NOT PERSONALIZED ADVICE.</b> '
-    f'Projected probabilities and outcomes are hypothetical, may change with each run, '
-    f'do not reflect actual client results, and are not guarantees. Uncalibrated estimates '
-    f'are labeled UNCAL. Verify source evidence, suitability, liquidity, tax, and loss risk '
-    f'before acting.</div>', unsafe_allow_html=True)
-with st.expander("METHODOLOGY · UNIVERSE · LIMITATIONS · CONFLICTS"):
-    st.markdown(
-        "**Selection.** A broad U.S. equity/ETF research universe is filtered for "
-        "liquidity, ranked using sector-neutral technical/fundamental signals, then "
-        "subjected to catalyst, primary-evidence, valuation, risk/reward, and independent "
-        "red-team gates. Other securities may have similar or superior characteristics.\n\n"
-        "**Limitations.** Factor ranks are discovery-only until their machine-readable "
-        "validation gate passes. `p_win` is analyst judgment unless explicitly marked CAL. "
-        "Delayed feeds, source errors, regime changes, slippage, gaps, and corporate events "
-        "can invalidate a view. A missing verified portfolio makes all sizing illustrative.\n\n"
-        "**Conflicts and data rights.** The prototype has no issuer compensation or market-"
-        "making relationship recorded. Commercial redistribution is disabled pending "
-        "licensed market-data contracts and a formal conflict-disclosure process."
-    )
 
 # ── controlled on-demand generation + data reload ───────────────────────────
 @st.fragment(run_every="5s")
@@ -1617,7 +1575,7 @@ def brief_controls() -> None:
     arm_remaining = arm_remaining_s(arm_deadline, now_ts=now_ts)
     armed = allow and not running and arm_remaining > 0
     with _bc1:
-        if st.button("1 · ARM 60s", width="stretch", disabled=running or not allow,
+        if st.button("1 · ARM 60s", use_container_width=True, disabled=running or not allow,
                      help="Temporarily arm one research run. Arming expires after "
                           "60 seconds and never places an order."):
             arm_deadline = now_ts + 60
@@ -1627,7 +1585,7 @@ def brief_controls() -> None:
         if armed:
             st.caption(f"ARMED · {arm_remaining}s")
     with _bc2:
-        if st.button("⟳ GENERATE NEW BRIEF", width="stretch",
+        if st.button("⟳ GENERATE NEW BRIEF", use_container_width=True,
                      disabled=running or not allow or not armed,
                      help="Queue macro → synthesis → red-team → publish through "
                           "the credential-isolated system service."):
@@ -1649,7 +1607,7 @@ def brief_controls() -> None:
                 st.toast("Brief request failed safely; inspect the operator audit.",
                          icon="⚠️")
     with _bc3:
-        st.button("↻ RELOAD DATA", width="stretch", on_click=manual_reload,
+        st.button("↻ RELOAD DATA", use_container_width=True, on_click=manual_reload,
                   help="Re-read published artifacts. This does not generate a brief.")
         _reloaded = st.session_state.get("advisor_last_manual_reload")
         if _reloaded:
@@ -1669,36 +1627,6 @@ def brief_controls() -> None:
         elif not allow:
             st.caption("ON-DEMAND GENERATION DISABLED BY OPERATOR POLICY")
 
-
-brief_controls()
-tape()
-active_recommendations()
-
-t0, t9, t1, t2, t3, t4, t5, t6, t7, t8 = st.tabs(
-    ["PICK ▸ DAILY PICKS", "REC ▸ TRACK RECORD",
-     "RSCH ▸ RESEARCH", "CALL ▸ OPEN CALLS", "IDEA ▸ SLATE·WATCH",
-     "FCTR ▸ FACTORS", "DOSR ▸ DOSSIERS", "CAL ▸ CALENDAR",
-     "PORT ▸ PORTFOLIO", "SCOR ▸ SCORECARD"])
-with t0:
-    picks_tab()
-with t9:
-    record_tab()
-with t1:
-    research_feed()
-with t2:
-    open_calls_and_charts()
-with t3:
-    ideas_tab()
-with t4:
-    factor_sheets()
-with t5:
-    dossier_tab()
-with t6:
-    calendar_tab()
-with t7:
-    portfolio_risk()
-with t8:
-    scorecard_doctrine()
 
 
 # ── STATUS FOOTER (service health + data ages) ───────────────────────────────
@@ -1815,4 +1743,17 @@ def status_footer():
         unsafe_allow_html=True)
 
 
-status_footer()
+from advisor.terminal_workspace import render_terminal
+
+render_terminal(DATA, controls=brief_controls, legacy={
+    "Daily ranked suggestions": picks_tab,
+    "Suggestion track record": record_tab,
+    "Published research": research_feed,
+    "Open calls and charts": open_calls_and_charts,
+    "Slate and watchlist": ideas_tab,
+    "Factor sheets": factor_sheets,
+    "Analyst dossiers": dossier_tab,
+    "Catalyst calendar": calendar_tab,
+    "Portfolio risk": portfolio_risk,
+    "Methodology and scorecard": scorecard_doctrine,
+})

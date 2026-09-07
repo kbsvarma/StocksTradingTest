@@ -1,7 +1,7 @@
 """Intraday filing poller — 8-K / Form 4 on held + watchlist names.
 
-Deterministic, alert-only (the panel cut reaction sessions: delayed data,
-no edge — a sourced ping beats an LLM hot take). Every 20 min during RTH:
+Deterministic source intake with downstream thesis reassessment. Every 20 min
+between 06:00 and 22:00 ET on weekdays (including after-hours earnings):
 poll EDGAR submissions for names we hold or watch; NEW filings since last
 seen → one Telegram ping + a row in advisor/data/alerts/intraday_alerts.jsonl
 (the terminal's alert center reads it). Dedup: one ping per (ticker, form,
@@ -32,9 +32,10 @@ def _seen_path() -> Path:
     return _data() / "events_seen.json"
 
 
-def market_open(now: datetime | None = None) -> bool:
+def filing_poll_open(now: datetime | None = None) -> bool:
     now = now or datetime.now(ET)
-    return now.weekday() <= 4 and "09:30" <= now.strftime("%H:%M") <= "16:05"
+    # This is a filing-intake window, not a claim that the exchange is open.
+    return now.weekday() <= 4 and "06:00" <= now.strftime("%H:%M") <= "22:00"
 
 
 def targets() -> list[str]:
@@ -55,11 +56,16 @@ def targets() -> list[str]:
                 out.add(t)
     except Exception:
         pass
+    try:
+        from advisor.intelligence.adapters import tracked_symbols
+        out.update(tracked_symbols(_data()))
+    except (OSError, ValueError):
+        pass
     return sorted(out)
 
 
 def poll_once(force: bool = False) -> int:
-    if not force and not market_open():
+    if not force and not filing_poll_open():
         return 0
     names = targets()
     if not names:
@@ -105,6 +111,12 @@ def poll_once(force: bool = False) -> int:
     tmp = _seen_path().with_suffix(".json.tmp")
     tmp.write_text(json.dumps(seen, indent=1))
     os.replace(tmp, _seen_path())
+    if n_new:
+        try:
+            from advisor.intelligence.worker import run as reassess
+            reassess(_data())
+        except Exception as exc:
+            print(f"[events] intelligence reassessment failed: {type(exc).__name__}", flush=True)
     return n_new
 
 
@@ -113,7 +125,7 @@ def main() -> int:
     n = poll_once(force=force)
     print(f"[events] {datetime.now(ET).strftime('%H:%M')} — "
           f"{n} new filing alert(s)"
-          + ("" if market_open() or force else " (market closed — skipped)"))
+          + ("" if filing_poll_open() or force else " (outside filing intake window — skipped)"))
     return 0
 
 

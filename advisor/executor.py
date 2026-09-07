@@ -64,6 +64,17 @@ def _clock_ok(lim: dict) -> tuple[bool, str]:
     now = _now()
     if now.weekday() > 4:
         return False, f"not a trading day ({now.strftime('%A')})"
+    try:
+        import exchange_calendars as xc
+        import pandas as pd
+        calendar = xc.get_calendar("XNYS")
+        session = pd.Timestamp(now.date())
+        if not calendar.is_session(session):
+            return False, "exchange holiday — no entry session"
+        if pd.Timestamp(now) >= calendar.session_close(session):
+            return False, "exchange session has closed"
+    except Exception:
+        return False, "exchange calendar unavailable"
     hm = now.strftime("%H:%M")
     if not (lim["rth_entry_start"] <= hm <= lim["rth_entry_end"]):
         return False, (f"outside entry window "
@@ -160,6 +171,9 @@ def execute(pid: str, run_monitor: bool = True) -> int:
         return _fail(p, f"daily loss cap hit (realized today ${realized:.0f}, "
                         f"cap -${lim['daily_realized_loss_cap_usd']}) — no new entries")
 
+    if not run_monitor and not _dry_run():
+        return _fail(p, "live execution requires an inline position monitor", notify=False)
+
     # ── Gate 5: broker setup (imports deferred so Tier 0 never loads these) ─
     from webull_bot.client import build_trade_client
     from webull_bot.execution import ExecutionEngine
@@ -220,42 +234,45 @@ def execute(pid: str, run_monitor: bool = True) -> int:
         symbol=p.symbol, expiry=p.expiry,
         short_strike=p.short_strike, long_strike=p.long_strike,
         quantity=p.qty, entry_credit=fill.fill_price, stop_price=stop_price,
-        entry_spx=0.0, entry_vix=0.0,           # advisor path — set below if available
+        entry_spx=0.0, entry_vix=0.0,           # optional enrichment omitted before protection
         entry_ts=_now().isoformat(),
         client_order_id=fill.client_order_id,
         yf_options_symbol=webull_cfg.get("yf_options_symbol", "^SPX"),
         short_iid=fill.short_iid or "", long_iid=fill.long_iid or "",
     )
-    try:
-        from webull_bot.market_data import get_spx_price, get_vix_price
-        pos.entry_spx = get_spx_price(webull_cfg.get("yf_price_symbol", "^GSPC"))
-        pos.entry_vix = get_vix_price()
-    except Exception:
-        pass
     state.open_position = pos
     state.trade_taken_today = True
     store.save(state)
 
-    p = P.transition(p.id, "EXECUTED", f"filled @ {fill.fill_price:.2f}")
-    p.fill_price = fill.fill_price
-    p.executed_ts = _now().isoformat()
-    P._save(p)
+    try:
+        p = P.transition(p.id, "EXECUTED", f"filled @ {fill.fill_price:.2f}")
+        p.fill_price = fill.fill_price
+        p.executed_ts = _now().isoformat()
+        P._save(p)
+    except Exception as exc:
+        print(f"[executor] fill audit failed; position state saved, monitoring required: {exc}")
 
-    journal_add({
-        "type": "execution", "instrument": p.symbol, "direction": "short_put_spread",
-        "conviction": p.conviction,
-        "thesis": p.rationale,
-        "entry": f"{spread_s} credit {fill.fill_price:.2f}",
-        "stop": f"mark {stop_price:.2f} ({stop_mult}x)",
-        "target": "expire worthless (0DTE, no PT)",
-        "note": f"proposal {p.id}",
-    })
-    telegram_io.send(
-        f"🟢 EXECUTED [{p.id}]  {p.symbol} {spread_s} qty={p.qty}\n"
-        f"fill credit ${fill.fill_price:.2f}   stop @ ${stop_price:.2f} ({stop_mult}x)\n"
-        f"SL monitor arming now"
-    )
-    print(f"[executor] ✓ FILLED credit={fill.fill_price:.2f} stop={stop_price:.2f}")
+    def report_fill():
+        # Noncritical bookkeeping never delays position monitoring.
+        try:
+            journal_add({
+                "type": "execution", "instrument": p.symbol, "direction": "short_put_spread",
+                "conviction": p.conviction,
+                "thesis": p.rationale,
+                "entry": f"{spread_s} credit {fill.fill_price:.2f}",
+                "stop": f"mark {stop_price:.2f} ({stop_mult}x)",
+                "target": "expire worthless (0DTE, no PT)",
+                "note": f"proposal {p.id}",
+            })
+            telegram_io.send(
+                f"🟢 EXECUTED [{p.id}]  {p.symbol} {spread_s} qty={p.qty}\n"
+                f"fill credit ${fill.fill_price:.2f}   stop @ ${stop_price:.2f} ({stop_mult}x)\n"
+                f"SL monitor arming now"
+            )
+            print(f"[executor] ✓ FILLED credit={fill.fill_price:.2f} stop={stop_price:.2f}")
+
+        except Exception as exc:
+            print(f"[executor] fill notification/journal failed: {exc}")
 
     # ── Inline SL monitor (2s invariant) ─────────────────────────────────
     if _dry_run():
@@ -271,6 +288,8 @@ def execute(pid: str, run_monitor: bool = True) -> int:
             monitor_interval_seconds=webull_cfg.get("monitor_interval_seconds", 2),
             eod_close_time=webull_cfg.get("eod_close_time", "15:45"),
         )
+        import threading
+        threading.Thread(target=report_fill, name="advisor-fill-report", daemon=True).start()
         outcome = monitor.run_until_closed(state)
         print(f"[executor] monitor exited: {outcome.reason} pnl_usd=${outcome.pnl_usd:.0f}")
         telegram_io.send(f"📕 CLOSED [{p.id}] {spread_s} — {outcome.reason}  "

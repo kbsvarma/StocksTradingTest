@@ -11,10 +11,9 @@ Work from the repository working directory supplied by the orchestrator.
 CONTEXT_DIR and TODAY are prepended. You see the draft's CLAIMS, not its
 chain of reasoning — verify everything independently.
 
-Calibration note: a healthy kill/amend rate runs 20-60%. If you find
-yourself passing everything, you are rubber-stamping; if killing everything
-on generic grounds ("markets are risky"), you are noise. Every verdict needs
-SPECIFIC, sourced grounds.
+Do not target a kill/amend quota. Every verdict needs specific, sourced
+grounds. Your contribution is measured against matched outcomes of accepted
+and rejected cases, including missed winners and avoided losses.
 
 ## For EVERY view in views_draft.json, run all five checks:
 
@@ -42,21 +41,29 @@ SPECIFIC, sourced grounds.
    METHODOLOGY). For options views, `python -m advisor.vol_check --ticker
    <X>` must agree with the chosen structure. For share views,
    `python -m advisor.research.fair_value --ticker <X>` — treat this as an
-   unvalidated heuristic scenario span, never as fair value or a price target. A long entered
-   ABOVE the fair-value mid needs an explicit justification or it's a kill.
+   unvalidated heuristic scenario span, never as fair value or a price target.
+   Its midpoint is not an entry ceiling or evidence of mispricing. Demand a
+   separately sourced operating/catalyst scenario for the proposed target.
 
-4. **Level and expectancy stress.** From quant.json ATR/vol: is the stop inside normal
-   daily noise (stop distance < ~1.5× ATR = death by noise — amend wider or
-   kill)? Is the target realistic vs 52w range and recent swings? Is R:R
+4. **Level and expectancy stress.** From quant.json ATR/vol, assess how normal
+   variation relates to the thesis invalidation. Do not mechanically widen a
+   stop or extend a target to pass a ratio. Check target plausibility against
+   the dated economic scenario, holding horizon, and recent price behavior. Is R:R
    still ≥ 2 after any amendment you propose? Recompute `reward_risk` at the
    entry midpoint and `expected_value_r = p_win*reward_risk-(1-p_win)`; a
    mismatch or expectancy below 0.15R is a kill. Verify max_loss includes
-   spread/slippage and remains ≤$1,250.
+   spread/slippage and remains within the configured research_risk policy.
+   Binary expectancy is a legacy scenario arithmetic check, not validated edge.
 
-4b. **Short-view checks (direction=short only).** (a) SQUEEZE: peek's
+4b. **Supported-expression gate.** Current publication supports long equities
+and ETFs only. Kill an options/direct-short/futures/FX/crypto expression that
+tries to pass through the equity sizing contract. Preserve its thesis as an
+unsupported research case with an explicit capability blocker. The following
+short research diagnostics inform the discussion, not publication permission:
+(a) SQUEEZE: peek's
    short %float — >15% unacknowledged = kill; >25% = kill outright.
-   (b) EXPRESSION: defined-risk only — a short expressed as anything but
-   puts/put spreads = kill. (c) vol_check verdict on the puts must be
+   (b) EXPRESSION: options need a separate future contract and cannot publish
+   through equity sizing. (c) vol_check verdict on proposed puts must be
    CHEAP/FAIR — buying RICH puts = kill or amend to a spread. (d) UPSIDE
    CATALYSTS: any scheduled positive catalyst (earnings, analyst day,
    index add) inside the holding window must be named in the thesis or
@@ -72,6 +79,16 @@ SPECIFIC, sourced grounds.
 6. **Model-promotion audit.** Inspect the factor sheet's `model_validation`.
    If it is `research_only`, kill any view whose edge or `p_win` depends on
    factor rank rather than an independently sourced catalyst/fundamental case.
+
+7. **Intelligence packet verification.** If the view includes
+`intelligence_packet`, inspect every load-bearing claim. Independently fetch
+the cited source and check the exact excerpt, numeric value, unit and period.
+Return `intelligence_claim_checks` on this view's verdict: an array of
+`{claim_id, verdict: supported|contradicted, source_url, verified_excerpt,
+reviewed_at}`. `reviewed_at` must be the actual timezone-aware verification
+time. An inaccessible source remains unverified; omit its check and explain
+the blocker. Do not rubber-stamp model-copied source text. The deterministic
+bridge binds your checks to the exact source snapshots and claim hashes.
 
 ## Output — write `CONTEXT_DIR/redteam.json`:
 

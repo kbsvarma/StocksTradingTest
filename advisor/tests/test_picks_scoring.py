@@ -8,6 +8,8 @@ carried a price bucket — the stratified slate collapsed into a momentum list.
 These tests drive the real `build()` against a synthetic panel and slate.
 """
 import json
+from datetime import datetime
+from advisor.suggestion_policy import ET, last_complete_session
 
 import pandas as pd
 import pytest
@@ -27,7 +29,7 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setattr(picks, "PRIORS", research / "generator_priors.json")
 
     tickers = ["MOMO", "FUND", "BOTH", "NODIR"]
-    idx = pd.bdate_range("2026-01-01", periods=60)
+    idx = pd.bdate_range(end=last_complete_session(), periods=60)
     close = pd.DataFrame(100.0, index=idx, columns=tickers)
     high = close + 2.0
     low = close - 2.0
@@ -37,12 +39,17 @@ def env(tmp_path, monkeypatch):
 
     import advisor.research.datastore as ds
     monkeypatch.setattr(ds, "load_panel", fake_panel)
+    monkeypatch.setattr(ds, "current_meta", lambda: {"build_id": "fixture", "quality": {"ok": True}})
+    monkeypatch.setattr(picks, "_standing_exposure", lambda: [])
     return research
 
 
 def _slate(research, entries, **extra):
-    doc = {"as_of": "2026-09-03T08:00:00-04:00", "n": len(entries),
+    doc = {"as_of": datetime.now(ET).isoformat(), "panel_build_id": "fixture", "n": len(entries),
            "slate": entries, **extra}
+    from advisor.research.suggestion_store import digest
+    doc["source_manifest"] = {}
+    doc["release_id"] = digest({"slate": entries, "sources": {}})
     (research / "candidates_latest.json").write_text(json.dumps(doc))
     return doc
 
@@ -182,6 +189,8 @@ def test_fitted_priors_change_the_ordering(env):
 
     (env / "generator_priors.json").write_text(json.dumps(
         {"source": "live", "scoring_version": picks.SCORING_VERSION,
+         "n_nonoverlapping_issue_windows": 30,
+         "evidence": {"tactical_long": {"n": 30}, "revision_leader": {"n": 30}},
          "priors": {"tactical_long": 0.7, "revision_leader": 1.3}}))
     _slate(env, slate)
     res = picks.build(top_n=10)

@@ -78,7 +78,12 @@ def assess(now: datetime | None = None) -> dict:
     }
     critical = ("price_history", "sec_edgar", "fred_macro", "live_quotes")
     healthy_critical = sum(bool(sources[k]["healthy"]) for k in critical)
-    return {"schema_version": 1, "as_of": now.isoformat(), "sources": sources,
+    from advisor.investigator.catalog import inventory, DIMENSIONS
+    investigator_sources = inventory()
+    return {"investigator": {"source_routes": len(investigator_sources), "dimensions": len(DIMENSIONS),
+                             "inventory": investigator_sources,
+                             "coverage_basis": "Per-investigation collection results; route registration does not assert live coverage"},
+            "schema_version": 1, "as_of": now.isoformat(), "sources": sources,
             "configured_optional_providers": configured,
             "healthy_critical": healthy_critical, "critical_count": len(critical),
             "ok": healthy_critical == len(critical),

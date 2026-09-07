@@ -90,7 +90,11 @@ def build() -> dict:
                                         "detail": {}, "generators": {}})
         if bucket not in e["buckets"]:
             e["buckets"].append(bucket)
+        import re
+        population = re.search(r"within (\d+)", rank_basis or "")
         e["generators"][bucket] = {
+            "rank_population_n": int(population.group(1)) if population else None,
+            "rank_population_scope": "nominated" if any(w in (rank_basis or "") for w in ("nominated", "detected signals")) else "covered",
             "rank_pct": rank_pct,
             "direction": gen.resolve_direction(bucket, value),
             "metric": metric, "value": value, "rank_basis": rank_basis,
@@ -223,6 +227,8 @@ def build() -> dict:
             n = 0
             for t, v in f.est_revision.dropna().sort_values(
                     ascending=False).head(CAPS["revision_leader"]).items():
+                if not pd.notna(v) or v <= 0:
+                    continue  # a weak universe must not manufacture positive revisions
                 add(t, "revision_leader", rank_pct=gen.pct_rank(rev_pop, t),
                     metric="est_revision", value=round(float(v), 2),
                     rank_basis=f"est_revision percentile within {len(rev_pop)} "
@@ -312,20 +318,20 @@ def build() -> dict:
         stakes = sc.get("stakes", [])
         pop = {s["ticker"]: s["pct_of_class"] for s in stakes
                if s.get("pct_of_class") is not None}
-        for s in stakes[:CAPS["activist_stake"]]:
-            tier = ("new_13D" if s.get("new_13d") else
-                    "13D_amendment" if s.get("is_13d") else "13G_passive")
-            add(s["ticker"], "activist_stake",
-                rank_pct=gen.pct_rank(pop, s["ticker"]),
-                metric="pct_of_class", value=s["pct_of_class"],
+        for stake in stakestake[:CAPS["activist_stake"]]:
+            tier = ("new_13D" if stake.get("new_13d") else
+                    "13D_amendment" if stake.get("is_13d") else "13G_passive")
+            add(stake["ticker"], "activist_stake",
+                rank_pct=gen.pct_rank(pop, stake["ticker"]),
+                metric="pct_of_class", value=stake["pct_of_class"],
                 rank_basis=f"stake percentile within {len(pop)} names with a "
                            f"5%+ filing in {sc.get('window_days', '?')}d "
                            f"[{tier}"
-                           + (", control block" if s.get("control_block") else "")
+                           + (", control block" if stake.get("control_block") else "")
                            + "]",
-                stake_pct=s["pct_of_class"], stake_tier=tier,
-                stake_filer=s.get("filer"),
-                stake_control_block=s.get("control_block"))
+                stake_pct=stake["pct_of_class"], stake_tier=tier,
+                stake_filer=stake.get("filer"),
+                stake_control_block=stake.get("control_block"))
         mark("activist_stake", min(len(stakes), CAPS["activist_stake"]),
              "no 5%+ filings on universe names in the window")
     except Exception as exc:
@@ -361,6 +367,34 @@ def build() -> dict:
     except Exception:
         pass
 
+    from advisor.research.candidate_provenance import observe, enrich
+    from advisor.research.suggestion_store import digest
+    def read_doc(path):
+        try:
+            return json.loads(path.read_text())
+        except (OSError, ValueError):
+            return {}
+    manifest = read_doc(RESEARCH_DIR / "_meta" / "ingest_manifest.json")
+    fundamental_source = {**observe(manifest), "input_fingerprints": fundamental_meta.get("input_fingerprints", {})}
+    sources = {b: observe(s) for b in ("tactical_long", "tactical_short", "new_entrant")}
+    sources["technical_setup"] = observe(technical)
+    sources["edgar_quality_growth"] = observe(edgar_factors)
+    for b in ("pead_fresh", "revision_leader", "cheap_quality", "squeeze_flag"):
+        needed = {"pead_fresh": ["events"], "revision_leader": ["estimates"],
+                  "cheap_quality": ["info"], "squeeze_flag": ["info", "estimates"]}[b]
+        sources[b] = {**fundamental_source, "fresh": fundamental_source["fresh"] and all(
+            (manifest.get("datasets", {}).get(k) or {}).get("ok")
+            and observe(manifest.get("datasets", {}).get(k) or {})["fresh"] for k in needed)}
+    sources["insider_cluster"] = observe(read_doc(RESEARCH_DIR / "positioning" / "insider_clusters.json"))
+    sources["activist_stake"] = observe(read_doc(RESEARCH_DIR / "positioning" / "schedule13_signals.json"))
+    for bucket, dataset in (("edgar_quality_growth", "edgar_facts"),
+                            ("insider_cluster", "form4"), ("activist_stake", "schedule13")):
+        upstream = manifest.get("datasets", {}).get(dataset) or {}
+        sources[bucket]["upstream"] = observe(upstream)
+        sources[bucket]["fresh"] = (sources[bucket]["fresh"] and observe(upstream)["fresh"]
+                                    and bool(upstream.get("ok", not upstream.get("error"))))
+    enrich(entries, RESEARCH_DIR, sources, health)
+
     # Score every candidate in the common currency with NEUTRAL priors. This
     # orders the slate; picks.py re-scores with fitted priors. A candidate with
     # no standalone, directional generator gets selection=None and is honestly
@@ -381,11 +415,14 @@ def build() -> dict:
     dark = {b: h["reason"] for b, h in health.items() if not h["live"]}
     fam_live = sorted({gen.family(b) for b in live})
     return {"as_of": datetime.now(ET).isoformat(),
+            "scoring_version": 3, "panel_build_id": s.get("panel_build_id"),
+            "release_id": digest({"slate": slate, "sources": sources}),
+            "source_manifest": sources,
             "n": len(slate),
             "n_pickable": sum(1 for e in slate if e["pickable"]),
             # Cross-family agreement, not "appears on several price lists".
             "confluence": [e["ticker"] for e in slate
-                           if len(gen.families(e["buckets"])) >= 2],
+                           if (e.get("selection") or {}).get("n_families", 0) >= 2],
             # THE DIAGNOSTIC LINE. If every pick on a given day is momentum,
             # this says whether that was a judgement or an outage.
             "generator_health": health,
