@@ -140,11 +140,21 @@ def validate_synthesis(proposal,rows):
     return accepted,rejected
 
 
-def review(ticker,proposal,rows,runner=invoke):
+def review(ticker,proposal,rows,runner=invoke,analysis=None):
     prompt=f'''Independently challenge this proposed {ticker} report. Test every factual premise against source excerpts and dates, old-quarter leakage, same-origin duplication, adjusted/GAAP mismatch, causal leaps, priced-in assertions and whether the recommended action follows. A correctly copied excerpt can still fail to support a claim. Reject unsupported material claims. Reject a directional action if a crucial insight is rejected or its entry/invalidation/valuation rationale does not follow. Check the summary, action_reason and entry/exit conditions too; reject the action if any adds unsupported facts. Return a supported decision for EACH insight ID and concrete reasons, action_supported and missed questions. This is an adversarial model check, not human independent approval.
+COMPUTED RESULTS (reproducible calculations from these evidence records; eligible for technical entry conditions): {json.dumps(analysis or {},default=str)[:35000]}
 PROPOSAL: {json.dumps(proposal)}
 EVIDENCE: {json.dumps(evidence_context(rows,required_ids=[e['source_id'] for i in proposal.get('insights',[]) for e in i.get('evidence',[])]))}'''
     return runner(prompt,REVIEW_SCHEMA,timeout=180)
+
+
+def revise(ticker,proposal,feedback,rows,analysis,runner=invoke):
+    prompt=f'''Revise this {ticker} investment report after source and adversarial checks. Address every failed check explicitly by correcting the claim/citation or removing the unsupported claim and reconsidering the action. Never invent a replacement quotation. Exact excerpts must be 8-600 characters copied from the supplied payload. Preserve material counterarguments. Do not force a directional action. Return a complete revised report in the same schema.
+DRAFT: {json.dumps(proposal)}
+CHECK RESULTS: {json.dumps(feedback)}
+COMPUTED RESULTS: {json.dumps(analysis,default=str)[:35000]}
+EVIDENCE: {json.dumps(evidence_context(rows,required_ids=[e['source_id'] for i in proposal.get('insights',[]) for e in i.get('evidence',[])]))}'''
+    return runner(prompt,SYNTHESIS_SCHEMA,timeout=180)
 
 
 def finalize(proposal,reviewed,rows):
@@ -158,7 +168,7 @@ def finalize(proposal,reviewed,rows):
     return {'summary':proposal.get('summary') if action_ok else 'The investigation produced the evidence and findings below; its proposed synthesis did not fully pass source and contradiction checks.',
             'insights':sorted(kept,key=lambda i:i.get('materiality',1),reverse=True),'rejected_insights':rejected,
             'action':proposal.get('action','no_edge_found') if action_ok else 'investigate_further',
-            'action_reason':proposal.get('action_reason') if action_ok else reviewed.get('action_reason','Evidence synthesis incomplete'),
+            'action_reason':proposal.get('action_reason') if action_ok else ('Source/review checks failed: '+ '; '.join(str(x['id'])+': '+', '.join(x['reasons']) for x in rejected)) if rejected else reviewed.get('action_reason','Evidence synthesis incomplete'),
             'entry_conditions':proposal.get('entry_conditions',[]) if action_ok else [],'exit_conditions':proposal.get('exit_conditions',[]) if action_ok else [],
             'next_checks':list(dict.fromkeys(proposal.get('next_checks',[])+reviewed.get('missed_questions',[]))),
             'contradictions':proposal.get('contradictions',[]) if action_ok else [],

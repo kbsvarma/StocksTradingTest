@@ -102,6 +102,14 @@ def decision_brief(report, now=None):
             drivers=[x for x in drivers if x]
             conditions=[('Entry / confirmation',x) for x in synthesis.get('entry_conditions',[])]+[('Exit / invalidation',x) for x in synthesis.get('exit_conditions',[])]+[('Next check',x) for x in synthesis.get('next_checks',[])]
             basis='Source-checked synthesis · Adversarial model review'
+    if synthesis.get('review_status')=='requires_more_evidence':
+        from .reasoner import validate_synthesis
+        reviewed,_=validate_synthesis(synthesis,rows)
+        if reviewed:
+            verdict,tone='RESEARCH COMPLETE · ACTION NEEDS REVIEW','amber'
+            summary=synthesis.get('action_reason') or 'Reviewed insights are available below; no directional action passed review.'
+            conditions=[('Next check',x) for x in synthesis.get('next_checks',[])]
+            basis='Source-checked insights · Proposed action did not pass review'
     gaps=[]
     for name,r in report.get('collection',{}).items():
         if r.get('status') in {'failed','partial'}:

@@ -36,6 +36,8 @@ def render(data,principal,selected=None):
         except (ValueError,RuntimeError,PermissionError) as exc:st.error(str(exc))
     from .runtime import status as runtime_status
     runtime=runtime_status()
+    if runtime['configured']:
+        st.caption(f"Research engine: {runtime['provider']} · {runtime['model']}")
     if not runtime['configured']:
         st.warning('Research engine setup required: the application model credential is missing. Saved reports and charts remain available; a new full investigation cannot run yet.')
     from advisor.market_view import render_market

@@ -9,3 +9,9 @@ Without a credential, full research explicitly fails before collection. Saved re
 Requests use structured output, a 12,000 output-token cap and at most 12 web-tool calls per research round. Research requests time out after 150 seconds; synthesis and review after 180 seconds. These are request limits, not a guaranteed dollar ceiling. Token and tool usage comes from the provider response. There are no automatic retries after an uncertain API timeout. Search history distinguishes provider-observed queries from model-reported queries.
 
 Validation must distinguish automated transport fixtures from live provider testing. A passing mocked API test does not establish model quality or successful live connectivity. Before declaring the engine operational, complete real investigations and inspect their sources, dates, reasoning and rendered reports.
+
+## Gemini
+
+`GEMINI_API_KEY` selects Gemini automatically when no provider is explicitly chosen. Set `ADVISOR_RESEARCH_PROVIDER=gemini` or `openai` to choose explicitly. The Gemini default is `gemini-3.8-flash`. No SDK installation is required. Existing public-source collectors supply evidence; Gemini plans bounded Bing RSS queries and Advisor fetches the pages directly. Google's paid search-grounding tool is never requested. No automatic paid-provider fallback is used, and this code does not enable billing. The project's Google billing tier determines API charges and quotas; an API key alone does not expose that billing status.
+
+Each Gemini research round uses two model requests (search planning and extraction), at most four queries and ten public source pages. Synthesis and adversarial review are separate requests. All extracted sources still pass the existing body-excerpt and temporal checks. Search failures and unreadable pages remain explicit evidence gaps. CLI defaults to full investigation; `--scan-only` must be supplied explicitly for a diagnostic scan.

@@ -17,7 +17,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('ticker',type=symbol)
     parser.add_argument('--data-dir',type=Path,default=Path(__file__).resolve().parents[1]/'data')
-    parser.add_argument('--scan-only',action='store_true',default=True,help='Collect sources and calculate findings without an assistant account')
+    parser.add_argument('--scan-only',action='store_true',default=False,help='Collect sources and calculate findings without an assistant account')
     parser.add_argument('--run-id',default=uuid.uuid4().hex)
     args=parser.parse_args()
     if not args.run_id.isalnum() or len(args.run_id)>64:parser.error('Invalid run identifier')

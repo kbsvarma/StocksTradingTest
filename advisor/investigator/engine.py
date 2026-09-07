@@ -114,8 +114,17 @@ def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=re
             proposal,usage=reasoner.synthesize(ticker,stamped,analysis,runner=model);model_usage.append(usage)
             atomic(root/'proposal.json',proposal)
             update('challenge','Checking the strongest counter-thesis and every load-bearing source')
-            review,usage=reasoner.review(ticker,proposal,stamped,runner=model);model_usage.append(usage)
+            review,usage=reasoner.review(ticker,proposal,stamped,runner=model,analysis=analysis);model_usage.append(usage)
             synthesis=reasoner.finalize(proposal,review,stamped)
+            if synthesis.get('review_status')!='model_challenged':
+                update('revise','Correcting failed source checks and reconsidering the proposed action')
+                atomic(root/'first_review.json',{'proposal':proposal,'review':review,'checks':synthesis.get('rejected_insights',[])})
+                proposal,usage=reasoner.revise(ticker,proposal,{'review':review,'checks':synthesis.get('rejected_insights',[])},stamped,analysis,runner=model)
+                model_usage.append(usage);atomic(root/'proposal.json',proposal)
+                review={} # Never apply a previous review to changed claims.
+                update('challenge','Reviewing the revised report against sources and computed results')
+                review,usage=reasoner.review(ticker,proposal,stamped,runner=model,analysis=analysis)
+                model_usage.append(usage);synthesis=reasoner.finalize(proposal,review,stamped)
         except Exception as exc:errors.append('Synthesis/review: '+type(exc).__name__+': '+str(exc)[:120])
     # Clock advances during investigation; reassess at publication, never renew underlying source timestamps.
     finished=utcnow();stamped,analysis=refresh()
