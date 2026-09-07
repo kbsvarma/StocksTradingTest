@@ -112,3 +112,17 @@ def test_watchlist_defaults_render_and_empty_selection_persists(app):
     app.radio(key='ad_nav').set_value('01  DESK').run()
     app.radio(key='ad_nav').set_value('10  WATCHLIST').run()
     assert any('empty' in i.value for i in app.info)
+
+
+def test_active_job_disables_run_buttons_and_shows_animated_progress(app,monkeypatch):
+    job={'ticker':'NVDA','run_id':'activejob','status':{'state':'running','stage':'research','detail':'Checking competing explanations'}}
+    monkeypatch.setattr('advisor.investigator.jobs.active_job',lambda *a:job)
+    monkeypatch.setattr('advisor.investigator.workspace.active_job',lambda *a:job)
+    monkeypatch.setattr('advisor.investigator.workspace.read_status',lambda *a:job['status'])
+    app.session_state['investigator_ticker']='NVDA'
+    app.session_state['investigation_job']=job
+    app.radio(key='ad_nav').set_value('09  INVESTIGATE').run()
+    assert not app.exception
+    buttons=[b for b in app.button if b.label=='Investigating…']
+    assert len(buttons)==2 and all(b.disabled for b in buttons)
+    assert any('ad-research-spinner' in m.value and 'INVESTIGATING NVDA' in m.value for m in app.markdown)

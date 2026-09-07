@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 from .engine import load_latest, load_run, markdown
-from .jobs import start, read_status
+from .jobs import start, read_status, active_job
 from .presentation import decision_brief, MEANING
 from .search import resolve, LABELS
 
@@ -22,17 +22,18 @@ def render(data,principal,selected=None):
     # Older saved workspaces can contain a misspelling; resolve known names without a provider request.
     from .search import NAMES
     ticker=NAMES.get(str(ticker).upper(),str(ticker).upper())
+    active=active_job(data,ticker)
     a,b=st.columns([5,1],vertical_alignment='center')
     with a:rich(f'<div class="ad-kicker">ON-DEMAND RESEARCH</div><div class="ad-section-title">{safe(LABELS.get(ticker,ticker))} <span class="ad-security-symbol">{safe(ticker)}</span></div>')
     with b:
-        requested=st.button('Run fresh investigation',type='primary',use_container_width=True,disabled=principal.role not in {'analyst','admin'})
+        requested=st.button('Investigating…' if active else 'Run fresh investigation',type='primary',use_container_width=True,disabled=bool(active) or principal.role not in {'analyst','admin'},key='investigation_run')
     pending=st.session_state.pop('ad_investigate_requested',None)
     if requested or pending==ticker:
         try:
             verified=resolve(ticker,data)
             job=start(data,verified,principal,deep=True)
             st.session_state['investigation_job']=job
-            st.toast('Investigating evidence, expectations and counterarguments')
+            st.rerun()
         except (ValueError,RuntimeError,PermissionError) as exc:st.error(str(exc))
     from .runtime import status as runtime_status
     runtime=runtime_status()
@@ -40,8 +41,6 @@ def render(data,principal,selected=None):
         st.caption(f"Research engine: {runtime['provider']} · {runtime['model']}")
     if not runtime['configured']:
         st.warning('Research engine setup required: the application model credential is missing. Saved reports and charts remain available; a new full investigation cannot run yet.')
-    from advisor.market_view import render_market
-    render_market(data,ticker)
     job=st.session_state.get('investigation_job')
     if not job or job.get('ticker')!=ticker:
         try:job=json.loads((Path(data)/'intelligence/investigations'/ticker/'active.json').read_text())
@@ -50,11 +49,21 @@ def render(data,principal,selected=None):
         @st.fragment(run_every='5s')
         def status_fragment():
             status=read_status(data,ticker,job['run_id'])
-            if status.get('state') in {'queued','running'}:st.info(status.get('detail','Investigating'))
-            elif status.get('state')=='failed':st.error(status.get('detail','Investigation failed'))
-            elif st.session_state.get('ad_visible_run')!=job['run_id']:
+            if status.get('state') in {'queued','running'}:
+                stage=status.get('stage','queued')
+                steps=['collect','issuer_sources','research','related_company','synthesize','revise','challenge']
+                progress={'queued':3,'collect':12,'issuer_sources':25,'research':40,'related_company':50,'synthesize':72,'revise':83,'challenge':92}.get(stage,8)
+                rich(f'<div class="ad-investigation-progress" role="status" aria-live="polite"><span class="ad-research-spinner" aria-hidden="true"></span><div><strong>INVESTIGATING {safe(ticker)}</strong><p>{safe(status.get("detail","Starting research"))}</p><small>Working in the background · You can change tabs · No need to click again</small></div></div>')
+                st.progress(progress,text=label(stage)+' · Stage progress, not a time estimate')
+            elif status.get('state')=='failed':
+                st.error(status.get('detail','Investigation failed'))
+                if st.session_state.get('ad_visible_run')!=job['run_id']:
+                    st.session_state['ad_visible_run']=job['run_id'];st.rerun()
+            elif status.get('state') in {'complete','partial'} and st.session_state.get('ad_visible_run')!=job['run_id']:
                 st.session_state['ad_visible_run']=job['run_id'];st.rerun()
         status_fragment()
+    from advisor.market_view import render_market
+    render_market(data,ticker)
     try:report=load_latest(data,ticker)
     except FileNotFoundError:
         st.info(f'Run a fresh investigation to examine {ticker} fundamentals, expectations, price structure and dated sources.');return

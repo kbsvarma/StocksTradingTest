@@ -36,7 +36,7 @@ def test_current_growth_and_cash_risk_yield_mixed_assessment_then_expire():
               {'id':'cash_conversion','title':'Weak cash conversion','direction':'bearish','evidence_ids':[r['id']]}]
     raw=report([r],findings)
     b=decision_brief(raw,NOW)
-    assert b['verdict'].startswith('MIXED') and 'Growth and earnings quality' in b['drivers'][0]
+    assert b['verdict']=='NOT INVESTIGATED · DATA SCAN ONLY' and 'Growth and earnings quality' in b['drivers'][0]
     expired=decision_brief(raw,NOW+timedelta(days=400))
     assert not expired['findings'] and not expired['conditions']
     assert len(expired['historical'])==2
@@ -62,3 +62,13 @@ def test_reviewed_synthesis_drives_decision_until_its_premise_expires():
     assert b['insights']==[insight]
     expired=decision_brief(raw,NOW+timedelta(days=31))
     assert not expired['insights'] and expired['summary']!=raw['synthesis']['summary']
+
+
+def test_model_quota_failure_is_not_an_investment_opinion():
+    r=record(ticker='TEST',source='sec_facts',kind='fundamental',payload={'value':10,'metric':'revenue','unit':'USD','duration_class':'quarter'},retrieved_at=NOW,published_at=NOW,period_end='2026-06-30')
+    raw=report([r],[{'id':'revenue_growth','title':'Revenue growth','direction':'bullish','evidence_ids':[r['id']]}])
+    raw.update(mode='deep',errors=['Synthesis/review: Gemini: free quota or rate limit reached'],synthesis={'review_status':'not_run'})
+    brief=decision_brief(raw,NOW)
+    assert brief['verdict']=='ANALYSIS BLOCKED · MODEL LIMIT'
+    assert not brief['conditions'] and not brief['insights']
+    assert brief['findings'] and 'No investment conclusion' in brief['summary']

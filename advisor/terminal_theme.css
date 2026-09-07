@@ -71,3 +71,11 @@ h2{font-size:23px!important}h3{font-size:18px!important}h4{font-size:15px!import
 @media(max-width:840px){[data-testid="stHorizontalBlock"]{flex-wrap:wrap!important}[data-testid="stHorizontalBlock"]>[data-testid="stColumn"]{flex:1 1 100%!important;width:100%!important}.ad-header-right{text-align:left}.ad-watch-summary{min-height:0}[data-testid="stRadioGroup"][aria-label="WORKSPACE"] [data-testid="stRadioOption"]{flex:1 1 30%}[data-testid="stRadioGroup"][aria-label="WORKSPACE"] p{font-size:10px!important}}
 @media(max-width:480px){.block-container{padding:6px 8px!important}.ad-brand{font-size:20px;letter-spacing:2px}.ad-brand small{font-size:10px}.ad-strip,.ad-readings,.ad-facts-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ad-quote{grid-template-columns:1fr}.ad-quote strong{font-size:24px}.ad-panel-head{font-size:11px}.ad-verdict p{font-size:14px}.ad-section-title{font-size:19px}[data-testid="stTabs"] [role="tab"]{padding:8px;flex:1}[data-testid="stTabs"] [role="tab"] p{font-size:10px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;scroll-behavior:auto!important}}
+
+/* A visible activity indicator, independent of text updates. */
+.ad-investigation-progress {display:flex;align-items:center;gap:18px;padding:18px;margin:12px 0;background:#0b202b;border:1px solid #27c7ed;border-left:4px solid #ffb000;color:#eaf8ff;}
+.ad-investigation-progress p {margin:6px 0;overflow-wrap:anywhere;}
+.ad-investigation-progress small {color:#9bc9db;}
+.ad-research-spinner {width:30px;height:30px;flex:0 0 30px;border:3px solid #214b60;border-top-color:#ffb000;border-right-color:#27e5b0;border-radius:50%;animation:ad-research-turn 1s linear infinite;}
+@keyframes ad-research-turn {to {transform:rotate(360deg);}}
+@media(prefers-reduced-motion:reduce) {.ad-research-spinner {animation:none;border-color:#ffb000 #27e5b0 #27c7ed #214b60;}}

@@ -95,7 +95,10 @@ def render(data,principal):
                     else:st.caption('Price history unavailable.')
                 st.caption('Quote · '+clock(p.get('regularMarketTime')))
                 st.markdown(f'<div class="ad-watch-summary"><b>{escape(verdict)}</b><p>{escape(note)}</p></div>',unsafe_allow_html=True)
-                if st.button('Investigate '+ticker,key='watch_open_'+ticker,use_container_width=True):
+                from advisor.investigator.jobs import active_job
+                running=active_job(data,ticker)
+                if running:st.caption('⏳ Investigation running · Open the Investigate tab for progress')
+                if st.button('Investigating '+ticker+'…' if running else 'Investigate '+ticker,key='watch_open_'+ticker,use_container_width=True,disabled=bool(running)):
                     st.session_state['ad_requested_page']='INT';st.session_state['ad_symbol']=ticker;st.session_state['investigator_ticker']=ticker;st.session_state['ad_market_requested']=ticker;st.session_state['ad_investigate_requested']=ticker;st.rerun()
             rows.append({'Ticker':ticker,'Company':p.get('shortName',ticker),'Price':p.get('regularMarketPrice'),'Day %':change,'1M %':month,'Market cap':fmt(p.get('marketCap'),'money'),'Forward P/E':p.get('forwardPE'),'Research':verdict,'Research as of':report_date,'Quote as of':clock(p.get('regularMarketTime'))})
     st.markdown('### Watchlist snapshot')

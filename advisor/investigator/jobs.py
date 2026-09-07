@@ -45,3 +45,14 @@ def read_status(data,ticker,run_id):
         if (utcnow()-timestamp(status['updated_at'])).total_seconds()>1250:
             status.update(state='failed',detail='Job stopped updating; start a new investigation')
     return status
+
+
+def active_job(data,ticker):
+    """Shared job state survives rerenders, new tabs and browser refreshes."""
+    if not ticker:return None
+    try:
+        ticker=symbol(ticker)
+        job=json.loads((Path(data)/'intelligence/investigations'/ticker/'active.json').read_text())
+        status=read_status(data,ticker,job['run_id'])
+        return {**job,'status':status} if status.get('state') in {'queued','running'} else None
+    except (OSError,ValueError,KeyError):return None

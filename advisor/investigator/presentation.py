@@ -110,6 +110,22 @@ def decision_brief(report, now=None):
             summary=synthesis.get('action_reason') or 'Reviewed insights are available below; no directional action passed review.'
             conditions=[('Next check',x) for x in synthesis.get('next_checks',[])]
             basis='Source-checked insights · Proposed action did not pass review'
+    if identified and not reviewed:
+        errors=' '.join(str(x) for x in report.get('errors',[]))
+        conditions=[]
+        if 'quota or rate limit' in errors:
+            verdict='ANALYSIS BLOCKED · MODEL LIMIT';tone='red'
+            summary=f'{ticker} source collection completed, but Gemini refused the analysis because its quota or rate limit was reached. No investment conclusion was produced.'
+        elif synthesis.get('review_status')=='model_challenged':
+            verdict='RESEARCH OUTDATED · REFRESH NEEDED';tone='amber'
+            summary=f'{ticker} previously had a reviewed report, but its cited evidence no longer passes current-date checks. The findings below are supporting data, not a refreshed call.'
+        elif report.get('mode')=='deep':
+            verdict='ANALYSIS INCOMPLETE · RETRY NEEDED';tone='amber'
+            summary=f'{ticker} has collected evidence, but no synthesis passed the source and review checks. '+(errors[-400:] if errors else 'The investigation needs to finish before a call can be shown.')
+        else:
+            verdict='NOT INVESTIGATED · DATA SCAN ONLY';tone='cyan'
+            summary=f'{ticker} has calculated signals, but its full research and model review have not run. These observations are not an investment recommendation.'
+        basis='No current reviewed investment conclusion'
     gaps=[]
     for name,r in report.get('collection',{}).items():
         if r.get('status') in {'failed','partial'}:

@@ -80,7 +80,7 @@ def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=re
     synthesis={'summary':'Computed evidence scan. Deep investigation has not completed.','insights':[],
                'action':'investigate_further','action_reason':'Review the ranked findings and unresolved questions below.',
                'entry_conditions':[],'exit_conditions':[],'next_checks':[],'contradictions':[],'review_status':'not_run'}
-    research_packets=[];proposal={};review={}
+    research_packets=[];proposal={};review={};model_limit=False
     if deep:
         for round_number in range(1,5):
             update('research',f'Research round {round_number}: follow material leads and challenge the strongest thesis')
@@ -108,9 +108,12 @@ def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=re
                 # Follow unresolved material questions while sources are still adding evidence.
                 if round_number>=2 and (not novel or not packet.get('unresolved')):break
             except Exception as exc:
-                errors.append('Research round '+str(round_number)+': '+type(exc).__name__+': '+str(exc)[:120]);break
+                errors.append('Research round '+str(round_number)+': '+type(exc).__name__+': '+str(exc)[:120])
+                model_limit='quota or rate limit' in str(exc)
+                break
         update('synthesize','Connecting evidence, expectations, contradictions and actionable conditions')
         try:
+            if model_limit:raise RuntimeError('Model quota or rate limit reached; further model calls skipped for this run')
             proposal,usage=reasoner.synthesize(ticker,stamped,analysis,runner=model);model_usage.append(usage)
             atomic(root/'proposal.json',proposal)
             update('challenge','Checking the strongest counter-thesis and every load-bearing source')

@@ -566,13 +566,15 @@ def render_terminal(base, *, legacy, controls):
         st.session_state['ad_watch']=[t for t in saved.get('watch',[]) if t in symbols]
         if saved.get('symbol') in symbols:st.session_state['ad_symbol']=saved['symbol']
         st.session_state['ad_workspace_loaded']=workspace_key
+    from advisor.investigator.jobs import active_job
+    search_active=active_job(data,st.session_state.get('investigator_ticker'))
     st.markdown('<div class="ad-control-label">Search a stock</div>',unsafe_allow_html=True)
     with st.form('stock_search',clear_on_submit=False):
         search_col, search_button = st.columns([8,1],vertical_alignment='bottom')
         with search_col:
             stock_query=st.text_input('Search a stock',placeholder='Ticker or company · NVDA, NVIDIA, MSFT',key='ad_stock_search',label_visibility='collapsed')
         with search_button:
-            search_submitted=st.form_submit_button('Investigate →',use_container_width=True,type='primary')
+            search_submitted=st.form_submit_button('Investigating…' if search_active else 'Investigate →',use_container_width=True,type='primary',disabled=bool(search_active))
     if search_submitted:
         from advisor.investigator.presentation import resolve_query
         try:
