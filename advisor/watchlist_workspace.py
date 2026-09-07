@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from html import escape
 from pathlib import Path
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 from advisor.intelligence.store import CallStore
 from advisor.market_data import load,refresh,frame,watch_symbols,save_symbols
@@ -10,6 +11,26 @@ from advisor.market_view import fmt,clock
 from advisor.investigator.search import resolve,AmbiguousCompany
 from advisor.investigator.engine import load_latest
 from advisor.investigator.presentation import decision_brief
+
+
+def watch_chart(bars, period='3M'):
+    """Scale to visible adjusted closes, never an arbitrary zero baseline."""
+    closes=pd.to_numeric(bars.Close,errors='coerce').dropna().sort_index()
+    closes=closes[(closes>0) & (closes<float('inf'))]
+    if closes.empty:return None, None
+    end=closes.index[-1]
+    start=end-(pd.DateOffset(weeks=1) if period=='1W' else pd.DateOffset(months=1 if period=='1M' else 3))
+    visible=closes.loc[closes.index>=start]
+    first,last=float(visible.iloc[0]),float(visible.iloc[-1])
+    low,high=float(visible.min()),float(visible.max())
+    pad=max((high-low)*.12,last*.002,.01)
+    color='#33d17a' if last>=first else '#ff5c57'
+    fig=go.Figure(go.Scatter(x=visible.index,y=visible.values,mode='lines',line={'color':color,'width':2.5},hovertemplate='%{x|%b %d, %Y}<br>Close %{y:,.2f}<extra></extra>'))
+    fig.add_hline(y=first,line_dash='dot',line_color='#666b73',line_width=1)
+    fig.update_layout(height=210,margin={'l':3,'r':3,'t':8,'b':25},paper_bgcolor='#000',plot_bgcolor='#000',font={'color':'#a4a8ae','size':11},showlegend=False,hovermode='x',dragmode=False,
+        yaxis={'range':[max(0,low-pad),high+pad],'tickformat':',.2f','nticks':4,'gridcolor':'#30343a','zeroline':False,'fixedrange':True,'side':'right'},
+        xaxis={'nticks':3,'tickformat':'%b %d','showgrid':False,'fixedrange':True})
+    return fig, {'change':last-first,'percent':(last/first-1)*100,'color':color,'start':visible.index[0],'end':end}
 
 
 def render(data,principal):
@@ -50,6 +71,7 @@ def render(data,principal):
                 with CallStore(Path(data)/'intelligence/calls.sqlite',principal) as store:save_symbols(store,[t for t in symbols if t not in remove])
                 st.rerun()
     if not symbols:st.info('Your watchlist is empty. Add a company above.');return
+    period=st.segmented_control("Chart period",["1W","1M","3M"],default="3M",selection_mode="single",key="watch_chart_period") or "3M"
     rows=[]
     for offset in range(0,len(symbols),4):
         columns=st.columns(min(4,len(symbols)-offset))
@@ -64,7 +86,13 @@ def render(data,principal):
             month=(bars.Close.iloc[-1]/bars.Close.iloc[-22]-1)*100 if len(bars)>21 else None
             with col:
                 st.markdown(f'<div class="ad-watch-card"><div class="ad-kicker">{escape(ticker)}</div><h3>{escape(p.get("shortName") or ticker)}</h3><strong>{fmt(p.get("regularMarketPrice"))} <small style="color:{color}">{f"{change:+.2f}%" if change is not None else "—"}</small></strong><p>{escape(p.get("sector") or "Awaiting company snapshot")}</p></div>',unsafe_allow_html=True)
-                if not bars.empty:st.line_chart(bars[['Close']].tail(63),height=120,use_container_width=True,color=color)
+                if not bars.empty:
+                    chart,move=watch_chart(bars,period)
+                    if chart is not None:
+                        st.markdown(f'<div class="ad-period-change" style="color:{move["color"]};font: bold 13px Menlo,monospace;margin-top:8px">{move["percent"]:+.2f}% · {move["change"]:+.2f} · {period}</div>',unsafe_allow_html=True)
+                        st.plotly_chart(chart,use_container_width=True,key='watch_chart_'+ticker,config={'displayModeBar':False,'scrollZoom':False})
+                        st.caption(f'Adjusted close · {move["start"]:%b %d}–{move["end"]:%b %d, %Y}')
+                    else:st.caption('Price history unavailable.')
                 st.caption('Quote · '+clock(p.get('regularMarketTime')))
                 st.markdown(f'<div class="ad-watch-summary"><b>{escape(verdict)}</b><p>{escape(note)}</p></div>',unsafe_allow_html=True)
                 if st.button('Investigate '+ticker,key='watch_open_'+ticker,use_container_width=True):

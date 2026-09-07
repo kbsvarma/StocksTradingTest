@@ -55,3 +55,21 @@ def test_short_range_rescales_data_but_keeps_full_history_moving_average():
     assert min(fig.data[0].close)>470
     ma200=next(t for t in fig.data if t.name=='MA 200')
     assert all(pd.notna(v) for v in ma200.y)
+
+
+def test_watch_chart_scales_visible_prices_and_reports_period_return():
+    from advisor.watchlist_workspace import watch_chart
+    bars=pd.DataFrame({'Close':[200+i*.2 for i in range(100)]},index=pd.bdate_range('2026-01-01',periods=100))
+    lengths=[]
+    for period in ('1W','1M','3M'):
+        chart,move=watch_chart(bars,period)
+        lengths.append(len(chart.data[0].x))
+        assert chart.layout.yaxis.range[0]>190
+        assert chart.layout.yaxis.range[0]<min(chart.data[0].y)
+        assert chart.layout.yaxis.range[1]>max(chart.data[0].y)
+        assert move['percent']==pytest.approx((chart.data[0].y[-1]/chart.data[0].y[0]-1)*100)
+    assert lengths[0]<lengths[1]<lengths[2]
+    flat=pd.DataFrame({'Close':[230,230]},index=pd.bdate_range('2026-09-01',periods=2))
+    chart,move=watch_chart(flat)
+    assert chart.layout.yaxis.range[0]<230<chart.layout.yaxis.range[1]
+    assert move['percent']==0
