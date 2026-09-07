@@ -164,6 +164,12 @@ def sec(ticker, data, *, get=getjson):
         try:
             body=document(r['url']);now=utcnow()
             periodic=r['payload']['form'] in {'10-Q','10-K','20-F'}
+            cover=body.get('cover_shares')
+            if periodic and cover:
+                rows.append(record(ticker=ticker,source='sec_filings',kind='fundamental',payload={
+                    'metric':'shares_outstanding','value':cover['value'],'unit':'shares','duration_class':'instant',
+                    'tag':'dei:EntityCommonStockSharesOutstanding','share_classes':cover['classes'],'aggregation':cover['basis']},
+                    period_end=cover['period_end'],retrieved_at=now,published_at=r['published_at'],url=r['url'],authority='primary',title='Cover-page common shares outstanding'))
             period=r['payload'].get('report_date') if periodic else None
             rows.append(record(ticker=ticker,source='sec_exhibits',kind='document',payload={'text':body['text'],'links':body['links'],
                 'document_class':'periodic_filing' if periodic else 'event_filing','form':r['payload']['form']},
@@ -188,6 +194,8 @@ def document(url):
         from .source_documents import pdf_document
         return pdf_document(raw,url)
     soup=BeautifulSoup(raw,'html.parser')
+    from .share_classes import cover_shares
+    share_counts=cover_shares(soup) if (urlparse(url).hostname or '') in {'sec.gov','www.sec.gov'} else None
     link_details={urljoin(url,a['href']):a.get_text(' ',strip=True) for a in soup.find_all('a',href=True)}
     links=list(dict.fromkeys(urljoin(url,a['href']) for a in soup.find_all('a',href=True) if a['href'] and not a['href'].startswith('#')))[:500]
     dates=[]
@@ -225,7 +233,7 @@ def document(url):
     text=' '.join(content.stripped_strings)
     from .source_documents import visible_publication
     visible,excerpt=visible_publication(text)
-    return {'text':text[:300_000],'links':links,'link_details':link_details,'published_at':min(dates) if dates else visible,'publication_excerpt':excerpt,'title':title}
+    return {'text':text[:300_000],'links':links,'link_details':link_details,'published_at':min(dates) if dates else visible,'publication_excerpt':excerpt,'title':title,'cover_shares':share_counts}
 
 
 def yahoo(ticker, *, factory=None):

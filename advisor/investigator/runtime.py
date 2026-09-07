@@ -78,15 +78,16 @@ def validate(value,schema):
         if value<schema.get('minimum',-math.inf) or value>schema.get('maximum',math.inf):raise ValueError('Research output number outside bounds')
 
 
-def invoke(prompt,schema,*,web=False,timeout=240,budget=None,post=None):
+def invoke(prompt,schema,*,web=False,timeout=240,budget=None,post=None,research_queries=None,known_sources=None):
     from .reasoner import SYSTEM
     c=require_config()
     if provider(c)=='ollama':
         from .ollama import invoke as local_invoke
-        return local_invoke(prompt,schema,config=c,web=web,timeout=timeout,post=post)
+        return local_invoke(prompt,schema,config=c,web=web,timeout=timeout,post=post,research_queries=research_queries,known_sources=known_sources)
     if provider(c)=='gemini':
         from .gemini import invoke as gemini_invoke
-        return gemini_invoke(prompt,schema,config=c,web=web,timeout=timeout,post=post)
+        return gemini_invoke(prompt,schema,config=c,web=web,timeout=timeout,post=post,research_queries=research_queries,known_sources=known_sources)
+    if research_queries:prompt+='\nPrioritize these actual searches: '+json.dumps(research_queries)
     model=c.get('ADVISOR_RESEARCH_MODEL','gpt-6-astra')
     if len(prompt)>180_000:raise ValueError('Research context exceeds request limit')
     body={'model':model,'instructions':SYSTEM,'input':prompt,'store':False,

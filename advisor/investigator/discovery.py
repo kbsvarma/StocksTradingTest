@@ -18,10 +18,14 @@ def relevant(query,item):
 def search(query,*,client=None):
     from ddgs import DDGS
     client=client or DDGS(timeout=15)
-    found=client.text(query,region='us-en',max_results=10,backend='brave')
-    rows=[{'url':r['href'],'title':r.get('title',''),'snippet':r.get('body',''),'discovery_provider':'DDGS Brave'} for r in found]
-    rows=[r for r in rows if relevant(query,r)]
-    if not rows:raise RuntimeError('Search returned no relevant document pages')
+    rows=[]
+    for backend in ('bing','brave','yahoo'):
+        try:found=client.text(query,region='us-en',max_results=10,backend=backend)
+        except Exception:continue
+        rows=[{'url':r['href'],'title':r.get('title',''),'snippet':r.get('body',''),'discovery_provider':'DDGS '+backend} for r in found]
+        rows=[r for r in rows if relevant(query,r)]
+        if rows:break
+    if not rows:raise RuntimeError('Search returned no relevant document pages across configured routes')
     def rank(row):
         host=urlparse(row['url']).hostname or ''
         return (host.endswith('.gov'),any(t in row['title'].lower() for t in ('earnings','financial results','guidance','quarter')))

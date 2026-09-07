@@ -72,6 +72,22 @@ def render(data,principal,selected=None):
     rich(f'<div class="ad-verdict {brief["tone"]}"><div class="ad-kicker">{safe(brief["verdict"])}</div><p>{safe(brief["summary"])}</p><small>AS OF {safe(report["as_of"][:19].replace("T"," "))} UTC · {safe(brief["basis"])}</small></div>')
     overview,evidence,sources=st.tabs(['DECISION BRIEF','EVIDENCE & DATES','SOURCES & GAPS'])
     with overview:
+        from .reconciliation import reconcile
+        case=reconcile(analysis)
+        if case['items']:
+            rich('<div class="ad-panel-head">FINANCIAL RECONCILIATION <small>FACTS → CONSEQUENCES → DECISION TEST</small></div>')
+            for item in case['items']:
+                with st.container(border=True):
+                    st.markdown('#### '+item['title'])
+                    st.write(item['observation'])
+                    st.markdown('**Implication:** '+item['consequence'])
+                    st.markdown('**Research must resolve:** '+item['question'])
+                    with st.expander('Dated source evidence'):
+                        for ident in item['evidence_ids']:
+                            row=lookup.get(ident)
+                            if not row:continue
+                            st.caption(f"{row.get('title') or row['source']} · published {row.get('published_at')} · measured {row.get('period_end') or row.get('observed_at')}")
+                            if row.get('url'):st.link_button('Read source',row['url'])
         if brief['drivers']:
             rich('<div class="ad-panel-head">WHAT MATTERS TO THE DECISION</div>')
             for line in brief['drivers']:st.write(line)

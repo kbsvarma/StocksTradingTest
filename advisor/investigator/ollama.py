@@ -85,8 +85,8 @@ def generate(prompt, schema, config, timeout, post=None, output_tokens=8192):
                     'thinking_enabled': thinking, 'cost_basis': 'Local hardware; no model API quota'}
 
 
-def invoke(prompt, schema, *, config, web=False, timeout=240, post=None):
+def invoke(prompt, schema, *, config, web=False, timeout=240, post=None, research_queries=None, known_sources=None):
     from .gemini import invoke as application_research
     thinking=not web and config.get('ADVISOR_RESEARCH_REASONING','medium').lower() not in {'off','none','minimal'}
     return application_research(prompt, schema, config={**config, '_local_thinking': thinking}, web=web, timeout=timeout,
-                                post=post, generate_fn=generate)
+                                post=post, generate_fn=generate, research_queries=research_queries, known_sources=known_sources)

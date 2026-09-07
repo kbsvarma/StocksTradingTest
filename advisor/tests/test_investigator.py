@@ -414,7 +414,8 @@ def test_earnings_bridge_separates_gross_cost_and_below_operating_changes():
     assert len(cites['earnings_bridge'])==8
 
 
-def test_failed_synthesis_researches_missing_fact_before_revision(tmp_path,monkeypatch):
+@pytest.mark.parametrize('initial_pass',[False,True])
+def test_synthesis_researches_missing_fact_before_revision(tmp_path,monkeypatch,initial_pass):
     from advisor.investigator import reasoner
     from advisor.investigator.temporal import utcnow
     now=utcnow()
@@ -425,13 +426,13 @@ def test_failed_synthesis_researches_missing_fact_before_revision(tmp_path,monke
         research_calls.append(follow_up)
         return {'sources':[{'url':additional['url']}] if follow_up else [],'queries_run':['customer payment terms'] if follow_up else [],'unresolved':[]},{}
     monkeypatch.setattr(reasoner,'research',research)
-    monkeypatch.setattr(reasoner,'ingest_web',lambda t,p:([additional] if p['sources'] else [],[]))
+    monkeypatch.setattr(reasoner,'ingest_web',lambda t,p,**kw:([additional] if p['sources'] else [],[]))
     monkeypatch.setattr(reasoner,'synthesize',lambda *a,**kw:(proposal(original),{}))
     def review(*a,**kw):
         nonlocal reviews
         reviews+=1
-        return {'insights':[{'id':'one','supported':reviews>1,'reason':'Check payment terms'}],
-                'action_supported':reviews>1,'missed_questions':['What are customer payment terms?'] if reviews==1 else []},{}
+        return {'insights':[{'id':'one','supported':initial_pass or reviews>1,'reason':'Check payment terms'}],
+                'action_supported':initial_pass or reviews>1,'missed_questions':['What are customer payment terms?'] if reviews==1 else []},{}
     monkeypatch.setattr(reasoner,'review',review)
     def revise(t,p,f,rows,a,**kw):
         revised_with.extend(r['url'] for r in rows)
@@ -443,3 +444,11 @@ def test_failed_synthesis_researches_missing_fact_before_revision(tmp_path,monke
     assert report['search']['stop_reason']=='bounded_follow_up_completed'
     assert report['search']['queries_run']==['customer payment terms']
     assert report['synthesis']['review_status']=='model_challenged' and reviews==2
+
+
+def test_completed_fiscal_year_is_not_lost_when_q4_has_same_end_date():
+    from advisor.investigator.valuation import trailing_metric
+    annual=fact('cfo',180,'2025-07-01','2026-06-30');annual['payload']['duration_class']='annual'
+    quarter=fact('cfo',55,'2026-04-01','2026-06-30')
+    result=trailing_metric(annotate([annual,quarter],NOW),'cfo')
+    assert result['value']==180 and result['method']=='reported fiscal year'

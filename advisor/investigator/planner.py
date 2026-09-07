@@ -74,3 +74,26 @@ def plan(rows,analysis,ticker):
     return {'sector_lenses':lenses,'research_queue':questions,
             'decision_test':'Would resolving this question change the action, timing, risk or thesis? Prioritize that over collecting another similar headline.',
             'ranking':'Ordinal research priority based on material consequences, contradictions and missing premises; not an estimated return score.'}
+
+
+def priority_queries(analysis,ticker):
+    """Reserve first-round discovery for business evidence before optional coverage."""
+    identity=analysis.get('issuer_identity',{})
+    company=identity.get('name') or ticker
+    period=analysis.get('fundamentals',{}).get('revenue_period','')
+    year=period[:4] if period else ''
+    queries=[f'{company} latest earnings results revenue guidance {year}'.strip()]
+    ids={f['id'] for f in analysis.get('findings',[])}
+    routes=[('earnings_normalization','net income investment gains tax earnings reconciliation'),
+            ('cash_conversion','cash flow net income payment terms investment gains'),
+            ('cash_flow_growth','capital expenditures free cash flow outlook'),
+            ('receivables_divergence','receivables customer payment terms concentration'),
+            ('earnings_bridge','gross margin operating expenses earnings outlook')]
+    for key,terms in routes:
+        if key in ids:
+            queries.append(f'{company} {terms} {year}'.strip());break
+    if len(queries)==1:
+        names={s['name'] for s in analysis.get('investigation_plan',{}).get('sector_lenses',[])}
+        terms='net interest income credit losses capital ratios' if 'banks' in names else 'product revenue patent litigation outlook' if 'biopharma' in names else 'earnings outlook risks cash flow'
+        queries.append(f'{company} {terms} {year}'.strip())
+    return queries

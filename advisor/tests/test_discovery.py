@@ -17,3 +17,12 @@ def test_no_relevant_search_results_is_a_failure_not_claimed_coverage(monkeypatc
     class Client:
         def text(self,*a,**kw):return [{'href':'https://example.com/cafe','title':'Restaurants in Santo Domingo','body':'Lunch'}]
     with pytest.raises(RuntimeError,match='no relevant'):search('NVIDIA payment terms',client=Client())
+
+
+def test_first_round_prioritizes_business_driver_over_optional_coverage():
+    from advisor.investigator.planner import priority_queries
+    a={'issuer_identity':{'name':'Acme Corporation'},'fundamentals':{'revenue_period':'2026-06-30'},'findings':[{'id':'earnings_normalization'},{'id':'cash_conversion'}]}
+    queries=priority_queries(a,'ACME')
+    assert len(queries)==2 and all(q.startswith('Acme Corporation') for q in queries)
+    assert 'guidance' in queries[0] and 'investment gains' in queries[1]
+    assert '2026' in queries[1] and '2027' not in queries[1]

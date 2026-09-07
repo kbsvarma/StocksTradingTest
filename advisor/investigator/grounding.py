@@ -55,7 +55,7 @@ def output_schema(base,analysis):
     order=('id','finding_ids','evidence','title','mechanism','counterargument','direction','invalidation','horizon','materiality')
     insight['properties']={key:insight['properties'][key] for key in order}
     insight['required']=list(order)
-    schema['properties']['insights'].update(minItems=1,maxItems=2)
+    schema['properties']['insights'].update(minItems=1,maxItems=3)
     insight['properties']['evidence']['maxItems']=min(3,insight['properties']['evidence'].get('maxItems',3))
     for field,limit in (('title',180),('mechanism',1500),('counterargument',1000),('invalidation',600),('horizon',80)):
         insight['properties'][field]={**insight['properties'][field],'maxLength':limit}

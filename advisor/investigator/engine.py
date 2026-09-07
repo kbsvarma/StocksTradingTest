@@ -77,7 +77,7 @@ def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=re
         result['issuer_identity']={'ticker':ticker,'name':next((p.get('name') or p.get('longName') for p in profiles if p.get('name') or p.get('longName')),ticker),
             'sector':next((p.get('sector') for p in profiles if p.get('sector')),None),
             'website':next((p.get('website') for p in profiles if p.get('website')),None)}
-        result['original_sources']=[{'title':r['title'],'url':r['url'],'published_at':r['published_at']} for r in
+        result['original_sources']=[{'title':r['title'],'url':r['url'],'published_at':r['published_at'],'period_end':r.get('period_end'),'excerpt':reasoner.passages(r['payload']['text'],600)} for r in
             sorted(stamped,key=lambda r:r.get('published_at') or '',reverse=True)
             if r['ticker']==ticker and r['kind']=='document' and r['temporal']['state']=='current'][:8]
         from .planner import plan
@@ -110,7 +110,7 @@ def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=re
             try:
                 packet,usage=reasoner.research(ticker,analysis,round_number=round_number,previous=research_packets,runner=invoke_model)
                 model_usage.append(usage);research_packets.append(packet);searches.extend(packet.get('queries_run',[]))
-                new,rejected=reasoner.ingest_web(ticker,packet);rejections.extend(rejected)
+                new,rejected=reasoner.ingest_web(ticker,packet,known_sources=rows);rejections.extend(rejected)
                 seen={r['url'] for r in rows};novel=[]
                 for row in new:
                     if row['url'] in seen:continue
@@ -147,29 +147,32 @@ def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=re
                 break
         update('synthesize','Connecting evidence, expectations, contradictions and actionable conditions')
         try:
+            if not research_packets:raise RuntimeError('Research planning did not complete; deep synthesis was not published')
             if model_limit:raise RuntimeError('Model quota or rate limit reached; further model calls skipped for this run')
             proposal,usage=reasoner.synthesize(ticker,stamped,analysis,runner=invoke_model);model_usage.append(usage)
             atomic(root/'proposal.json',proposal)
             update('challenge','Checking the strongest counter-thesis and every load-bearing source')
             review,usage=reasoner.review(ticker,proposal,stamped,runner=invoke_model,analysis=analysis);model_usage.append(usage)
             synthesis=reasoner.finalize(proposal,review,stamped)
+            needs_revision=synthesis.get('review_status')!='model_challenged'
             follow_up=list(dict.fromkeys(review.get('missed_questions',[])+proposal.get('next_checks',[])))[:3]
-            if synthesis.get('review_status')!='model_challenged' and follow_up:
+            if follow_up and (needs_revision or review.get('missed_questions')):
                 update('follow_up','Investigating the material questions raised by the draft and source review')
                 try:
                     packet,usage=reasoner.research(ticker,analysis,round_number=len(research_packets)+1,
                         previous=research_packets,runner=invoke_model,follow_up=follow_up)
                     packet['purpose']='post_synthesis_follow_up';packet['target_questions']=follow_up
                     model_usage.append(usage);research_packets.append(packet);searches.extend(packet.get('queries_run',[]))
-                    received,rejected=reasoner.ingest_web(ticker,packet);rejections.extend(rejected)
+                    received,rejected=reasoner.ingest_web(ticker,packet,known_sources=rows);rejections.extend(rejected)
                     seen={r['url'] for r in rows};novel=[]
                     for row in received:
                         if row['url'] not in seen:novel.append(row);seen.add(row['url'])
                     rows.extend(novel);stamped,analysis=refresh()
+                    needs_revision=needs_revision or bool(novel)
                     update('follow_up',f'Follow-up retrieved {len(novel)} new verified documents; the revised report must still pass review')
                 except Exception as exc:
                     errors.append('Targeted follow-up: '+type(exc).__name__+': '+str(exc)[:120])
-            if synthesis.get('review_status')!='model_challenged':
+            if needs_revision:
                 update('revise','Correcting failed source checks and reconsidering the proposed action')
                 atomic(root/'first_review.json',{'proposal':proposal,'review':review,'checks':synthesis.get('rejected_insights',[])})
                 proposal,usage=reasoner.revise(ticker,proposal,{'review':review,'checks':synthesis.get('rejected_insights',[])},stamped,analysis,runner=invoke_model)

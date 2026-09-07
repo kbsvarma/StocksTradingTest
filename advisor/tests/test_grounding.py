@@ -5,6 +5,19 @@ from advisor.investigator.runtime import validate
 from advisor.investigator.reasoner import SYNTHESIS_SCHEMA
 
 
+def test_primary_release_preserves_adjustments_before_search_commentary(monkeypatch):
+    from advisor.investigator.reasoner import evidence_context
+    monkeypatch.setenv('ADVISOR_RESEARCH_PROVIDER','ollama')
+    body='Results overview. '*45+'A nonrecurring investment gain affected reported profit. '+'Business discussion. '*220
+    rows=[{'id':'commentary','kind':'document','authority':'reported','temporal':{'state':'current'},
+           'payload':{'document_class':'earnings_release','text':'A summary repeated the profit headline.'}},
+          {'id':'release','kind':'document','authority':'primary','temporal':{'state':'current'},
+           'payload':{'document_class':'earnings_release','text':body}}]
+    selected=evidence_context(rows,limit=7500)
+    assert selected[0]['id']=='release'
+    assert 'nonrecurring investment gain' in selected[0]['payload']['text']
+
+
 def test_computed_observations_and_sources_are_bound_without_mutating_input():
     rows=[{'id':'current','kind':'fundamental','payload':{'value':120},'temporal':{'state':'current'}},
           {'id':'prior','kind':'fundamental','payload':{'value':100},'temporal':{'state':'context_only'}}]
@@ -129,3 +142,12 @@ def test_passage_references_bind_source_text_and_reject_cross_source_choices():
     with pytest.raises(ValueError):validate({**citation,'source_id':'E02'},schema)
     with pytest.raises(ValueError):expand_local_references({'insights':[{'evidence':[{**citation,'source_id':'E02'}]}]},rows)
     with pytest.raises(ValueError):validate({'source_id':'E02','passage_id':'P01','use':'current'},schema)
+
+
+def test_required_derived_records_are_not_displaced_by_metadata_budget(monkeypatch):
+    from advisor.investigator.reasoner import evidence_context
+    monkeypatch.setenv('ADVISOR_RESEARCH_PROVIDER','ollama')
+    rows=[{'id':f'f{n}','ticker':'TEST','kind':'fundamental','source':'sec_facts','payload':{'metric':'cfo','value':n+1,'unit':'USD','duration_class':'quarter','lineage':('auditable parent metadata '*100)},'temporal':{'state':'current'},'title':'Derived quarter','url':'https://www.sec.gov/facts'} for n in range(12)]
+    selected=evidence_context(rows,limit=4000,required_ids=[r['id'] for r in rows])
+    assert {r['id'] for r in selected}=={r['id'] for r in rows}
+    with pytest.raises(ValueError,match='Required evidence'):evidence_context(rows,limit=500,required_ids=[r['id'] for r in rows])

@@ -26,9 +26,9 @@ REVIEW_SCHEMA=obj({'insights':arr(obj({'id':S,'supported':{'type':'boolean'},'re
                    'action_supported':{'type':'boolean'},'action_reason':S,'missed_questions':arr(S)})
 
 
-def invoke(prompt,schema,*,web=False,timeout=240,budget=None):
+def invoke(prompt,schema,*,web=False,timeout=240,budget=None,research_queries=None,known_sources=None):
     from .runtime import invoke as api_invoke
-    return api_invoke(prompt,schema,web=web,timeout=timeout,budget=budget)
+    return api_invoke(prompt,schema,web=web,timeout=timeout,budget=budget,research_queries=research_queries,known_sources=known_sources)
 
 
 def passages(text,limit=9000,priority_terms=()):
@@ -104,7 +104,7 @@ def evidence_context(rows,limit=None,required_ids=None):
         priority_terms=('cloud services','remaining performance obligation','capital expenditures','gross margin')
     elif any(x in industry for x in ('drug','biotech','pharma')):
         priority_terms=('biosimilar','patent expir','clinical trial','litigation','innovative medicine')
-    prioritized=sorted(rows,key=lambda r:(compact and r['kind']=='document' and r['payload'].get('document_class')=='earnings_release' and r['temporal']['state']=='current',compact and r['kind']=='document' and r['payload'].get('document_class') in {'periodic_filing','earnings_release'} and r['temporal']['state']=='current',
+    prioritized=sorted(rows,key=lambda r:(r['id'] in required_ids,compact and r['kind']=='profile',compact and r['kind']=='document' and r.get('authority')=='primary' and r['temporal']['state']=='current',compact and r['kind']=='document' and r['payload'].get('document_class')=='earnings_release' and r['temporal']['state']=='current',compact and r['kind']=='document' and r['payload'].get('document_class') in {'periodic_filing','earnings_release'} and r['temporal']['state']=='current',
         r['id'] in required_ids,r['kind'] in ('price','profile') if compact else False,r['temporal']['state']=='current',r['kind']=='document',r.get('published_at') or ''),reverse=True)
     out=[];size=0
     for r in prioritized:
@@ -116,6 +116,11 @@ def evidence_context(rows,limit=None,required_ids=None):
             p={'last_bar':p['bars'][-1] if p['bars'] else None,'adjusted':p.get('adjusted'),
                'context_scope':'Latest bar only; full series retained in the evidence snapshot. Indicators are computed from the full series.'}
         item['payload']={**p,'text':passages(p['text'],2500 if compact else 9000,priority_terms)} if 'text' in p else p
+        if compact and r.get('authority')=='primary' and p.get('document_class')=='earnings_release' and 'text' in p:
+            # Earnings headlines, adjustments and their table headings normally
+            # precede segment detail. Keyword-only clipping dropped the actual
+            # gain disclosures while retaining the net-income growth headline.
+            item['payload']={**p,'text':p['text'][:6500]}
         if compact and r['kind']=='profile':
             item['payload']={k:p[k] for k in ('name','longName','sector','industry','website','sic','sic_description') if k in p}
         if compact and 'text' not in p:
@@ -126,8 +131,21 @@ def evidence_context(rows,limit=None,required_ids=None):
             if r['kind']=='profile':item['exact_quote_examples']=[json.dumps(k)+': '+json.dumps(v,ensure_ascii=False) for k,v in item['payload'].items()][:3]
         if r['kind']=='option':continue # do not bury reasoning in thousands of chain rows
         encoded=json.dumps(item)
-        if size+len(encoded)>limit:continue
-        out.append(item);size+=len(encoded)
+        # Local models receive source cards, not this full metadata JSON. Budget
+        # by their rendered content; derived-record lineage stays in the archive.
+        cost=len(encoded)
+        if compact:
+            cost=len(item['payload'].get('text',''))+len(item.get('title',''))+len(item.get('url',''))+400 if 'text' in item['payload'] else 250+len(json.dumps(item['payload'].get('last_bar',{})))
+        if size+cost>limit:
+            if r['id'] in required_ids:raise ValueError('Required evidence exceeds the selected context budget')
+            continue
+        out.append(item);size+=cost
+    missing=required_ids-{r['id'] for r in out}
+    if compact and missing:raise ValueError('Required evidence is missing or ineligible for the selected context')
+    if compact:
+        # Selection reserves all cited premises; presentation leads with the
+        # original documents so metadata cannot displace the business context.
+        out.sort(key=lambda r:r['kind']=='document',reverse=True)
     return out
 
 
@@ -135,18 +153,19 @@ def research(ticker,analysis,*,round_number=1,previous=None,runner=invoke,follow
     prompt=f'''Investigate {ticker} as of {utcnow().isoformat()}. Round {round_number}.
 Use web search and read sources. Investigate recent quarterly results/guidance, valuation expectations, news/catalysts, short positioning, narrative excess, and customer/supplier/competitor read-through. Use the supplied verified issuer identity; do not waste queries rechecking a known identity. Use calendar dates or the exact fiscal label in original_sources; never guess a fiscal year from a calendar year. Follow the most consequential contradictions and gaps below. For sector-specific issues use original regulators, trial records, contracts or industry releases. Prioritize the latest relevant fiscal quarter and events in the last 30 days. Old comparative periods must be labeled. Search bullish AND bearish evidence; check whether old events are being recirculated. Seek original releases and Q&A beyond news summaries. Return up to 10 genuinely useful source pages, not search-result links. For every unresolved item, state the exact missing premise and the next source that could resolve it. Do not repeat a generic question when the evidence already answers it. Seek numbers that can change a revenue, margin, per-share cash-flow or valuation scenario. Explain why the strongest bullish and bearish explanations differ economically; do not count indicators as votes. Each must include an exact short excerpt (max 300 chars), source publication ISO timestamp/date and an exact date excerpt visible on the page. event_at is the announcement or decision date, never a financial measurement-period ending date; leave it empty when unknown, never guess. Return actual queries run, unresolved questions, and up to 3 economically important related tickers with source-backed relationship. A search snippet alone cannot verify a claim. Do not repeat already-read pages unless resolving a material omission.
 TARGETED FOLLOW-UP: {json.dumps(follow_up or [])}. If supplied, prioritize these specific factual gaps. Retrieve information available now; do not pretend to observe future reporting periods.
-DIMENSIONS: {json.dumps(DIMENSIONS)}
-HYPOTHESES: {json.dumps(QUESTIONS)}
+Prioritize questions capable of changing the business or valuation thesis. Missing optional options/ownership data is not automatically the most important research task. Do not spend the first round exclusively filling peripheral coverage gaps.
 COMPUTED ANALYSIS: {analysis_context(analysis,purpose='research')}
 PREVIOUS: {previous_context(previous)}
 '''
-    packet,usage=runner(prompt,RESEARCH_SCHEMA,web=True,timeout=600 if local_mode() else 150)
+    from .planner import priority_queries
+    seeds=priority_queries(analysis,ticker) if round_number==1 and not follow_up else []
+    packet,usage=runner(prompt,RESEARCH_SCHEMA,web=True,timeout=600 if local_mode() else 150,research_queries=seeds,known_sources=analysis.get('original_sources',[]))
     packet['queries_reported_by_model']=packet.get('queries_run',[])
     packet['queries_run']=usage.get('queries_observed',[])
     return packet,usage
 
 
-def ingest_web(ticker,packet,*,fetcher=document):
+def ingest_web(ticker,packet,*,fetcher=document,known_sources=None):
     rows=[];rejected=[]
     route={'guidance':'issuer_ir','news':'news_wires','catalysts':'press_wires','industry':'peers',
            'regulatory':'bis_trade','positioning':'exchange_short','ownership':'sec_ownership',
@@ -162,7 +181,8 @@ def ingest_web(ticker,packet,*,fetcher=document):
             norm=lambda t:' '.join(str(t).split()).lower()
             excerpt=source['excerpt']
             if len(excerpt)<20 or len(excerpt)>500 or norm(excerpt) not in norm(text):raise ValueError('excerpt_not_in_fetched_body')
-            published=doc.get('published_at')
+            from .research_grounding import known_clock
+            published=doc.get('published_at') or known_clock(url,known_sources)
             declared=source.get('published_at');date_excerpt=source.get('date_excerpt','')
             if not published:
                 if not date_excerpt or norm(date_excerpt) not in norm(text):raise ValueError('publication_date_not_located')
@@ -250,8 +270,8 @@ def local_synthesis_schema(rows,*,references=False):
     return schema
 
 
-LOCAL_CONTRACT='''Write two ranked insights and a decision, using only the supplied facts. Distinguish observation, inference and explicit assumptions. Choose the dominant business and valuation drivers; do not count indicators as votes. A conditional opportunity is wait_for_trigger, not a buy_candidate whose entry conditions are still unmet. Do not invent investor beliefs, funding structures, price targets or causal certainty. A reverse DCF estimates the required annual FREE CASH FLOW growth for the stated years and discount rate; it is not required revenue growth or perpetual growth. A higher discount rate requires MORE growth at a fixed price. Acquisition spending is not ordinary capital expenditure. Working-capital divergence alone does not prove distress or fraud. Treat the filing's explanation and the strongest competing explanation seriously.
-Use source aliases E01, E02, etc. For evidence select the passage_id P01, P02, etc. belonging to that source card. The application inserts the exact quotation; do not write quotation text yourself. Never cite a calculated result as a document quotation. Each insight must cite its load-bearing premises. Historical records cannot support a current premise. Keep fields concise: one or two sentences, a concrete horizon, and a falsifier. The action, summary and entry/exit conditions must follow the cited insights and computed results. Choose conditions from the reported baselines or define observable events with source and timing; do not invent numerical thresholds. Use at most three conditions/checks per list. No more than 650 words. Return the requested JSON.'''
+LOCAL_CONTRACT='''Write up to three ranked insights and a decision, using only the supplied facts. Distinguish observation, inference and explicit assumptions. Choose the dominant business and valuation drivers; do not count indicators as votes. When valuation_sensitivity is available, assess the cash-flow growth required by the price alongside the operating evidence, using that finding. Distinguish a good business from an attractive entry price. Discuss cash-flow levels as well as growth/conversion ratios; a lower conversion ratio alone does not establish failing cash generation. A conditional opportunity is wait_for_trigger, not a buy_candidate whose entry conditions are still unmet. Do not invent investor beliefs, funding structures, price targets or causal certainty. A reverse DCF estimates the required annual FREE CASH FLOW growth for the stated years and discount rate; it is not required revenue growth or perpetual growth. A higher discount rate requires MORE growth at a fixed price. Acquisition spending is not ordinary capital expenditure. Working-capital divergence alone does not prove distress or fraud. Treat the filing's explanation and the strongest competing explanation seriously.
+Use source aliases E01, E02, etc. For evidence select the passage_id P01, P02, etc. belonging to that source card. The application inserts the exact quotation; do not write quotation text yourself. Never cite a calculated result as a document quotation. Each insight must cite its load-bearing premises. Historical records cannot support a current premise. Keep fields concise: one or two sentences, a concrete horizon, and a falsifier. The action, summary and entry/exit conditions must follow the cited insights and computed results. Choose conditions from the reported baselines or define observable events with source and timing; do not invent numerical thresholds. Use at most three conditions/checks per list. No more than 850 words. Return the requested JSON.'''
 
 
 def local_packet(selected,analysis):
@@ -259,6 +279,7 @@ def local_packet(selected,analysis):
     import copy
     from .grounding import decision_findings, decision_evidence, context_only_flags
     selected=decision_evidence(selected,analysis)
+    selected=sorted(selected,key=lambda r:r['kind']=='document',reverse=True)
     aliased=copy.deepcopy(selected);forward={};blocks=[]
     for n,row in enumerate(aliased,1):
         original=row['id'];alias=f'E{n:02d}';forward[original]=alias;row['id']=alias
@@ -302,6 +323,10 @@ def local_packet(selected,analysis):
     calculated['condition_policy']='Choose a reported_metric baseline and above/below comparison, or a concrete event with source and timing. Baselines are observed reference values, not calibrated buy/sell thresholds. Do not insert numerical cutoffs in event descriptions.'
     calculated['context_only_notes']=notes
     calculated['valuation']=valuation
+    from .reconciliation import reconcile
+    case=reconcile(analysis)
+    calculated['reconciled_case']={**case,'items':[{k:v for k,v in item.items() if k!='evidence_ids'} for item in case['items']]}
+    calculated['reconciliation_instruction']='Use the reconciled case as your financial reasoning baseline. Resolve its questions from primary documents. Do not simply repeat open questions if a supplied source answers them. Your main insight must explain the consequence for sustainable earnings, cash flow and the valuation hurdle. Separate management claims from independently established facts.'
     calculated['findings']=[{k:f[k] for k in ('id','title','detail','direction','materiality')} for f in decision_findings(analysis)]
     calculated['ranking_scope']='Primary findings have materiality >= 2. Lower-priority observations remain in the full evidence scan; do not turn small accounting balances or sub-one-percent estimate updates into a company-level thesis without specific material evidence.'
     calculated['sector_questions']=[x['questions'] for x in analysis.get('investigation_plan',{}).get('sector_lenses',[])]
@@ -367,7 +392,7 @@ def review(ticker,proposal,rows,runner=invoke,analysis=None):
         draft=translate_citations(proposal,aliases)
         schema=copy.deepcopy(REVIEW_SCHEMA)
         schema['properties']['insights']['items']['properties']['id']={'type':'string','enum':[i['id'] for i in proposal.get('insights',[])]}
-        prompt=f'''Independently check this {ticker} proposal. Review each supplied insight ID exactly once; do not create insights. Verify material facts, arithmetic, units, reporting periods, quotations and whether the cited source supports the premise. Reject conflating FCF growth with revenue growth, five-year growth with perpetual growth, cash availability with known deal funding, and an observed correlation with proof of fraud or distress. Explicit conditional inferences and labeled scenario assumptions are allowed when reasonable and clearly separated from facts. Comparisons to the supplied dated decision_baselines are observable monitoring conditions, not invented cutoffs or statistically calibrated trade signals. Observable qualitative conditions are allowed: improvement in a named ratio at the next reporting date does not require an invented numerical target. Do not reject a condition merely because it lacks a numerical cutoff, and never demand arbitrary targets to fix it. Check the summary and conditions too. An exit condition must invalidate the proposed investment thesis; a bullish breakout is not an adverse exit for a bullish opportunity. Operating-expense leverage here excludes cost of revenue: (gross profit - operating income) / revenue. Do not replace it with total costs (revenue - operating income) / revenue, which double-counts the gross-margin change. Reject action_supported if its reasoning contains an unsupported premise, unjustified numerical threshold, unfulfilled buy conditions, or contradicts the valuation assumptions. Computed results are reproducible arithmetic from the cited records and may support derived growth rates without a verbatim sentence in a filing. Current means eligible under the stated measurement/publication policy, not measured today; a latest quarterly filing is not stale merely because the quarter ended before today. Do not invent hypothetical restatements or demand proof that conditional interpretations are certain. Still reject miscalculations, superseded periods, unsupported causal certainty and invented facts. Give concise concrete reasons; this is a model check, not independent human approval.
+        prompt=f'''Independently check this {ticker} proposal. Review each supplied insight ID exactly once; do not create insights. Verify material facts, arithmetic, units, reporting periods, quotations and whether the cited source supports the premise. Reject conflating FCF growth with revenue growth, five-year growth with perpetual growth, cash availability with known deal funding, and an observed correlation with proof of fraud or distress. Explicit conditional inferences and labeled scenario assumptions are allowed when reasonable and clearly separated from facts. Comparisons to the supplied dated decision_baselines are observable monitoring conditions, not invented cutoffs or statistically calibrated trade signals. Observable qualitative conditions are allowed: improvement in a named ratio at the next reporting date does not require an invented numerical target. Do not reject a condition merely because it lacks a numerical cutoff, and never demand arbitrary targets to fix it. Check the summary and conditions too. A management explanation consistent with an observed change is not a contradiction to that change. Margin expansion alone does not prove pricing power; consolidated margins cannot establish a particular segment's margin. Declining growth in positive free cash flow is not cash burn. An exit condition must invalidate the proposed investment thesis; a bullish breakout is not an adverse exit for a bullish opportunity. Operating-expense leverage here excludes cost of revenue: (gross profit - operating income) / revenue. Do not replace it with total costs (revenue - operating income) / revenue, which double-counts the gross-margin change. Reject action_supported if its reasoning contains an unsupported premise, unjustified numerical threshold, unfulfilled buy conditions, or contradicts the valuation assumptions. Computed results are reproducible arithmetic from the cited records and may support derived growth rates without a verbatim sentence in a filing. Current means eligible under the stated measurement/publication policy, not measured today; a latest quarterly filing is not stale merely because the quarter ended before today. Do not invent hypothetical restatements or demand proof that conditional interpretations are certain. Still reject miscalculations, superseded periods, unsupported causal certainty and invented facts. Give concise concrete reasons; this is a model check, not independent human approval.
 COMPUTED RESULTS: {calculated}
 PROPOSAL: {json.dumps(draft,ensure_ascii=False)}
 EVIDENCE CARDS:\n{evidence}'''

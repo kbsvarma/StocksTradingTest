@@ -333,8 +333,11 @@ def analyze(rows,ticker):
         for key in ('ttm_fcf_proxy','ttm_fcf_less_sbc','fcf_yield_pct','implied_growth_sensitivity'):valuation_result.pop(key,None)
         valuation_result['cash_flow_model']='not_applicable_financial_institution'
         valuation_result['interpretation']=applicability['cash_flow_valuation']
-    return {'technical_evidence':[techrows[-1]['id']] if techrows else [],'technical_as_of':techrows[-1].get('observed_at') if techrows else None,
+    result={'technical_evidence':[techrows[-1]['id']] if techrows else [],'technical_as_of':techrows[-1].get('observed_at') if techrows else None,
             'metric_applicability':applicability,'valuation':valuation_result,'technicals':tech,'fundamentals':fund,'fundamental_evidence':fcites,'estimates':est,
             'options':option_metrics(own,tech.get('close')),'news_clusters':deduplicate_news(own),
             'findings':findings,'hypotheses':hypotheses,'coverage':coverage,
             'ranking_basis':'Research attention: materiality first, independently sourced support second. Not return probabilities or an additive buy score.'}
+    from .reconciliation import reconcile
+    result['reconciled_case']=reconcile(result)
+    return result

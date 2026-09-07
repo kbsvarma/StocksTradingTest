@@ -8,6 +8,11 @@ def trailing_metric(rows,metric):
     facts=[r for r in rows if r['kind']=='fundamental' and r['payload']['metric']==metric and r['temporal']['state']!='excluded']
     active=[r for r in facts if r['temporal']['state']=='current' and r.get('period_start')]
     if not active:return None
+    latest_end=max(r['period_end'] for r in active)
+    completed_year=[r for r in active if r['period_end']==latest_end and r['payload']['duration_class']=='annual']
+    if completed_year:
+        year=max(completed_year,key=lambda r:r.get('published_at') or '')
+        return {'value':year['payload']['value'],'end':year['period_end'],'ids':[year['id']],'method':'reported fiscal year'}
     latest=max(active,key=lambda r:(r['period_end'],-(datetime.fromisoformat(r['period_end'])-datetime.fromisoformat(r['period_start'])).days))
     if latest['payload']['duration_class']=='annual':
         return {'value':latest['payload']['value'],'end':latest['period_end'],'ids':[latest['id']],'method':'reported fiscal year'}
@@ -39,7 +44,7 @@ def valuation(rows,ticker):
     trailing={m:trailing_metric(own,m) for m in ('revenue','net_income','cfo','capex','sbc')}
     out['trailing']=trailing
     cfo,capex=trailing['cfo'],trailing['capex']
-    if cfo and capex and cfo['end']==capex['end']:
+    if not specialized and cfo and capex and cfo['end']==capex['end']:
         fcf=cfo['value']-capex['value'];out['ttm_fcf_proxy']=fcf;provenance+=cfo['ids']+capex['ids']
         sbc=trailing['sbc']
         if sbc and sbc['end']==cfo['end']:out['ttm_fcf_less_sbc']=fcf-sbc['value']
@@ -48,7 +53,6 @@ def valuation(rows,ticker):
     shares=[r for r in own if r['kind']=='fundamental' and r['payload']['metric']=='shares_outstanding' and r['temporal']['state']=='current' and r['payload']['unit']=='shares']
     if specialized:
         out['sector_method']='Use sector-specific capital/FFO/insurance valuation; generic CFO-minus-capex reverse DCF is not applied.'
-        return out
     if quotes and shares:
         q=max(quotes,key=lambda r:r['observed_at']);sh=max(shares,key=lambda r:r['period_end'])
         from .temporal import iso
@@ -59,13 +63,16 @@ def valuation(rows,ticker):
         cap=q['payload']['price']*sh['payload']['value'];out['equity_value_proxy']=cap
         out['share_count_date']=sh['period_end'];out['price_date']=q['observed_at'];provenance += [q['id'],sh['id']]
         out['equity_value_inputs']={'reference_price':q['payload']['price'],'currency':'USD','reported_shares_outstanding':sh['payload']['value'],'share_basis':'point-in-time shares outstanding, not quarterly weighted diluted shares'}
+        if sh['payload'].get('share_classes'):out['equity_value_inputs'].update(share_classes=sh['payload']['share_classes'],share_basis=sh['payload'].get('aggregation'),price_basis='Selected listing price applied to reported common classes; differing class prices are not reconciled')
         out['equity_value_basis']='Current reference price × reported dated shares; not live market capitalization; corporate actions since the share date require reconciliation'
         if number(fcf) and fcf>0:
             out['fcf_yield_pct']=fcf/cap*100
             out['implied_growth_sensitivity']=[reverse_dcf(cap,fcf,discount=d) for d in (.08,.10,.12)]
         income=trailing['net_income'];revenue=trailing['revenue']
-        if income and income['value']>0:out['earnings_multiple_proxy']=cap/income['value']
-        if revenue and revenue['value']>0:out['sales_multiple_proxy']=cap/revenue['value']
+        if income and income['value']>0:
+            out['earnings_multiple_proxy']=cap/income['value'];provenance+=income['ids']
+        if revenue and revenue['value']>0:
+            out['sales_multiple_proxy']=cap/revenue['value'];provenance+=revenue['ids']
     out['evidence_ids']=list(dict.fromkeys(provenance))
     out['interpretation']='Reverse expectations sensitivity, not a price target. CFO minus reported investment payments is an equity FCF proxy; reconcile leases, financing, SBC, acquisitions and tag definitions.'
     return out
