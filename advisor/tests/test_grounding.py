@@ -32,6 +32,8 @@ def test_cloud_providers_cannot_bypass_numerical_condition_audit(monkeypatch,sta
 def test_fiscal_year_labels_are_not_arbitrary_thresholds():
     from advisor.investigator.grounding import condition_errors
     assert not condition_errors({'entry_conditions':['First quarter of FY27 segment disclosures demonstrates gross margin stability.']},{})
+    assert not condition_errors({'entry_conditions':['Meets the dated guidance for third quarter fiscal 2027 revenue.']},{})
+    assert not condition_errors({'entry_conditions':['Meets the dated guidance for fiscal year 2027 revenue.']},{})
     assert condition_errors({'entry_conditions':['Revenue growth falls below mid-teens.']},{})
 
 
@@ -39,6 +41,16 @@ def test_provider_generated_investor_beliefs_are_replaced_by_explicit_valuation_
     from advisor.investigator.grounding import audit_generated
     result=audit_generated({'insights':[{'what_is_priced_in':'Investors expect permanent growth.'}], 'entry_conditions':[]},{})
     assert 'Investors expect' not in result['insights'][0]['what_is_priced_in']
+
+
+def test_dated_bank_conditions_distinguish_identifiers_from_invented_cutoffs():
+    from advisor.investigator.grounding import condition_errors
+    proposal={'entry_conditions':['Price reaches the 50-day moving average of $349.63 as of September 4, 2026.',
+        'Net interest income meets full-year 2026 guidance.'],
+        'exit_conditions':['Standardized CET1 capital ratio falls below regulatory minimums.']}
+    assert not condition_errors(proposal,{'technicals':{'ma50':349.633}})
+    assert condition_errors({'exit_conditions':['CET1 falls below 12.5%.']},{})
+    assert condition_errors({'entry_conditions':['Price crosses the moving average of $400.00 as of September 4, 2026.']},{'technicals':{'ma50':349.633}})
 
 
 def test_computed_observations_and_sources_are_bound_without_mutating_input():

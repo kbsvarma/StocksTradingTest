@@ -31,6 +31,12 @@ the source host's private research configuration, including the same reasoning a
 do not assume that the default model is the one that passed your evaluation.
 Installation does not constitute intelligence-quality acceptance.
 
+`qwen3.8:27b` is also pinned for evaluation (approximately 17.7 GB of model files).
+It exceeds a 16 GB GPU's available capacity and uses CPU offload on that hardware.
+Its inclusion in the installer is reproducibility support, not a claim that it
+has passed the investment-research acceptance cases. Preserve the selected
+provider and model explicitly during migration.
+
 Put these settings in `~/.advisor_research.env` (mode 600):
 
 ```bash
@@ -80,6 +86,8 @@ private `.advisor-migration/config` directory for explicit installation.
    cd "$HOME/advisor-restored"
    python3 -m venv .venv
    .venv/bin/pip install -r advisor/requirements.resolved.lock
+   .venv/bin/pip install -r advisor/requirements.test.lock
+   .venv/bin/python -m pytest -q advisor/tests
    bash advisor/ops/install_local_model.sh
    .venv/bin/python -m advisor.ops.provision_remote --repo "$PWD" --bind 127.0.0.1 --render-only "$HOME/advisor-units-review"
    ```

@@ -144,7 +144,12 @@ def condition_errors(proposal,analysis,*,verified_baselines=()):
         if condition in verified_baselines:continue
         remaining=re.sub(r'\b(?:10-?Q|10-?K|8-?K|6-?K|20-?F)\b','',condition,flags=re.I)
         # Reporting horizons are not valuation/risk thresholds.
-        remaining=re.sub(r'\bFY\s*(?:20)?\d{2}\b|\bQ[1-4](?:\s+(?:FY)?20\d{2})?\b|\b20\d{2}-\d{2}-\d{2}\b|\b\d+[-\s]*(?:quarters?|months?|years?|weeks?|days?|sessions?)\b','',remaining,flags=re.I)
+        remaining=re.sub(r'\b(?:FY|fiscal(?:\s+year)?)\s*(?:20)?\d{2}\b|\bQ[1-4](?:\s+(?:FY)?20\d{2})?\b|\b20\d{2}-\d{2}-\d{2}\b|\b\d+[-\s]*(?:quarters?|months?|years?|weeks?|days?|sessions?)\b','',remaining,flags=re.I)
+        remaining=re.sub(r'\b(?:full[- ]year|calendar(?:\s+year)?|year)\s+20\d{2}\b','',remaining,flags=re.I)
+        remaining=re.sub(r'\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+20\d{2}\b','',remaining,flags=re.I)
+        # Standard financial/product names contain numerals, but are not cutoffs.
+        # Their factual applicability still belongs to the source/meaning review.
+        remaining=re.sub(r'\b(?:CET1|Tier\s+1|B2B|B2C|5G|S&P\s*500)\b','',remaining,flags=re.I)
         for key,words in (('prior_20_high',('high','breakout')),('prior_20_low',('low','breakdown')),('ma200',('average','ma')),('ma50',('average','ma'))):
             value=technical.get(key)
             if value is not None and any(w in remaining.lower() for w in words):
