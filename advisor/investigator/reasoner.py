@@ -70,7 +70,12 @@ def local_mode():
 
 
 def analysis_context(analysis, *, purpose=None):
-    if not local_mode():return json.dumps(analysis,default=str)[:35000]
+    if not local_mode():
+        # Do not truncate a JSON document midway through its reasoning contract.
+        # Historical diff metadata and raw lineage belong in the source archive.
+        selected={k:analysis[k] for k in ('reconciled_case','valuation','metric_applicability','issuer_identity','original_sources','fundamentals','technicals','estimates','options','findings') if k in analysis}
+        selected['cash_flow_definition']='Computed FCF subtracts cash payments for PP&E from operating cash flow. Issuer headline capex can include noncash finance leases. Do not call a headline capex outlook cash expenditure. An unchanged economic investment plan and a revised reported capex figure after lease reclassification are different statements.'
+        return json.dumps(selected,default=str)
     keys=('metric_applicability','issuer_identity','original_sources','fundamentals','fundamental_evidence','valuation','technicals','estimates','options','findings')
     selected={k:analysis[k] for k in keys if k in analysis}
     selected['sector_questions']=[{'sector':x['name'],'questions':x['questions']} for x in
@@ -80,6 +85,9 @@ def analysis_context(analysis, *, purpose=None):
         selected['priority_findings']=[{k:f[k] for k in ('title','direction','detail','materiality')} for f in analysis.get('findings',[])[:7]]
         selected['valuation_questions']={k:v for k,v in analysis.get('valuation',{}).items() if k in
             ('fcf_yield_pct','implied_growth_sensitivity','earnings_multiple_proxy','cash_flow_model','interpretation')}
+        from .reconciliation import reconcile
+        selected['questions_from_financial_reconciliation']=[
+            {'observation':i['observation'],'resolve':i['question']} for i in reconcile(analysis)['items']]
     selected['coverage']=[{'dimension':c['dimension'],'status':c['status']} for c in analysis.get('coverage',[])]
     selected['context_scope']='Selected computed drivers and coverage; raw changes/history are omitted, not evidence of no change.'
     return json.dumps(selected,default=str)
@@ -110,7 +118,7 @@ def evidence_context(rows,limit=None,required_ids=None):
     for r in prioritized:
         if r['temporal']['state']=='excluded':continue
         item={k:v for k,v in r.items() if k!='payload'};p=r['payload']
-        if compact:item={k:item[k] for k in ('id','ticker','source','kind','published_at','period_start','period_end','observed_at','temporal','authority','independence','url','title') if k in item}
+        if compact:item={k:item[k] for k in ('id','ticker','source','kind','published_at','period_start','period_end','observed_at','event_at','temporal','authority','independence','url','title') if k in item}
         if 'bars' in p:
             if not (compact and r['id'] in required_ids):continue
             p={'last_bar':p['bars'][-1] if p['bars'] else None,'adjusted':p.get('adjusted'),
@@ -121,6 +129,9 @@ def evidence_context(rows,limit=None,required_ids=None):
             # precede segment detail. Keyword-only clipping dropped the actual
             # gain disclosures while retaining the net-income growth headline.
             item['payload']={**p,'text':p['text'][:6500]}
+        if p.get('document_class')=='earnings_call' and 'text' in p:
+            item['payload']={**p,'text':passages(p['text'],6000 if compact else 12000,
+                ('finance leases','useful lives','remaining performance obligation','excluding OpenAI','non-GAAP','capital expenditures','short-lived assets')+priority_terms)}
         if compact and r['kind']=='profile':
             item['payload']={k:p[k] for k in ('name','longName','sector','industry','website','sic','sic_description') if k in p}
         if compact and 'text' not in p:
@@ -292,6 +303,7 @@ def local_packet(selected,analysis):
             continue
         scope='Annual filing: distinguish full-year figures from explicitly labeled quarter figures.' if payload.get('form') in {'10-K','20-F'} else 'Earnings release: match each figure to its explicitly stated quarter or full-year window.' if payload.get('document_class')=='earnings_release' else ''
         clock=scope+f' Measurement: {row.get("period_start") or ""} to {row.get("period_end") or row.get("observed_at") or "not specified"}; published {row.get("published_at") or "not specified"}'
+        if payload.get('document_class')=='earnings_call':clock=f'Public earnings call held {row.get("event_at")}; transcript observed {row.get("observed_at")}; webpage publication time {row.get("published_at") or "unknown"}. Reporting periods must be read from each statement; event date is not the financial measurement period.'
         parts=[header,clock,f'{row.get("title","")} | {row.get("url","")} | authority={row.get("authority","")} | origin={row.get("independence","")}']
         if 'text' in payload:parts+=['VERBATIM PASSAGE OPTIONS:']+[f'{key}: {value}' for key,value in citation_options(row).items()]
         else:parts.append('DATA: '+json.dumps(payload,ensure_ascii=False,separators=(',',':')))
@@ -357,7 +369,10 @@ def synthesize(ticker,rows,analysis,runner=invoke):
     prompt=f'''Produce an investment intelligence report for {ticker} as of {utcnow().isoformat()} using ONLY the supplied evidence and computed results. This is a selected context, not the entire collected corpus; do not claim exhaustive coverage. Keep each insight concise and cite only the sources needed for its factual premises. Find 2 to 4 substantial insights, not article summaries. The central task is adjudication: identify which business drivers dominate the decision and why. Bullish and bearish observations coexist in most companies; do not default to mixed simply because both exist. Quantify operating and valuation consequences when source numbers support calculation; label assumptions and show the arithmetic. Explain whether the same company would be attractive at a different valuation. Distinguish business quality, price attractiveness and entry timing. An unresolved peripheral concern must not block a well-supported main conclusion; a material missing premise must be named specifically. Each insight must connect what changed, economic mechanism, priced-in expectations (or explicitly unknown), strongest competing explanation, horizon and falsifier. Combine independent evidence, identify conflicts, and avoid double counting correlated technicals or syndicated headlines. Rank insights by material consequence; no invented confidence probabilities or price targets. Every factual premise needs source_id and an exact excerpt from its payload text (or an exact substring of JSON payload for structured data). Evidence with context_only may only be historical_comparison and cannot supply a current premise. At least one current premise per insight. Sources without adequate evidence must become next_checks. The investment action is a research suggestion: choose a buy candidate only when fresh fundamentals/expectations, a reason the opportunity is not priced in and clear entry/invalidation support it. Avoid or reduce can be justified by adverse evidence. Prefer a specific conditional setup to vague bullishness. Admit no edge when the evidence is balanced; do not use missing performance calibration as a reason to avoid doing the analysis. Summaries/action/conditions must contain no factual claims absent from the cited insights. Do not turn relative fiscal labels into invented quarter dates.
 ANALYSIS: {analysis_context(analysis)}
 EVIDENCE: {json.dumps(selected,default=str)}'''
-    return runner(prompt,SYNTHESIS_SCHEMA,timeout=180)
+    prompt+='\nDecision conditions must be observable business events or exact dated computed technical levels. Do not invent growth, margin, yield, cash-flow or price cutoffs. For management guidance conditions, say meets the dated guidance for the named reporting period; keep numerical guidance in the cited insight, not the condition. Every corporate financial quantity from secondary commentary must be reconciled to the original disclosure and its reporting period; a recent article does not make an old-quarter number current. State unknown market expectations explicitly; a valuation sensitivity is an assumption, not proof of what investors believe. Do not claim a superior risk-adjusted return without evidence.'
+    value,usage=runner(prompt,SYNTHESIS_SCHEMA,timeout=180)
+    from .grounding import audit_generated
+    return audit_generated(value,analysis),usage
 
 
 def validate_synthesis(proposal,rows):
@@ -432,7 +447,10 @@ DRAFT: {json.dumps(proposal)}
 CHECK RESULTS: {json.dumps(feedback)}
 COMPUTED RESULTS: {analysis_context(analysis)}
 EVIDENCE: {json.dumps(selected)}'''
-    return runner(prompt,SYNTHESIS_SCHEMA,timeout=180)
+    prompt+='\nReplace numerical decision cutoffs with observable business conditions. If a condition uses actual management guidance, write meets the dated guidance for the named period, and put the numerical guidance in the source-cited insight instead. Do not replace a rejected numerical condition with another numerical condition. Do not claim a superior risk-adjusted entry or actual investor expectations without supporting evidence. Explain the final company thesis directly, without discussing the review process.'
+    value,usage=runner(prompt,SYNTHESIS_SCHEMA,timeout=180)
+    from .grounding import audit_generated
+    return audit_generated(value,analysis),usage
 
 
 def finalize(proposal,reviewed,rows):

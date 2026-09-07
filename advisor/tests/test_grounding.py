@@ -18,6 +18,29 @@ def test_primary_release_preserves_adjustments_before_search_commentary(monkeypa
     assert 'nonrecurring investment gain' in selected[0]['payload']['text']
 
 
+@pytest.mark.parametrize('stage',['synthesize','revise'])
+def test_cloud_providers_cannot_bypass_numerical_condition_audit(monkeypatch,stage):
+    from advisor.investigator import reasoner
+    monkeypatch.setenv('ADVISOR_RESEARCH_PROVIDER','gemini')
+    def model(*args,**kwargs):
+        return {'insights':[],'entry_conditions':['Enter when FCF yield exceeds 2.5%.'],'exit_conditions':[]},{}
+    if stage=='synthesize':value,_=reasoner.synthesize('TEST',[],{'findings':[]},runner=model)
+    else:value,_=reasoner.revise('TEST',{'insights':[]},{},[],{'findings':[]},runner=model)
+    assert value['_condition_errors']
+
+
+def test_fiscal_year_labels_are_not_arbitrary_thresholds():
+    from advisor.investigator.grounding import condition_errors
+    assert not condition_errors({'entry_conditions':['First quarter of FY27 segment disclosures demonstrates gross margin stability.']},{})
+    assert condition_errors({'entry_conditions':['Revenue growth falls below mid-teens.']},{})
+
+
+def test_provider_generated_investor_beliefs_are_replaced_by_explicit_valuation_basis():
+    from advisor.investigator.grounding import audit_generated
+    result=audit_generated({'insights':[{'what_is_priced_in':'Investors expect permanent growth.'}], 'entry_conditions':[]},{})
+    assert 'Investors expect' not in result['insights'][0]['what_is_priced_in']
+
+
 def test_computed_observations_and_sources_are_bound_without_mutating_input():
     rows=[{'id':'current','kind':'fundamental','payload':{'value':120},'temporal':{'state':'current'}},
           {'id':'prior','kind':'fundamental','payload':{'value':100},'temporal':{'state':'context_only'}}]

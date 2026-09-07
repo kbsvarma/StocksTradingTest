@@ -77,8 +77,8 @@ def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=re
         result['issuer_identity']={'ticker':ticker,'name':next((p.get('name') or p.get('longName') for p in profiles if p.get('name') or p.get('longName')),ticker),
             'sector':next((p.get('sector') for p in profiles if p.get('sector')),None),
             'website':next((p.get('website') for p in profiles if p.get('website')),None)}
-        result['original_sources']=[{'title':r['title'],'url':r['url'],'published_at':r['published_at'],'period_end':r.get('period_end'),'excerpt':reasoner.passages(r['payload']['text'],600)} for r in
-            sorted(stamped,key=lambda r:r.get('published_at') or '',reverse=True)
+        result['original_sources']=[{'title':r['title'],'url':r['url'],'published_at':r['published_at'],'event_at':r.get('event_at'),'period_end':r.get('period_end'),'excerpt':reasoner.passages(r['payload']['text'],600)} for r in
+            sorted(stamped,key=lambda r:r.get('published_at') or r.get('event_at') or '',reverse=True)
             if r['ticker']==ticker and r['kind']=='document' and r['temporal']['state']=='current'][:8]
         from .planner import plan
         result['investigation_plan']=plan(stamped,result,ticker)

@@ -48,6 +48,11 @@ def periodic_document(row):
     return payload.get('document_class')=='earnings_release' and bool(excerpt) and excerpt in payload.get('text','')
 
 
+def dated_call(row):
+    p=row.get('payload',{});excerpt=p.get('event_basis_excerpt','')
+    return row.get('kind')=='document' and p.get('document_class')=='earnings_call' and row.get('event_at') and bool(excerpt) and excerpt in p.get('text','')
+
+
 def assess(row, as_of):
     at=timestamp(iso(as_of)); reasons=[]
     retrieved=timestamp(row['retrieved_at'])
@@ -58,14 +63,16 @@ def assess(row, as_of):
     if obs and obs>at: reasons.append('observation_after_cutoff')
     kind=row['kind']
     periodic=periodic_document(row)
-    max_age=150 if periodic else MAX_AGE.get(kind,7)
-    if kind in {'news','filing','document'} and not pub: reasons.append('publication_unknown')
+    call=dated_call(row)
+    max_age=150 if periodic or call else MAX_AGE.get(kind,7)
+    if kind in {'news','filing','document'} and not pub and not (call and obs): reasons.append('publication_unknown')
     if kind=='news' and not row.get('payload',{}).get('body_verified'): reasons.append('headline_discovery_only')
     if row.get('payload',{}).get('relevance')=='unverified': reasons.append('issuer_relevance_unverified')
     if (kind in {'fundamental','short_interest','ownership'} or periodic) and not row.get('period_end'):
         reasons.append('measurement_period_unknown')
     if row.get('clock_quality')=='observation_only': reasons.append('underlying_period_unverified')
     clock=obs or pub
+    if call:clock=timestamp(row['event_at'])
     age=(at-clock).total_seconds()/86400 if clock else None
     if clock is None: reasons.append('source_clock_unknown')
     if age is not None and age>max_age: reasons.append('stale_observation')
@@ -76,13 +83,20 @@ def assess(row, as_of):
         if end>at: reasons.append('future_measurement_period')
     # Republishing old news does not refresh the economic event.
     if kind in {'news','document'} and row.get('event_at') and not periodic:
-        if (at-timestamp(row['event_at'])).days>MAX_AGE[kind]: reasons.append('old_event_recirculated')
+        if (at-timestamp(row['event_at'])).days>max_age: reasons.append('old_event_recirculated')
+        if call and timestamp(row['event_at'])>at:reasons.append('event_after_cutoff')
     blocked=any(x.endswith('after_cutoff') or x=='future_measurement_period' for x in reasons)
     return {'state':'excluded' if blocked else 'context_only' if reasons else 'current',
             'age_days':round(age,2) if age is not None else None,'reasons':reasons}
 
 def annotate(rows, as_of):
     rows=[dict(r,temporal=assess(r,as_of)) for r in rows]
+    latest_call={}
+    for r in rows:
+        if dated_call(r) and r['temporal']['state']=='current':latest_call[r['ticker']]=max(latest_call.get(r['ticker'],''),r['event_at'])
+    for r in rows:
+        if dated_call(r) and r['temporal']['state']=='current' and r['event_at']<latest_call.get(r['ticker'],''):
+            r['temporal']={**r['temporal'],'state':'context_only','reasons':['superseded_earnings_call']}
     # Latest measurement per fundamental metric wins; a newly filed old quarter cannot supersede it.
     latest={}
     for r in rows:

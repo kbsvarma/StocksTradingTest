@@ -9,6 +9,22 @@ from urllib.parse import urlparse,parse_qs
 from . import collectors
 
 
+def quota_reason(response):
+    """Expose the limiting window, never the provider's raw credential-bearing error."""
+    try:details=response.json().get('error',{}).get('details',[])
+    except (ValueError,TypeError,AttributeError):details=[]
+    for detail in details:
+        for violation in detail.get('violations',[]):
+            ident=str(violation.get('quotaId',''))
+            value=str(violation.get('quotaValue',''))
+            limit=' ('+value+' requests per model/project)' if value.isdigit() else ''
+            if 'RequestsPerDay' in ident:
+                return 'free quota or rate limit reached: daily request allowance exhausted'+limit+'; minute spacing cannot resolve this'
+            if 'TokensPerMinute' in ident:
+                return 'free quota or rate limit reached: per-minute token allowance exhausted'
+    return 'free quota or rate limit reached'
+
+
 def generate(prompt,schema,config,timeout,post=None,output_tokens=24000):
     from .runtime import validate
     from .reasoner import SYSTEM
@@ -21,6 +37,10 @@ def generate(prompt,schema,config,timeout,post=None,output_tokens=24000):
     try:
         started=time.monotonic()
         for attempt in range(2):
+            if post is None:
+                from .provider_pacing import reserve
+                from pathlib import Path
+                reserve(Path.home()/'.local/share/advisor/provider-rate-limit/gemini.lock',timeout=timeout-(time.monotonic()-started))
             r=(post or requests.post)('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',
                 headers={'x-goog-api-key':config['GEMINI_API_KEY'],'Content-Type':'application/json'},
                 json=body,timeout=(10,max(1,timeout-(time.monotonic()-started))),allow_redirects=False)
@@ -29,7 +49,7 @@ def generate(prompt,schema,config,timeout,post=None,output_tokens=24000):
             time.sleep(2)
     except requests.RequestException as exc:raise RuntimeError('Gemini connection failed: '+type(exc).__name__) from None
     if r.status_code!=200:
-        reason={400:'request or key rejected',401:'key rejected',403:'project access denied',404:'model unavailable',429:'free quota or rate limit reached'}.get(r.status_code,'HTTP '+str(r.status_code))
+        reason=quota_reason(r) if r.status_code==429 else {400:'request or key rejected',401:'key rejected',403:'project access denied',404:'model unavailable'}.get(r.status_code,'HTTP '+str(r.status_code))
         raise RuntimeError('Gemini: '+reason)
     try:
         packet=r.json();candidate=packet.get('candidates',[{}])[0]

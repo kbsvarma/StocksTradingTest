@@ -6,6 +6,16 @@ MONTH=r'(?:January|February|March|April|May|June|July|August|September|October|N
 DATE=MONTH+r'\s+\d{1,2},?\s+20\d{2}'
 
 
+def earnings_call_metadata(title,text):
+    """Identify an actual dated transcript without inventing its publication date."""
+    if not re.search(r'earnings.*(?:call|conference)',title,re.I) or not re.search(r'\btranscript\b',text[:1000],re.I) or len(text)<1000:return {}
+    match=re.search(r'\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+('+DATE+r')',text[:700],re.I)
+    if not match:return {}
+    from dateutil.parser import parse
+    return {'document_class':'earnings_call','event_at':parse(match.group(1)).date().isoformat(),
+            'event_basis_excerpt':match.group(0),'availability_basis':'public transcript observed at retrieval; webpage publication time unknown'}
+
+
 def earnings_metadata(text,published_at):
     if not published_at:return {},None
     from dateutil.parser import parse

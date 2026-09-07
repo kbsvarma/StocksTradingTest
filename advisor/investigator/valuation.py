@@ -68,6 +68,21 @@ def valuation(rows,ticker):
         if number(fcf) and fcf>0:
             out['fcf_yield_pct']=fcf/cap*100
             out['implied_growth_sensitivity']=[reverse_dcf(cap,fcf,discount=d) for d in (.08,.10,.12)]
+            revenue=trailing['revenue']
+            if revenue and revenue['end']==cfo['end'] and 0<fcf<revenue['value']:
+                hurdle=out['implied_growth_sensitivity'][1]
+                growth=hurdle.get('required_growth_pct')
+                if growth is not None:
+                    cash_margin=fcf/revenue['value'];years=hurdle['years']
+                    required_cash=fcf*(1+growth/100)**years
+                    out['operating_bridge']={'period_end':revenue['end'],'years':years,
+                        'discount_rate':hurdle['discount_rate'],'terminal_growth':hurdle['terminal_growth'],
+                        'required_year_end_fcf':required_cash,'current_fcf_margin_pct':cash_margin*100,
+                        'basis':'Exploratory cash-margin assumptions: current trailing margin, plus five and ten percentage points. Not management guidance or forecasts. End-year revenue requirements do not prove the intervening annual cash-flow path.',
+                        'scenarios':[{'assumed_fcf_margin_pct':margin*100,'required_year_end_revenue':required_cash/margin,
+                            'required_revenue_cagr_pct':((required_cash/margin/revenue['value'])**(1/years)-1)*100}
+                            for margin in (cash_margin,cash_margin+.05,cash_margin+.10) if margin<1]}
+                    provenance+=revenue['ids']
         income=trailing['net_income'];revenue=trailing['revenue']
         if income and income['value']>0:
             out['earnings_multiple_proxy']=cap/income['value'];provenance+=income['ids']

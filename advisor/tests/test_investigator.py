@@ -401,6 +401,21 @@ def test_equity_value_trace_uses_outstanding_not_weighted_diluted_shares():
     assert 'not quarterly' in value['equity_value_inputs']['share_basis']
 
 
+def test_operating_bridge_reconciles_revenue_and_cash_without_forecast_claim():
+    from advisor.investigator.valuation import valuation
+    rows=[fact(m,v,'2025-07-01','2026-06-30') for m,v in [('revenue',1000),('cfo',300),('capex',100)]]
+    for r in rows:r['payload']['duration_class']='annual'
+    rows += [fact('shares_outstanding',100,None,'2026-07-23',unit='shares'),
+             record(ticker='TEST',source='yahoo_price',kind='price',payload={'price':40,'currency':'USD'},observed_at=NOW,retrieved_at=NOW)]
+    value=valuation(annotate(rows,NOW),'TEST');bridge=value['operating_bridge']
+    assert bridge['current_fcf_margin_pct']==20
+    assert 'Not management guidance or forecasts' in bridge['basis']
+    for scenario in bridge['scenarios']:
+        revenue=1000*(1+scenario['required_revenue_cagr_pct']/100)**5
+        assert revenue*scenario['assumed_fcf_margin_pct']/100==pytest.approx(bridge['required_year_end_fcf'])
+    assert bridge['scenarios'][2]['required_revenue_cagr_pct']<bridge['scenarios'][0]['required_revenue_cagr_pct']
+
+
 def test_earnings_bridge_separates_gross_cost_and_below_operating_changes():
     rows=[]
     for year,values in [(2026,{'revenue':100,'gross_profit':55,'op_income':21,'net_income':30}),

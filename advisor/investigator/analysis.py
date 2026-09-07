@@ -308,6 +308,18 @@ def analyze(rows,ticker):
             finding('filing_'+r['id'],'financing' if form.startswith(('S-3','424','NT')) else 'ownership','neutral','Investigate '+form,f'Filed {r["published_at"]}; read terms and intent. Filing existence alone establishes no completed issuance or investment thesis.',[r['id']],2)
     # Rank research attention by consequence, not by counting correlated indicators as independent votes.
     findings.sort(key=lambda f:(f['materiality'],f['independent_origins']),reverse=True)
+    from .temporal import dated_call
+    for row in current(own,'document'):
+        if not dated_call(row) or row.get('authority') not in {'primary','issuer_statement'}:continue
+        text=row['payload'].get('text','')
+        match=re.search(r'\bshift(?:ing)?\s+from\s+finance(?:\s+leases)?\s+to\s+operating\s+leases\b',text,re.I)
+        if match:
+            findings.insert(0,{'id':'lease_classification_change','dimension':'accounting','direction':'neutral',
+                'title':'Reported capex needs a consistent lease basis',
+                'detail':'The dated issuer call describes a shift from finance to operating leases. A change in reported capex classification alone does not establish lower economic investment. Reconcile lease commitments and operating cash payments before treating lower capex as a cash-return catalyst.',
+                'evidence_ids':[row['id']],'materiality':3,'conditions':[],
+                'basis':'source_disclosure','independent_origins':1,'as_of':row.get('event_at')})
+            break
     hypotheses=[]
     for name,(dimension,question) in QUESTIONS.items():
         related=[f for f in findings if f['dimension']==dimension]

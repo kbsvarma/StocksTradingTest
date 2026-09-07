@@ -86,8 +86,18 @@ def render(data,principal,selected=None):
                         for ident in item['evidence_ids']:
                             row=lookup.get(ident)
                             if not row:continue
-                            st.caption(f"{row.get('title') or row['source']} · published {row.get('published_at')} · measured {row.get('period_end') or row.get('observed_at')}")
+                            basis=(f"call held {row.get('event_at')} · transcript retrieved {row.get('retrieved_at')}"
+                                if row.get('payload',{}).get('document_class')=='earnings_call'
+                                else f"measured {row.get('period_end') or row.get('observed_at')}")
+                            st.caption(f"{row.get('title') or row['source']} · published {row.get('published_at') or 'unknown'} · {basis}")
                             if row.get('url'):st.link_button('Read source',row['url'])
+            bridge=case.get('operating_bridge')
+            if bridge:
+                st.markdown('#### What business performance would support this price?')
+                st.caption(f"{bridge['years']}-year scenario · {bridge['discount_rate']:.0%} discount rate · {bridge['terminal_growth']:.0%} terminal growth. {bridge['basis']}")
+                st.dataframe(pd.DataFrame([{'Assumed FCF margin':f"{x['assumed_fcf_margin_pct']:.1f}%",
+                    'Required end-year revenue':f"${x['required_year_end_revenue']/1e9:,.1f}bn",
+                    'Required revenue CAGR':f"{x['required_revenue_cagr_pct']:.1f}%"} for x in bridge['scenarios']]),hide_index=True,use_container_width=True)
         if brief['drivers']:
             rich('<div class="ad-panel-head">WHAT MATTERS TO THE DECISION</div>')
             for line in brief['drivers']:st.write(line)

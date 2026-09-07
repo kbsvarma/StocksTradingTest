@@ -85,5 +85,11 @@ def reconcile(analysis):
             'Reported earnings need normalization before a valuation conclusion. Generic corporate free-cash-flow signals do not establish bank distress or cheapness.',
             'Reconcile reported and adjusted earnings, tangible book value, sustainable return on tangible equity, credit losses and regulatory capital.',
             [],v.get('price_date'))
+    lease=next((x for x in analysis.get('findings',[]) if x['id']=='lease_classification_change'),None)
+    if lease:
+        items.insert(0,{'id':lease['id'],'title':lease['title'],'observation':'A dated issuer call describes a change from finance to operating leases.',
+            'consequence':lease['detail'],'question':'Compare cash capex, finance-lease additions, operating-lease payments and total contractual investment on the same basis before identifying an investment slowdown.',
+            'evidence_ids':lease['evidence_ids'],'period':lease['as_of']})
     return {'basis':'Reconciled financial evidence; business explanations remain explicit research questions',
+            'operating_bridge':v.get('operating_bridge'),
             'items':items,'decision_standard':'An actionable valuation thesis requires a dated business scenario and a reason the current price fails to reflect it. A moving-average crossing or a small change from the last quarter is not sufficient.'}

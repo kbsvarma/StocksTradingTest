@@ -56,7 +56,8 @@ def collect(ticker,rows,data,*,fetcher=document):
         if fetched>8:break
         try:
             doc=fetcher(url)
-            if not doc.get('published_at'):continue # directory pages are navigation, not current evidence
+            call=doc.get('document_class')=='earnings_call'
+            if not doc.get('published_at') and not call:continue # directory pages are navigation, not current evidence
             title=doc.get('title','').lower()
             excerpt=doc['text'][:20000].lower()
             financial=any(term in title for term in ('financial results','earnings','quarterly results','full year results','fiscal'))
@@ -65,7 +66,8 @@ def collect(ticker,rows,data,*,fetcher=document):
             dimension='guidance' if guidance else 'fundamentals' if financial else 'catalysts'
             from .source_documents import earnings_metadata
             metadata,period=earnings_metadata(doc['text'],doc['published_at']) if financial else ({},None)
+            if call:metadata={k:doc[k] for k in ('document_class','event_basis_excerpt','availability_basis')}
             output.append(record(ticker=ticker,source='issuer_ir',kind='document',payload={'text':doc['text'],'discovered_from':parent,'dimension':dimension,'relevance':'direct' if financial or material else 'unverified','publication_basis':'visible document dateline' if doc.get('publication_excerpt') else 'page metadata',**metadata,**{k:doc[k] for k in ('format','page_spans') if k in doc}},
-                period_end=period,retrieved_at=utcnow(),published_at=doc['published_at'],url=url,authority='issuer_statement',independence='issuer:'+ticker,title=doc.get('title') or url.rsplit('/',1)[-1]))
+                period_end=period,retrieved_at=utcnow(),observed_at=utcnow() if call else None,event_at=doc.get('event_at'),published_at=doc.get('published_at'),url=url,authority='issuer_statement',independence='issuer:'+ticker,title=doc.get('title') or url.rsplit('/',1)[-1]))
         except Exception as exc:errors.append('Issuer release: '+type(exc).__name__+' ('+(urlparse(url).hostname or '')+urlparse(url).path+')')
     return output,errors

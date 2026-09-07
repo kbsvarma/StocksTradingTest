@@ -1,9 +1,11 @@
 # Advisor: local model and server migration
 
-The terminal, research collectors, source verification, synthesis, review, model
-weights and application state run on the Linux server. The Mac is only a browser
-and deployment client. Public sources still need network access; local inference
-needs no Gemini/OpenAI key. No personal assistant login is involved.
+The terminal, research collectors, source verification and application state run
+on the Linux server. Inference uses the provider selected in the private research
+configuration: Ollama runs local weights; Gemini calls Google's API. Restoring
+Ollama weights does not change that selection. The Mac is a browser and deployment
+client. Public sources still need network access; local inference needs no
+Gemini/OpenAI key. No personal assistant login is involved.
 
 ## Reproducible model installation
 

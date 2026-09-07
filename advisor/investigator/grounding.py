@@ -144,13 +144,24 @@ def condition_errors(proposal,analysis,*,verified_baselines=()):
         if condition in verified_baselines:continue
         remaining=re.sub(r'\b(?:10-?Q|10-?K|8-?K|6-?K|20-?F)\b','',condition,flags=re.I)
         # Reporting horizons are not valuation/risk thresholds.
-        remaining=re.sub(r'\bFY\s*20\d{2}\b|\bQ[1-4](?:\s+(?:FY)?20\d{2})?\b|\b20\d{2}-\d{2}-\d{2}\b|\b\d+[-\s]*(?:quarters?|months?|years?|weeks?|days?|sessions?)\b','',remaining,flags=re.I)
+        remaining=re.sub(r'\bFY\s*(?:20)?\d{2}\b|\bQ[1-4](?:\s+(?:FY)?20\d{2})?\b|\b20\d{2}-\d{2}-\d{2}\b|\b\d+[-\s]*(?:quarters?|months?|years?|weeks?|days?|sessions?)\b','',remaining,flags=re.I)
         for key,words in (('prior_20_high',('high','breakout')),('prior_20_low',('low','breakdown')),('ma200',('average','ma')),('ma50',('average','ma'))):
             value=technical.get(key)
             if value is not None and any(w in remaining.lower() for w in words):
                 alternatives=sorted({str(value),f'{value:.2f}'},key=len,reverse=True)
                 remaining=re.sub(r'(?<![\d.])(?:'+'|'.join(re.escape(v) for v in alternatives)+r')(?![\d.])','',remaining.replace(',',''))
-        word_number=r'\b(?:one|two|three|four|five|six|seven|eight|nine|ten|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)\b.{0,35}\b(?:percent|dollars|basis points|times)\b'
-        if re.search(r'\d',remaining) or re.search(word_number,remaining,re.I):
+        word_number=r'\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)\b.{0,35}\b(?:percent|dollars|basis points|times)\b'
+        verbal_cutoff=r'\b(?:above|below|exceed\w*)\s+(?:the\s+)?(?:(?:low|mid|high)[- ]?)?(?:teens|single[- ]digits|double[- ]digits)\b'
+        if re.search(r'\d',remaining) or re.search(word_number,remaining,re.I) or re.search(verbal_cutoff,remaining,re.I):
             errors.append('Unverified numerical condition: '+condition+' Use an observable qualitative condition or an exact dated computed technical level; do not invent a cutoff.')
     return errors
+
+
+def audit_generated(proposal,analysis):
+    """Apply the financial contract to providers using the prose output schema."""
+    result=copy.deepcopy(proposal)
+    value=valuation_statement(analysis.get('valuation',{}))
+    for insight in result.get('insights',[]):
+        insight['what_is_priced_in']=value
+    result['_condition_errors']=condition_errors(result,analysis)
+    return result
