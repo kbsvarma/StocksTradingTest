@@ -20,8 +20,8 @@ def quota_reason(response):
             limit=' ('+value+' requests per model/project)' if value.isdigit() else ''
             if 'RequestsPerDay' in ident:
                 return 'free quota or rate limit reached: daily request allowance exhausted'+limit+'; minute spacing cannot resolve this'
-            if 'TokensPerMinute' in ident:
-                return 'free quota or rate limit reached: per-minute token allowance exhausted'
+            if 'token' in ident.lower() and 'minute' in ident.lower():
+                return 'free quota or rate limit reached: per-minute token allowance exhausted'+(' ('+value+' tokens)' if value.isdigit() else '')
     return 'free quota or rate limit reached'
 
 
@@ -29,18 +29,27 @@ def generate(prompt,schema,config,timeout,post=None,output_tokens=24000):
     from .runtime import validate
     from .reasoner import SYSTEM
     model=config.get('ADVISOR_RESEARCH_MODEL','gemini-3.8-flash')
-    if not re.fullmatch(r'gemini-[a-z0-9.\-]+',model):raise ValueError('Invalid Gemini model name')
+    if not re.fullmatch(r'(?:gemini-[a-z0-9.\-]+|gemma-4-(?:26b-a4b|31b)-it)',model):raise ValueError('Invalid Google model name')
+    gemma=model.startswith('gemma-4-')
     body={'systemInstruction':{'parts':[{'text':SYSTEM}]},
           'contents':[{'role':'user','parts':[{'text':prompt}]}],
           'generationConfig':{'responseMimeType':'application/json','responseJsonSchema':schema,
                               'maxOutputTokens':output_tokens,'thinkingConfig':{'thinkingLevel':config.get('ADVISOR_RESEARCH_REASONING','medium').upper()}}}
+    if gemma:
+        # Gemma uses ordinary text generation. Validate the JSON locally before
+        # it enters the research pipeline; do not imply provider-constrained output.
+        from .ollama import schema_guide
+        body={'contents':[{'role':'user','parts':[{'text':SYSTEM+'\n'+prompt+
+            '\nReturn only JSON using this output contract (source aliases and passage options are in the evidence cards): '+json.dumps(schema_guide(schema))}]}],
+            'generationConfig':{'maxOutputTokens':min(output_tokens,24000),'temperature':.2}}
     try:
         started=time.monotonic()
         for attempt in range(2):
             if post is None:
                 from .provider_pacing import reserve
                 from pathlib import Path
-                reserve(Path.home()/'.local/share/advisor/provider-rate-limit/gemini.lock',timeout=timeout-(time.monotonic()-started))
+                reserve(Path.home()/'.local/share/advisor/provider-rate-limit/gemini.lock',interval=65 if gemma else 15,
+                        timeout=timeout-(time.monotonic()-started))
             r=(post or requests.post)('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',
                 headers={'x-goog-api-key':config['GEMINI_API_KEY'],'Content-Type':'application/json'},
                 json=body,timeout=(10,max(1,timeout-(time.monotonic()-started))),allow_redirects=False)
@@ -55,10 +64,14 @@ def generate(prompt,schema,config,timeout,post=None,output_tokens=24000):
         packet=r.json();candidate=packet.get('candidates',[{}])[0]
         if candidate.get('finishReason')!='STOP':raise RuntimeError('Gemini response stopped before completion: '+str(candidate.get('finishReason','no candidate')))
         text=''.join(p.get('text','') for p in candidate.get('content',{}).get('parts',[]) if not p.get('thought'))
+        if gemma:
+            fence=re.fullmatch(r'\s*```(?:json)?\s*([\s\S]*?)\s*```\s*',text)
+            if fence:text=fence[1]
         value=json.loads(text);validate(value,schema)
     except (ValueError,KeyError,TypeError,IndexError):raise RuntimeError('Gemini returned incomplete or invalid structured output') from None
     return value,{'provider':'gemini','model':model,'tokens':packet.get('usageMetadata',{}),
-                  'response_id':packet.get('responseId'),'search_grounding_enabled':False}
+                  'response_id':packet.get('responseId'),'search_grounding_enabled':False,
+                  'structured_output_validation':'application JSON schema' if gemma else 'provider schema plus application validation'}
 
 
 def rss_search(query):

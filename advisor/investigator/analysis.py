@@ -351,5 +351,7 @@ def analyze(rows,ticker):
             'findings':findings,'hypotheses':hypotheses,'coverage':coverage,
             'ranking_basis':'Research attention: materiality first, independently sourced support second. Not return probabilities or an additive buy score.'}
     from .reconciliation import reconcile
+    from .non_gaap import reconciliations
+    result['non_gaap_reconciliations']=reconciliations(rows,ticker,fund,fcites)
     result['reconciled_case']=reconcile(result)
     return result

@@ -34,6 +34,24 @@ def test_gemini_transport_keeps_credentials_out_of_url_and_omits_paid_tools():
     assert 'private-test-key' not in json.dumps(usage)
 
 
+def test_gemma_api_output_must_pass_application_schema_even_when_fenced():
+    class Response:
+        status_code=200
+        text='```json\n{"answer":"ok"}\n```'
+        def json(self):return {'candidates':[{'finishReason':'STOP','content':{'parts':[{'text':self.text}]}}]}
+    reply=Response()
+    def post(url,**kw):
+        assert 'systemInstruction' not in kw['json']
+        assert 'thinkingConfig' not in kw['json']['generationConfig']
+        assert 'private-test-key' not in url
+        return reply
+    config={**CONFIG,'ADVISOR_RESEARCH_MODEL':'gemma-4-31b-it'}
+    value,usage=gemini.generate('test',SCHEMA,config,30,post)
+    assert value=={'answer':'ok'} and usage['structured_output_validation']=='application JSON schema'
+    reply.text='```json\n{"invented_field":"ok"}\n```'
+    with pytest.raises(RuntimeError,match='invalid structured output'):gemini.generate('test',SCHEMA,config,30,post)
+
+
 @pytest.mark.parametrize('finish,code',[('MAX_TOKENS',200),('STOP',429),('STOP',403)])
 def test_failed_gemini_response_cannot_become_a_report(finish,code):
     with pytest.raises(RuntimeError):gemini.generate('test',SCHEMA,CONFIG,10,post=lambda *a,**k:response({'answer':'x'},finish,code))

@@ -26,6 +26,7 @@ def main():
     p.add_argument('--timeout',type=int,choices=(900,1800),default=900)
     args=p.parse_args()
     os.environ['ADVISOR_RESEARCH_PROVIDER']=args.provider
+    os.environ['ADVISOR_RESEARCH_MODEL']=args.model
     source=json.loads(args.report.read_text())
     from advisor.intelligence.contract import digest
     assert digest({k:v for k,v in source.items() if k!='snapshot_hash'})==source['snapshot_hash'],'Input snapshot integrity mismatch'
@@ -68,8 +69,9 @@ def main():
         proposal=draft['proposal'];calls.extend(draft.get('model_usage',[]))
     else:
         proposal,_=reasoner.synthesize(ticker,rows,analysis,runner=runner)
+    draft_path=args.output if args.draft_only else args.output.with_name(args.output.stem+'-draft.json')
+    atomic(draft_path,{'ticker':ticker,'evaluation_mode':'unapproved_synthesis_draft','input_snapshot_hash':source['snapshot_hash'],'model':args.model,'proposal':proposal,'model_usage':calls,'human_content_review_required':True,'integration_gate_passed':False})
     if args.draft_only:
-        atomic(args.output,{'ticker':ticker,'evaluation_mode':'unapproved_synthesis_draft','input_snapshot_hash':source['snapshot_hash'],'model':args.model,'proposal':proposal,'model_usage':calls,'human_content_review_required':True,'integration_gate_passed':False})
         print(json.dumps({'ticker':ticker,'draft_saved':str(args.output),'approved':False}),flush=True)
         return
     review,_=reasoner.review(ticker,proposal,rows,runner=runner,analysis=analysis)

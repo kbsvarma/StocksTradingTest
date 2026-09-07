@@ -86,6 +86,19 @@ def reconcile(analysis):
             'Reconcile reported and adjusted earnings, tangible book value, sustainable return on tangible equity, credit losses and regulatory capital.',
             [],v.get('price_date'))
     lease=next((x for x in analysis.get('findings',[]) if x['id']=='lease_classification_change'),None)
+    for bridge in analysis.get('non_gaap_reconciliations',[]):
+        if bridge.get('rounded_headline'):
+            items.insert(0,{'id':'non_gaap_'+bridge['scope'],'title':'Separate headline profit from company-adjusted earnings',
+                'observation':f"Reported quarterly net income was {bridge['reported_net_income']/1e9:.3f}bn USD; management disclosed approximately {bridge['adjusted_net_income']/1e9:.1f}bn excluding {bridge['scope']}.",
+                'consequence':f"Company-adjusted earnings are approximately {bridge['adjusted_share_of_reported_pct']:.0f}% of reported earnings. "+bridge['interpretation'] if bridge.get('adjusted_share_of_reported_pct') is not None else bridge['interpretation'],
+                'question':'Reconcile the excluded items, taxes and sustainable returns on equity before using reported earnings multiples.',
+                'evidence_ids':bridge['evidence_ids'],'period':bridge['period_end']})
+            continue
+        items.insert(0,{'id':'non_gaap_'+bridge['scope'],'title':'Reconcile reported and company-adjusted earnings',
+            'observation':f"{bridge['scope']} adjustment: reported net income {bridge['reported_net_income']/1e9:.3f}bn USD plus adjustment {bridge['reconciliation_adjustment']/1e9:+.3f}bn equals company-adjusted income {bridge['adjusted_net_income']/1e9:.3f}bn.",
+            'consequence':f"This item contributed {bridge['impact_on_reported_earnings']/1e9:+.3f}bn to current reported earnings versus {bridge['prior_impact_on_reported_earnings']/1e9:+.3f}bn in the comparable prior quarter: a {bridge['year_over_year_change_in_impact']/1e9:+.3f}bn year-over-year change. "+bridge['interpretation'],
+            'question':'Identify any other discrete gains or expenses that remain after this source-defined adjustment before estimating recurring earnings.',
+            'evidence_ids':bridge['evidence_ids'],'period':bridge['period_end']})
     if lease:
         items.insert(0,{'id':lease['id'],'title':lease['title'],'observation':'A dated issuer call describes a change from finance to operating leases.',
             'consequence':lease['detail'],'question':'Compare cash capex, finance-lease additions, operating-lease payments and total contractual investment on the same basis before identifying an investment slowdown.',

@@ -29,6 +29,13 @@ def test_price_condition_preserves_dated_computed_level():
     with pytest.raises(ValueError):validate({**condition,'kind':'reported_metric'},conditions.schema(fixture()))
 
 
+def test_event_condition_names_a_readable_future_source_instead_of_an_internal_alias():
+    event={'kind':'event','event':'Receivables collection improves alongside reported sales.',
+           'source_to_check':'next issuer earnings release','time_window':'Next quarter'}
+    validate(event,conditions.schema(fixture()))
+    with pytest.raises(ValueError):validate({**event,'source_to_check':'E01 or E02'},conditions.schema(fixture()))
+
+
 def test_hydration_binds_condition_sources_and_rejects_hidden_event_cutoffs():
     rows=[{'id':key,'kind':'fundamental','payload':{'value':value},'temporal':{'state':'current'}} for key,value in [('cfo',63),('income',100)]]
     result=hydrate({'insights':[{'id':'one','evidence':[]}],

@@ -40,7 +40,10 @@ def schema(analysis):
                 'window':{'type':'string','enum':windows}}))
     choices.append(obj({'kind':{'type':'string','enum':['event']},
         'event':{'type':'string','minLength':20,'maxLength':350},
-        'source_to_check':{'type':'string','minLength':5,'maxLength':120},
+        'source_to_check':{'type':'string','enum':['next issuer earnings release','next issuer earnings call',
+            'next SEC filing','issuer investor-relations update','regulatory decision publication',
+            'clinical-trial results or registry update','exchange short-interest publication',
+            'current issuer price and volume history','dated analyst consensus update']},
         'time_window':{'type':'string','minLength':3,'maxLength':80}}))
     return {'oneOf':choices}
 

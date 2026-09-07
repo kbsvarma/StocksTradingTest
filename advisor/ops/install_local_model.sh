@@ -6,7 +6,8 @@ case "$MODEL" in
   qwen3.5:9b) MODEL_SHA=6488c96fa5faab64bb65cbd30d4289e20e6130ef535a93ef9a49f42eda893ea7 ;;
   gemma4:12b) MODEL_SHA=4eb23ef187e2c5462566d6a1d3bbbc2f1346d0b4327cbb66d58fffbcc9b2b05c ;;
   qwen3.8:27b) MODEL_SHA=22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643 ;;
-  *) echo 'Supported pinned models: qwen3.5:9b, gemma4:12b, qwen3.8:27b'; exit 1 ;;
+  gemma4:31b) MODEL_SHA=6316f0629137b426c9d9b853ffc4c8209589f30ee39aebede6285096c0ff47e7 ;;
+  *) echo 'Supported pinned models: qwen3.5:9b, gemma4:12b, qwen3.8:27b, gemma4:31b'; exit 1 ;;
 esac
 [[ $(uname -s) == Linux && $(uname -m) == x86_64 ]] || { echo 'Linux x86_64 required'; exit 1; }
 VERSION=0.33.3

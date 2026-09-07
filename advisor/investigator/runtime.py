@@ -35,7 +35,7 @@ def status():
     try:
         c=config();name=provider(c)
         return {'configured':name=='ollama' or bool(c.get('GEMINI_API_KEY' if name=='gemini' else 'OPENAI_API_KEY')),
-                'provider':'Local model / Ollama' if name=='ollama' else 'Gemini API' if name=='gemini' else 'OpenAI API',
+                'provider':'Local model / Ollama' if name=='ollama' else 'Google model API' if name=='gemini' and c.get('ADVISOR_RESEARCH_MODEL','').startswith('gemma-') else 'Gemini API' if name=='gemini' else 'OpenAI API',
                 'model':c.get('ADVISOR_RESEARCH_MODEL','qwen3.5:9b' if name=='ollama' else 'gemini-3.8-flash' if name=='gemini' else 'gpt-6-astra')}
     except (OSError,ValueError):
         return {'configured':False,'provider':'unconfigured','model':'unconfigured'}

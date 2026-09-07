@@ -107,12 +107,24 @@ def annotate(rows, as_of):
         key=(r['ticker'],r['payload'].get('metric'),r['payload'].get('duration_class'))
         if r['kind']=='fundamental' and r.get('period_end','')<latest.get(key,'') and r['temporal']['state']=='current':
             r['temporal']={'state':'context_only','age_days':r['temporal']['age_days'],'reasons':['superseded_measurement_period']}
-    latest_filing={}
+    latest_filing={};original_periods={}
+    for r in rows:
+        if periodic_document(r) and r['temporal']['state']=='current' and r.get('authority') in {'primary','issuer_statement'}:
+            original_periods[r['ticker']]=max(original_periods.get(r['ticker'],''),r.get('period_end') or '')
     for r in rows:
         if periodic_document(r) and r['temporal']['state']=='current':
+            if r['ticker'] in original_periods:
+                latest_filing[r['ticker']]=original_periods[r['ticker']]
+                continue
             latest_filing[r['ticker']]=max(latest_filing.get(r['ticker'],''),r.get('period_end') or '')
     for r in rows:
         if (periodic_document(r) and
             r['temporal']['state']=='current' and (r.get('period_end') or '')<latest_filing.get(r['ticker'],'')):
             r['temporal']={'state':'context_only','age_days':r['temporal']['age_days'],'reasons':['superseded_measurement_period']}
+        original=original_periods.get(r['ticker'])
+        if (original and periodic_document(r) and r['temporal']['state']=='current'
+                and r.get('authority') not in {'primary','issuer_statement'} and r.get('period_end')!=original):
+            difference=abs((timestamp(iso(r['period_end']))-timestamp(iso(original))).days)
+            if difference<=7:
+                r['temporal']={**r['temporal'],'state':'context_only','reasons':['financial_period_disagrees_with_original_disclosure']}
     return rows

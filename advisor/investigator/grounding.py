@@ -76,6 +76,7 @@ def hydrate(proposal,analysis,rows):
     result=copy.deepcopy(proposal);lookup={r['id']:r for r in rows};findings={f['id']:f for f in analysis.get('findings',[])}
     for insight in result.get('insights',[]):
         chosen=insight.pop('finding_ids',[])
+        computed_ids=[]
         if any(key not in findings for key in chosen):raise ValueError('Unknown calculated finding')
         observations=[];citations=insight.setdefault('evidence',[])
         documents=[]
@@ -87,6 +88,7 @@ def hydrate(proposal,analysis,rows):
             for ident in finding['evidence_ids']:
                 if ident not in lookup:raise ValueError('Calculated finding has missing source evidence')
                 row=lookup[ident];payload=row['payload']
+                computed_ids.append(ident)
                 if 'value' in payload:excerpt='"value": '+json.dumps(payload['value'])
                 elif 'text' in payload:excerpt=payload['text'][:250]
                 elif payload.get('bars'):excerpt=json.dumps(payload['bars'][-1],ensure_ascii=False)[1:-1][:250]
@@ -101,6 +103,8 @@ def hydrate(proposal,analysis,rows):
         unique={}
         for c in citations:unique[(c['source_id'],c['excerpt'],c['use'])]=c
         insight['evidence']=list(unique.values())
+        insight['_computed_citation_ids']=list(dict.fromkeys(computed_ids))
+        insight['_computed_finding_ids']=list(chosen)
     from .conditions import render
     verified=set();condition_sources=[];basis=[]
     def render_one(value):
@@ -121,6 +125,7 @@ def hydrate(proposal,analysis,rows):
             elif payload.get('bars'):excerpt=json.dumps(payload['bars'][-1],ensure_ascii=False)[1:-1][:250]
             else:excerpt=json.dumps(payload,ensure_ascii=False)[:250]
             result['insights'][0]['evidence'].append({'source_id':ident,'excerpt':excerpt,'use':'current' if row['temporal']['state']=='current' else 'historical_comparison'})
+            result['insights'][0].setdefault('_computed_citation_ids',[]).append(ident)
     result['condition_basis']=basis
     result['_condition_errors']=condition_errors(result,analysis,verified_baselines=verified)
 
