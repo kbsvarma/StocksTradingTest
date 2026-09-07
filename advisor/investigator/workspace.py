@@ -72,6 +72,9 @@ def render(data,principal,selected=None):
     rich(f'<div class="ad-verdict {brief["tone"]}"><div class="ad-kicker">{safe(brief["verdict"])}</div><p>{safe(brief["summary"])}</p><small>AS OF {safe(report["as_of"][:19].replace("T"," "))} UTC · {safe(brief["basis"])}</small></div>')
     overview,evidence,sources=st.tabs(['DECISION BRIEF','EVIDENCE & DATES','SOURCES & GAPS'])
     with overview:
+        if s.get('review_status')=='source_linked_brief':
+            st.markdown(s['report_markdown'].replace('$',r'\$'))
+            st.caption(s['validation_basis'])
         from .reconciliation import reconcile
         case=reconcile(analysis)
         if case['items']:
@@ -212,6 +215,7 @@ def render(data,principal,selected=None):
 
 
 def readable_markdown(report,brief):
+    if report.get('synthesis',{}).get('review_status')=='source_linked_brief':return markdown(report)
     if brief.get('insights'):return markdown({**report,'synthesis':{**report['synthesis'],'insights':brief['insights']}})
     lines=[f'# {report["ticker"]} — decision brief',f'As of {report["as_of"]}',f'## {brief["verdict"]}',brief['summary'],*brief['drivers']]
     for f in brief['findings']:

@@ -430,6 +430,11 @@ def test_earnings_bridge_separates_gross_cost_and_below_operating_changes():
     assert result['op_income_amount_change']==1
     assert result['below_operating_amount_change']==9
     assert len(cites['earnings_bridge'])==8
+    without_gross=[r for r in rows if r['payload']['metric']!='gross_profit']
+    partial,partial_cites=fundamental_metrics(annotate(without_gross,NOW))
+    assert partial['below_operating_amount_change']==9
+    assert 'operating_cost_leverage_pp' not in partial
+    assert len(partial_cites['earnings_bridge'])==6
 
 
 @pytest.mark.parametrize('initial_pass',[False,True])

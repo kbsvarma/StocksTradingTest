@@ -56,3 +56,10 @@ def test_margin_expansion_does_not_imply_majority_of_profit_dollars():
     a['fundamentals']['net_income_amount_change']=-1e9
     item=next(i for i in reconcile(a)['items'] if i['id']=='earnings')
     assert 'of the dollar increase' not in item['consequence']
+
+
+def test_missing_gross_profit_does_not_hide_a_supported_net_operating_bridge():
+    a=microsoft();a['fundamentals'].pop('gross_profit_margin_change_pp')
+    item=next(i for i in reconcile(a)['items'] if i['id']=='earnings')
+    assert 'gross-margin comparison unavailable' in item['observation']
+    assert 'operating margin +0.21pp' in item['observation']

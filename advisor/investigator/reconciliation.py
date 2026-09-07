@@ -18,7 +18,7 @@ def reconcile(analysis):
     period=f.get('revenue_period')
     gross=f.get('gross_profit_margin_change_pp');operating=f.get('op_income_margin_change_pp')
     net=f.get('net_income_margin_change_pp');below=f.get('below_operating_margin_change_pp')
-    if all(number(x) for x in (gross,operating,net,below)):
+    if all(number(x) for x in (operating,net,below)):
         consequence=('Most of the net-margin improvement arose below operating profit. '
                      'Headline earnings growth therefore overstates the improvement in operating profitability.'
                      if net>0 and below>net/2 else
@@ -30,7 +30,7 @@ def reconcile(analysis):
             if amount>0:
                 consequence+=f' That residual accounts for {(amount-op_amount)/amount*100:.1f}% of the dollar increase in net income. The share of net-margin expansion is a different calculation.'
         add('earnings','Separate operating improvement from headline profit',
-            f'Quarter ended {period}: gross margin {gross:+.2f}pp; operating margin {operating:+.2f}pp; '
+            f'Quarter ended {period}: '+(f'gross margin {gross:+.2f}pp; ' if number(gross) else 'gross-margin comparison unavailable; ')+f'operating margin {operating:+.2f}pp; '
             f'net margin {net:+.2f}pp. The below-operating residual is {below:+.2f}pp.',consequence,
             'Reconcile taxes, investment gains, interest and other income in the latest release and filing. '
             'Quantify each disclosed contribution; do not attribute the entire residual to one item.',

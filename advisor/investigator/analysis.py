@@ -102,9 +102,10 @@ def fundamental_metrics(rows):
         out['operating_cost_share_pct']=out['gross_profit_margin_pct']-out['op_income_margin_pct']
         out['prior_operating_cost_share_pct']=out['gross_profit_prior_margin_pct']-out['op_income_prior_margin_pct']
         out['operating_cost_leverage_pp']=out['prior_operating_cost_share_pct']-out['operating_cost_share_pct']
+    if all(k in out for k in ('op_income_margin_change_pp','net_income_margin_change_pp')):
         out['below_operating_margin_change_pp']=out['net_income_margin_change_pp']-out['op_income_margin_change_pp']
         out['below_operating_amount_change']=out['net_income_amount_change']-out['op_income_amount_change']
-        citations['earnings_bridge']=list(dict.fromkeys(ident for metric in ('gross_profit','op_income','net_income') for ident in citations[metric+'_margin_change_pp']))
+        citations['earnings_bridge']=list(dict.fromkeys(ident for metric in ('gross_profit','op_income','net_income') for ident in citations.get(metric+'_margin_change_pp',[])))
     # Cash-flow statements are often YTD. Pair exact windows and label them as such.
     cashflows=[r for r in facts if r['payload']['metric']=='cfo' and r['temporal']['state']=='current']
     if cashflows:
@@ -243,6 +244,12 @@ def analyze(rows,ticker):
             f'The implied operating-expense share excluding cost of revenue, (gross profit minus operating income) / revenue, moved from {fund["prior_operating_cost_share_pct"]:.1f}% to {fund["operating_cost_share_pct"]:.1f}%, contributing {fund["operating_cost_leverage_pp"]:+.1f}pp to operating margin. '
             f'Together these explain the {fund["op_income_margin_change_pp"]:+.1f}pp operating-margin change. Net margin changed {fund["net_income_margin_change_pp"]:+.1f}pp; the residual {fund["below_operating_margin_change_pp"]:+.1f}pp arose below operating profit. '
             'Reconcile interest, taxes and other non-operating items before calling that residual operating efficiency. This expense share excludes cost of revenue, already captured in gross margin; it does not identify a specific expense category or prove sustainability.',
+            fcites['earnings_bridge'],3 if abs(fund['below_operating_margin_change_pp'])>=2 else 2)
+    elif 'below_operating_margin_change_pp' in fund:
+        finding('earnings_bridge','accounting','neutral','Separate operating and below-operating profit changes',
+            f'For the comparable quarter ending {fund["revenue_period"]}, operating margin changed {fund["op_income_margin_change_pp"]:+.1f}pp and net margin {fund["net_income_margin_change_pp"]:+.1f}pp. '
+            f'The below-operating residual is {fund["below_operating_margin_change_pp"]:+.1f}pp. Reconcile taxes, interest and investment gains before extrapolating headline earnings. '
+            'A comparable gross-profit input is unavailable, so this does not decompose operating performance into gross margin and operating expenses.',
             fcites['earnings_bridge'],3 if abs(fund['below_operating_margin_change_pp'])>=2 else 2)
     operating_growth=fund.get('op_income_yoy_pct')
     if number(eg) and number(operating_growth) and eg-operating_growth>50 and fund.get('net_income_period')==fund.get('op_income_period'):

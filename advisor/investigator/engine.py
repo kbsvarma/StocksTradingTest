@@ -104,7 +104,14 @@ def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=re
             atomic(callroot/'failure.json',{'error':type(exc).__name__+': '+str(exc)[:200],'at':utcnow().isoformat()})
             raise
     research_packets=[];proposal={};review={};model_limit=False
-    if deep:
+    from .runtime import config
+    concise=deep and model is reasoner.invoke and config().get('ADVISOR_RESEARCH_WORKFLOW')=='concise'
+    if concise:
+        update('synthesize','Writing the investment report from original sources and checked financial calculations')
+        from .brief import generate
+        synthesis,usage=generate(ticker,stamped,analysis,trace=lambda value:atomic(root/'model_output.json',value))
+        model_usage.append(usage);atomic(root/'proposal.json',synthesis)
+    if deep and not concise:
         for round_number in range(1,5):
             update('research',f'Research round {round_number}: follow material leads and challenge the strongest thesis')
             try:
@@ -190,7 +197,7 @@ def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=re
               'sources':inventory(),'collection':source_results,'errors':errors,'source_rejections':rejections,
               'search':{'queries_run':list(dict.fromkeys(searches)),'rounds_completed':len(research_packets),
                         'relationships':relationships,'unresolved':list(dict.fromkeys(q for p in research_packets for q in p.get('unresolved',[]))),
-                        'stop_reason':'bounded_follow_up_completed' if any(p.get('purpose')=='post_synthesis_follow_up' for p in research_packets) else 'research_limit_reached' if len(research_packets)>=4 else 'questions_resolved_or_no_new_verified_evidence' if len(research_packets)>=2 else 'model_unavailable_or_incomplete' if deep else 'evidence_scan_requested',
+                        'stop_reason':'original_sources_read_no_additional_model_search' if concise else 'bounded_follow_up_completed' if any(p.get('purpose')=='post_synthesis_follow_up' for p in research_packets) else 'research_limit_reached' if len(research_packets)>=4 else 'questions_resolved_or_no_new_verified_evidence' if len(research_packets)>=2 else 'model_unavailable_or_incomplete' if deep else 'evidence_scan_requested',
                         'universal_exhaustion_claimed':False},
               'model_usage':model_usage,'stages':stages,'methodology_version':'investigator-2',
               'investigator_code_sha256':source_revision,
@@ -198,7 +205,7 @@ def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=re
     snapshot['snapshot_hash']=digest(snapshot)
     atomic(root/'report.json',snapshot);(root/'report.md').write_text(markdown(snapshot))
     atomic(root/'research.json',{'rounds':research_packets,'review':review})
-    state='complete' if synthesis.get('review_status')=='model_challenged' else 'partial'
+    state='complete' if synthesis.get('review_status') in {'model_challenged','source_linked_brief'} else 'partial'
     atomic(root/'status.json',{'run_id':run_id,'ticker':ticker,'state':state,'started_at':started.isoformat(),
                              'updated_at':finished.isoformat(),'stage':'complete','detail':f'{len(stamped)} evidence records; {len(analysis["findings"])} computed findings; {len(synthesis["insights"])} challenged insights'})
     atomic(root.parent/'latest.json',{'run_id':run_id,'as_of':finished.isoformat(),'snapshot_hash':snapshot['snapshot_hash']})
@@ -207,6 +214,8 @@ def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=re
 
 def markdown(report):
     s=report['synthesis'];a=report['analysis'];lookup={r['id']:r for r in report['evidence']}
+    if s.get('review_status')=='source_linked_brief':
+        return f'# {report["ticker"]} — investment intelligence\nAs of {report["as_of"]}\n\n'+s['report_markdown']+'\n\n'+s['validation_basis']
     lines=[f'# {report["ticker"]} — investment intelligence',f'As of {report["as_of"]} · run {report["run_id"]}',
            '',f'**{s["action"].replace("_"," ").upper()}**',s['summary'],s['action_reason'],'','## Substantial insights']
     for i in s['insights']:
