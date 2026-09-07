@@ -37,6 +37,26 @@ def test_catalog_covers_every_dimension_without_duplicate_sources():
     assert set(DIMENSIONS)=={s.dimension for s in SOURCES}
 
 
+def test_margin_level_is_distinct_from_percentage_point_change():
+    rows=[fact('revenue',120,'2026-04-01','2026-06-30'),fact('net_income',36,'2026-04-01','2026-06-30'),
+          fact('revenue',100,'2025-04-01','2025-06-30'),fact('net_income',20,'2025-04-01','2025-06-30')]
+    result,citations=fundamental_metrics(annotate(rows,NOW))
+    assert result['net_income_margin_pct']==30
+    assert result['net_income_prior_margin_pct']==20
+    assert result['net_income_margin_change_pp']==10
+    assert len(citations['net_income_margin_change_pp'])==4
+
+
+def test_small_estimate_changes_do_not_become_primary_thesis_drivers():
+    row=record(ticker='TEST',source='yahoo_estimates',kind='estimate',
+        payload={'dataset':'eps_trend','rows':[{'period':'0y','current':10.02,'30daysAgo':10}]},retrieved_at=NOW,observed_at=NOW)
+    result=analyze(annotate([row],NOW),'TEST')
+    finding=next(x for x in result['findings'] if x['id']=='estimate_revision')
+    assert finding['materiality']==1 and finding['direction']=='neutral'
+    from advisor.investigator.grounding import decision_findings
+    assert finding not in decision_findings(result)
+
+
 @pytest.mark.parametrize('bad',['../../secrets','NVDA;cat','NVDA INT','https://localhost','A'*30,''])
 def test_symbol_rejects_path_and_command_injection(bad):
     with pytest.raises(ValueError):symbol(bad)
@@ -50,6 +70,24 @@ def test_private_evidence_urls_are_rejected():
 def test_republication_cannot_make_an_old_quarter_current():
     r=fact('revenue',100,'2025-01-01','2025-03-31',published='2026-09-06T10:00:00Z')
     assert 'old_measurement_period' in assess(r,NOW)['reasons']
+
+
+def test_latest_quarterly_filing_is_not_expired_like_a_news_article():
+    latest=record(ticker='TEST',source='sec_exhibits',kind='document',
+        payload={'text':'Quarterly filing text','document_class':'periodic_filing','form':'10-Q'},
+        period_end='2026-06-30',published_at='2026-07-20',retrieved_at=NOW)
+    assert assess(latest,NOW)['state']=='current'
+    old=copy.deepcopy(latest);old['period_end']='2025-06-30';old['published_at']=NOW.isoformat()
+    assert 'old_measurement_period' in assess(old,NOW)['reasons']
+    older=copy.deepcopy(latest);older['period_end']='2026-03-31'
+    older['payload']['form']='10-K'
+    # A newer periodic filing supersedes an otherwise recent financial period.
+    older['period_end']='2026-05-31'
+    assert annotate([older,latest],NOW)[0]['temporal']['reasons']==['superseded_measurement_period']
+    missing=copy.deepcopy(latest);missing['period_end']=None
+    assert 'measurement_period_unknown' in assess(missing,NOW)['reasons']
+    article=doc(published_at='2026-07-20')
+    assert assess(article,NOW)['state']=='context_only'
 
 
 def test_newer_filing_does_not_replace_latest_measurement():
@@ -198,6 +236,50 @@ def test_source_correct_quote_still_rejected_when_claim_review_missing():
     assert result['action']=='investigate_further'
 
 
+def test_review_of_different_insights_cannot_approve_report():
+    r=annotate([doc()],NOW)[0]
+    reviewed={'insights':[{'id':'one','supported':True,'reason':'Something else'},
+                           {'id':'invented','supported':True,'reason':'Unrequested claim'}],
+              'action_supported':True}
+    result=finalize(proposal(r),reviewed,[r])
+    assert result['action']=='investigate_further' and not result['insights']
+    assert 'review_does_not_match_proposal' in result['rejected_insights'][0]['reasons']
+
+
+def test_bank_cash_movements_do_not_trigger_industrial_cash_quality_warning():
+    profile=record(ticker='TEST',source='sec_filings',kind='profile',payload={'sic':'6021'},observed_at=NOW,retrieved_at=NOW)
+    rows=[profile]
+    for metric,value in [('cfo',-80),('net_income',10)]:
+        rows.append(record(ticker='TEST',source='sec_facts',kind='fundamental',
+            payload={'metric':metric,'value':value,'unit':'USD','duration_class':'ytd'},
+            period_start='2026-01-01',period_end='2026-06-30',published_at='2026-07-20',retrieved_at=NOW))
+    result=analyze(annotate(rows,NOW),'TEST')
+    assert 'cash_conversion' not in result['fundamentals']
+    assert not any(f['id']=='cash_conversion' for f in result['findings'])
+    assert result['valuation']['cash_flow_model']=='not_applicable_financial_institution'
+    assert rows[1]['payload']['value']==-80
+
+
+def test_small_inventory_balance_is_scaled_before_ranking_risk():
+    rows=[fact('revenue',100,'2026-04-01','2026-06-30'),fact('revenue',90,'2025-04-01','2025-06-30'),
+          fact('inventory',2,None,'2026-06-30'),fact('inventory',1,None,'2025-06-30')]
+    result=analyze(annotate(rows,NOW),'TEST')
+    item=next(f for f in result['findings'] if f['id']=='inventory_divergence')
+    assert item['materiality']==1 and item['direction']=='neutral'
+    assert '2.0% of quarterly revenue' in item['detail']
+
+
+def test_profit_surge_does_not_imply_operating_growth_without_reconciliation():
+    rows=[]
+    for metric,new,old in [('net_income',120,30),('op_income',40,32)]:
+        rows.extend([fact(metric,new,'2026-04-01','2026-06-30'),fact(metric,old,'2025-04-01','2025-06-30')])
+    result=analyze(annotate(rows,NOW),'TEST')
+    item=next(f for f in result['findings'] if f['id']=='earnings_normalization')
+    assert item['direction']=='neutral' and item['materiality']==3
+    assert '300.0%' in item['detail'] and '25.0%' in item['detail']
+    assert len(item['evidence_ids'])==4
+
+
 def test_ticker_command_can_open_uncovered_investigation():
     from advisor.intelligence.terminal_data import parse_command
     assert parse_command('NVDA INT',{'TEST'})==('INT','NVDA',None)
@@ -231,6 +313,21 @@ def test_document_publication_ignores_dates_of_related_articles(monkeypatch):
     page=b'<html><meta property="article:published_time" content="2026-09-04T12:00:00Z"><body>Current article<time datetime="2025-01-01T00:00:00Z">Related article</time></body></html>'
     monkeypatch.setattr(collectors,'fetch',lambda url:page)
     assert collectors.document('https://example.com')['published_at']=='2026-09-04T12:00:00+00:00'
+
+
+def test_filing_reader_removes_hidden_taxonomy_but_keeps_visible_disclosures(monkeypatch):
+    from advisor.investigator import collectors
+    page=b'<html><ix:header><ix:hidden>Taxonomy noise</ix:hidden></ix:header><div style="display: none">Hidden context</div><p>Supply commitments were $279 billion.</p></html>'
+    monkeypatch.setattr(collectors,'fetch',lambda url:page)
+    assert collectors.document('https://example.com')['text']=='Supply commitments were $279 billion.'
+
+
+def test_compact_passages_cover_different_material_disclosures():
+    from advisor.investigator.reasoner import passages
+    text='Introduction. '+('filler '*200)+'Extended payment terms affect cash collection. '+('filler '*200)+'Guarantees create contingent exposure. '+('filler '*200)+'Supply commitments increased. '+('filler '*200)
+    selected=passages(text,2500)
+    assert all(x in selected for x in ('Extended payment terms','Guarantees create','Supply commitments'))
+    assert len(selected)<2600
 
 
 def test_issuer_discovery_reads_dated_results_without_model(tmp_path):
@@ -270,3 +367,35 @@ def test_investigator_cannot_invoke_a_personal_assistant_account(monkeypatch):
     monkeypatch.setattr(subprocess,'run',forbidden)
     with pytest.raises(RuntimeError,match='No research model connected'):
         invoke('Investigate TEST',{'type':'object'},web=True)
+
+
+def test_cashflow_change_uses_comparable_ytd_windows_and_binds_all_inputs():
+    rows=[]
+    for year,vals in [(2026,{'cfo':80,'net_income':100,'capex':20}), (2025,{'cfo':90,'net_income':75,'capex':10})]:
+        for metric,value in vals.items():
+            row=fact(metric,value,f'{year}-01-01',f'{year}-06-30')
+            row['payload']['duration_class']='ytd';rows.append(row)
+    rows.append(fact('net_income',30,'2026-04-01','2026-06-30'))
+    result,cites=fundamental_metrics(annotate(rows,NOW))
+    assert result['cashflow_net_income']==100
+    assert result['cash_conversion']==pytest.approx(.8)
+    assert result['prior_cash_conversion']==pytest.approx(1.2)
+    assert result['cash_conversion_change_pp']==pytest.approx(-40)
+    assert result['free_cash_flow_yoy_pct']==pytest.approx(-25)
+    assert len(set(cites['cash_conversion_change_pp']))==4
+    assert len(set(cites['free_cash_flow_yoy_pct']))==4
+    for row in rows:
+        if row['period_end']=='2025-06-30':row['period_start']='2025-04-01';row['payload']['duration_class']='quarter'
+    result,_=fundamental_metrics(annotate(rows,NOW))
+    assert 'prior_cash_conversion' not in result
+
+
+def test_equity_value_trace_uses_outstanding_not_weighted_diluted_shares():
+    from advisor.investigator.valuation import valuation
+    quote=record(ticker='TEST',source='yahoo_price',kind='price',payload={'price':20,'currency':'USD'},observed_at=NOW,retrieved_at=NOW)
+    shares=fact('shares_outstanding',1000,None,'2026-06-30',unit='shares')
+    diluted=fact('shares_diluted',1100,'2026-04-01','2026-06-30',unit='shares')
+    value=valuation(annotate([quote,shares,diluted],NOW),'TEST')
+    assert value['equity_value_proxy']==20000
+    assert value['equity_value_inputs']['reported_shares_outstanding']==1000
+    assert 'not quarterly' in value['equity_value_inputs']['share_basis']

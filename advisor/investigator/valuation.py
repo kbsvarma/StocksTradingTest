@@ -58,6 +58,7 @@ def valuation(rows,ticker):
             return out
         cap=q['payload']['price']*sh['payload']['value'];out['equity_value_proxy']=cap
         out['share_count_date']=sh['period_end'];out['price_date']=q['observed_at'];provenance += [q['id'],sh['id']]
+        out['equity_value_inputs']={'reference_price':q['payload']['price'],'currency':'USD','reported_shares_outstanding':sh['payload']['value'],'share_basis':'point-in-time shares outstanding, not quarterly weighted diluted shares'}
         out['equity_value_basis']='Current reference price × reported dated shares; not live market capitalization; corporate actions since the share date require reconciliation'
         if number(fcf) and fcf>0:
             out['fcf_yield_pct']=fcf/cap*100

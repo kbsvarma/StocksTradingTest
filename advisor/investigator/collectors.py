@@ -161,8 +161,11 @@ def sec(ticker, data, *, get=getjson):
     for r in selected:
         try:
             body=document(r['url']);now=utcnow()
-            rows.append(record(ticker=ticker,source='sec_exhibits',kind='document',payload={'text':body['text'],'links':body['links']},
-                retrieved_at=now,published_at=r['published_at'],url=r['url'],authority='primary',independence=r['independence'],title=r['title']))
+            periodic=r['payload']['form'] in {'10-Q','10-K','20-F'}
+            period=r['payload'].get('report_date') if periodic else None
+            rows.append(record(ticker=ticker,source='sec_exhibits',kind='document',payload={'text':body['text'],'links':body['links'],
+                'document_class':'periodic_filing' if periodic else 'event_filing','form':r['payload']['form']},
+                period_end=period or None,retrieved_at=now,published_at=r['published_at'],url=r['url'],authority='primary',independence=r['independence'],title=r['title']))
             if r['payload']['form']=='8-K':
                 base=r['url'].rsplit('/',1)[0]+'/'
                 exhibit_links=[u for u in body['links'] if u.startswith(base) and re.search(r'(ex.?99|exhibit.?99|earn|release)',u,re.I)][:2]
@@ -204,7 +207,11 @@ def document(url):
                 raw_date=node.get('datetime') or node.get_text(' ',strip=True)
                 dates.append(iso(parse(raw_date)))
             except (ValueError,TypeError):pass
-    for node in soup(['script','style','nav','footer','header']):node.decompose()
+    for node in soup(['script','style','nav','footer','header','ix:header','ix:hidden','xbrli:context','xbrli:unit']):node.decompose()
+    for node in list(soup.find_all(attrs={'hidden':True})):
+        if node.parent is not None:node.decompose()
+    for node in list(soup.find_all(style=True)):
+        if node.parent is not None and re.search(r'display\s*:\s*none',node.get('style',''),re.I):node.decompose()
     text=' '.join(soup.stripped_strings)
     return {'text':text[:300_000],'links':links,'published_at':min(dates) if dates else None,'title':title}
 

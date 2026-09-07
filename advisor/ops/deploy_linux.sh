@@ -14,6 +14,7 @@ TREE_HASH=$(PYTHONPATH="$ROOT" python3 -m advisor.release_integrity --root "$ROO
 RELEASE_ID="${STAMP}-${COMMIT}-${TREE_HASH:0:12}"
 ARCHIVE="~/.advisor_releases/advisor-$STAMP.tgz"
 MANIFEST_BACKUP="~/.advisor_releases/deployment_manifest-$STAMP.json"
+UNIT_BACKUP="~/.advisor_releases/units-$STAMP"
 STAGE="~/.advisor_staging/$RELEASE_ID"
 MUTATED=0
 REMOTE_HASH=$(ssh "$HOST" "cd '$REMOTE' && .venv/bin/python -m advisor.release_integrity")
@@ -25,7 +26,7 @@ rollback() {
     ssh "$HOST" "set -e; tmp=\$(mktemp -d); tar -xzf $ARCHIVE -C \$tmp; \
       rsync -a --delete --exclude=data/ --exclude=logs/ \
       \$tmp/advisor/ '$REMOTE/advisor/'; \
-      rsync -a \$tmp/advisor/ops/systemd/ ~/.config/systemd/user/; \
+      rsync -a $UNIT_BACKUP/ ~/.config/systemd/user/; \
       test ! -f $MANIFEST_BACKUP || cp $MANIFEST_BACKUP \
         '$REMOTE/advisor/data/deployment_manifest.json'; \
       systemctl --user daemon-reload; \
@@ -41,7 +42,10 @@ ssh "$HOST" "set -e; mkdir -p ~/.advisor_releases && tar -C '$REMOTE' \
   --exclude='advisor/data' --exclude='advisor/logs' --exclude='advisor/__pycache__' \
   -czf $ARCHIVE advisor; \
   if test -f '$REMOTE/advisor/data/deployment_manifest.json'; then \
-    cp '$REMOTE/advisor/data/deployment_manifest.json' $MANIFEST_BACKUP; fi"
+    cp '$REMOTE/advisor/data/deployment_manifest.json' $MANIFEST_BACKUP; fi; \
+  mkdir -p $UNIT_BACKUP; \
+  for unit in ~/.config/systemd/user/advisor-*; do \
+    test ! -f \$unit || cp \$unit $UNIT_BACKUP/; done"
 
 echo "[deploy] stage candidate release"
 ssh "$HOST" "rm -rf $STAGE && mkdir -p $STAGE/advisor"
@@ -73,7 +77,8 @@ else
 fi
 
 echo "[deploy] install hardened systemd units"
-ssh "$HOST" "rsync -a $STAGE/advisor/ops/systemd/ ~/.config/systemd/user/"
+ssh "$HOST" "cd '$REMOTE' && .venv/bin/python -m advisor.ops.provision_remote \
+  --repo '$REMOTE' --bind '$HOST_ADDR' --replace-services"
 
 echo "[deploy] write release manifest"
 ssh "$HOST" "RELEASE_ID='$RELEASE_ID' COMMIT='$COMMIT' TREE_HASH='$TREE_HASH' DIRTY='$DIRTY' \

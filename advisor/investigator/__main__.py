@@ -24,9 +24,11 @@ def main():
     process=multiprocessing.get_context('spawn').Process(target=_execute,args=(args,))
     process.start()
     try:
-        process.join(1200)
+        from .runtime import config, provider
+        job_budget=3600 if provider(config())=='ollama' else 1200
+        process.join(job_budget)
         if process.is_alive():
-            _failed(args,'Investigation exceeded its 20-minute job budget')
+            _failed(args,f'Investigation exceeded its {job_budget//60}-minute job budget')
             os.killpg(process.pid,signal.SIGTERM);process.join(3)
             if process.is_alive():os.killpg(process.pid,signal.SIGKILL);process.join()
             return 124

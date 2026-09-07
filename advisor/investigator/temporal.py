@@ -49,20 +49,23 @@ def assess(row, as_of):
     if pub and pub>at: reasons.append('published_after_cutoff')
     if obs and obs>at: reasons.append('observation_after_cutoff')
     kind=row['kind']
+    periodic=(kind=='document' and row.get('payload',{}).get('document_class')=='periodic_filing'
+              and row.get('payload',{}).get('form') in {'10-Q','10-K','20-F'})
+    max_age=150 if periodic else MAX_AGE.get(kind,7)
     if kind in {'news','filing','document'} and not pub: reasons.append('publication_unknown')
     if kind=='news' and not row.get('payload',{}).get('body_verified'): reasons.append('headline_discovery_only')
     if row.get('payload',{}).get('relevance')=='unverified': reasons.append('issuer_relevance_unverified')
-    if kind in {'fundamental','short_interest','ownership'} and not row.get('period_end'):
+    if (kind in {'fundamental','short_interest','ownership'} or periodic) and not row.get('period_end'):
         reasons.append('measurement_period_unknown')
     if row.get('clock_quality')=='observation_only': reasons.append('underlying_period_unverified')
     clock=obs or pub
     age=(at-clock).total_seconds()/86400 if clock else None
     if clock is None: reasons.append('source_clock_unknown')
-    if age is not None and age>MAX_AGE.get(kind,7): reasons.append('stale_observation')
-    if row.get('period_end') and kind in {'fundamental','short_interest','ownership'}:
+    if age is not None and age>max_age: reasons.append('stale_observation')
+    if row.get('period_end') and (kind in {'fundamental','short_interest','ownership'} or periodic):
         end=timestamp(iso(row['period_end']))
         period_age=(at-end).total_seconds()/86400
-        if period_age>MAX_AGE[kind]: reasons.append('old_measurement_period')
+        if period_age>max_age: reasons.append('old_measurement_period')
         if end>at: reasons.append('future_measurement_period')
     # Republishing old news does not refresh the economic event.
     if kind in {'news','document'} and row.get('event_at'):
@@ -82,5 +85,13 @@ def annotate(rows, as_of):
     for r in rows:
         key=(r['ticker'],r['payload'].get('metric'),r['payload'].get('duration_class'))
         if r['kind']=='fundamental' and r.get('period_end','')<latest.get(key,'') and r['temporal']['state']=='current':
+            r['temporal']={'state':'context_only','age_days':r['temporal']['age_days'],'reasons':['superseded_measurement_period']}
+    latest_filing={}
+    for r in rows:
+        if r['kind']=='document' and r['payload'].get('document_class')=='periodic_filing' and r['temporal']['state']=='current':
+            latest_filing[r['ticker']]=max(latest_filing.get(r['ticker'],''),r.get('period_end') or '')
+    for r in rows:
+        if (r['kind']=='document' and r['payload'].get('document_class')=='periodic_filing' and
+            r['temporal']['state']=='current' and (r.get('period_end') or '')<latest_filing.get(r['ticker'],'')):
             r['temporal']={'state':'context_only','age_days':r['temporal']['age_days'],'reasons':['superseded_measurement_period']}
     return rows

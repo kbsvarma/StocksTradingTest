@@ -2,6 +2,7 @@
 import json
 import os
 import math
+import re
 from pathlib import Path
 import shlex
 import requests
@@ -17,38 +18,44 @@ def config():
         for line in path.read_text().splitlines():
             if not line.strip() or line.lstrip().startswith('#') or '=' not in line:continue
             key,value=line.split('=',1);key=key.strip().removeprefix('export ')
-            if key not in {'OPENAI_API_KEY','ADVISOR_RESEARCH_MODEL','ADVISOR_RESEARCH_REASONING','GEMINI_API_KEY','ADVISOR_RESEARCH_PROVIDER'}:continue
+            if key not in {'OPENAI_API_KEY','ADVISOR_RESEARCH_MODEL','ADVISOR_RESEARCH_REASONING','GEMINI_API_KEY','ADVISOR_RESEARCH_PROVIDER','ADVISOR_RESEARCH_SAMPLING'}:continue
             parts=shlex.split(value,comments=True)
             if len(parts)==1:values[key]=parts[0]
-    values.update({k:os.environ[k] for k in ('OPENAI_API_KEY','ADVISOR_RESEARCH_MODEL','ADVISOR_RESEARCH_REASONING','GEMINI_API_KEY','ADVISOR_RESEARCH_PROVIDER') if os.environ.get(k)})
+    values.update({k:os.environ[k] for k in ('OPENAI_API_KEY','ADVISOR_RESEARCH_MODEL','ADVISOR_RESEARCH_REASONING','GEMINI_API_KEY','ADVISOR_RESEARCH_PROVIDER','ADVISOR_RESEARCH_SAMPLING') if os.environ.get(k)})
     return values
 
 
 def provider(c):
     name=c.get('ADVISOR_RESEARCH_PROVIDER') or ('gemini' if c.get('GEMINI_API_KEY') else 'openai')
-    if name not in {'gemini','openai'}:raise ValueError('Unsupported research provider')
+    if name not in {'gemini','openai','ollama'}:raise ValueError('Unsupported research provider')
     return name
 
 
 def status():
     try:
         c=config();name=provider(c)
-        return {'configured':bool(c.get('GEMINI_API_KEY' if name=='gemini' else 'OPENAI_API_KEY')),
-                'provider':'Gemini API' if name=='gemini' else 'OpenAI API',
-                'model':c.get('ADVISOR_RESEARCH_MODEL','gemini-3.8-flash' if name=='gemini' else 'gpt-6-astra')}
+        return {'configured':name=='ollama' or bool(c.get('GEMINI_API_KEY' if name=='gemini' else 'OPENAI_API_KEY')),
+                'provider':'Local model / Ollama' if name=='ollama' else 'Gemini API' if name=='gemini' else 'OpenAI API',
+                'model':c.get('ADVISOR_RESEARCH_MODEL','qwen3.5:9b' if name=='ollama' else 'gemini-3.8-flash' if name=='gemini' else 'gpt-6-astra')}
     except (OSError,ValueError):
         return {'configured':False,'provider':'unconfigured','model':'unconfigured'}
 
 
 def require_config():
     c=config();name=provider(c)
-    if not c.get('GEMINI_API_KEY' if name=='gemini' else 'OPENAI_API_KEY'):
+    if name!='ollama' and not c.get('GEMINI_API_KEY' if name=='gemini' else 'OPENAI_API_KEY'):
         raise RuntimeError('No research model connected: configure GEMINI_API_KEY or OPENAI_API_KEY in ~/.advisor_research.env. Personal assistant logins are not used.')
     return c
 
 
 def validate(value,schema):
     """Validate the closed subset used by the investigator, including fake/test transports."""
+    if 'oneOf' in schema:
+        matches=0
+        for alternative in schema['oneOf']:
+            try:validate(value,alternative);matches+=1
+            except ValueError:pass
+        if matches!=1:raise ValueError('Research output does not match exactly one allowed source/time basis')
     kind=schema.get('type')
     valid={'object':isinstance(value,dict),'array':isinstance(value,list),'string':isinstance(value,str),
            'boolean':isinstance(value,bool),'integer':type(value) is int,
@@ -61,7 +68,11 @@ def validate(value,schema):
         if schema.get('additionalProperties') is False and set(value)-set(props):raise ValueError('Unexpected research output field')
         for k,v in value.items():
             if k in props:validate(v,props[k])
+    elif kind=='string':
+        if len(value)<schema.get('minLength',0) or len(value)>schema.get('maxLength',math.inf):raise ValueError('Research output string outside bounds')
+        if 'pattern' in schema and not re.search(schema['pattern'],value):raise ValueError('Research output string outside pattern')
     elif kind=='array':
+        if len(value)<schema.get('minItems',0) or len(value)>schema.get('maxItems',math.inf):raise ValueError('Research output array outside bounds')
         for v in value:validate(v,schema['items'])
     elif kind in {'number','integer'}:
         if value<schema.get('minimum',-math.inf) or value>schema.get('maximum',math.inf):raise ValueError('Research output number outside bounds')
@@ -70,6 +81,9 @@ def validate(value,schema):
 def invoke(prompt,schema,*,web=False,timeout=240,budget=None,post=None):
     from .reasoner import SYSTEM
     c=require_config()
+    if provider(c)=='ollama':
+        from .ollama import invoke as local_invoke
+        return local_invoke(prompt,schema,config=c,web=web,timeout=timeout,post=post)
     if provider(c)=='gemini':
         from .gemini import invoke as gemini_invoke
         return gemini_invoke(prompt,schema,config=c,web=web,timeout=timeout,post=post)

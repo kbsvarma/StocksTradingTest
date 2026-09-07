@@ -63,20 +63,23 @@ def fundamental_metrics(rows):
     def matching(metric,anchor):
         vals=[r for r in facts if r['payload']['metric']==metric and r['period_end']==anchor['period_end'] and r.get('period_start')==anchor.get('period_start') and r['payload']['unit']==anchor['payload']['unit']]
         return max(vals,key=lambda r:r.get('published_at') or '') if vals else None
+    def prior_comparable(row):
+        end=datetime.fromisoformat(row['period_end'])
+        duration=(end-datetime.fromisoformat(row.get('period_start') or row['period_end'])).days
+        older=[]
+        for r in facts:
+            if any(r['payload'][k]!=row['payload'][k] for k in ('metric','unit','duration_class')):continue
+            e=datetime.fromisoformat(r['period_end']);d=(e-datetime.fromisoformat(r.get('period_start') or r['period_end'])).days
+            if 350<=(end-e).days<=380 and abs(duration-d)<=12:older.append(r)
+        return max(older,key=lambda r:(r['period_end'],r.get('published_at') or '')) if older else None
     for metric in ('revenue','net_income','gross_profit','op_income','eps_diluted','inventory','receivables','shares_diluted','cash','lt_debt'):
         dclass='instant' if metric in {'inventory','receivables','cash','lt_debt'} else 'quarter'
         row=latest(metric,dclass)
         if not row:continue
         value=row['payload']['value'];out[metric]=value;out[metric+'_period']=row['period_end'];citations[metric]=[row['id']]
-        # Same duration and ~one calendar year apart, not fiscal-year labels from restated comparisons.
-        end=datetime.fromisoformat(row['period_end']);duration=(end-datetime.fromisoformat(row.get('period_start') or row['period_end'])).days
-        older=[]
-        for r in facts:
-            if r['payload']['metric']!=metric or r['payload']['unit']!=row['payload']['unit'] or r['payload']['duration_class']!=dclass:continue
-            e=datetime.fromisoformat(r['period_end']);d=(e-datetime.fromisoformat(r.get('period_start') or r['period_end'])).days
-            if 350<=(end-e).days<=380 and abs(duration-d)<=12:older.append(r)
-        if older:
-            prior=max(older,key=lambda r:(r['period_end'],r.get('published_at') or ''));v=prior['payload']['value']
+        prior=prior_comparable(row)
+        if prior:
+            v=prior['payload']['value']
             if number(value) and number(v) and v>0:
                 out[metric+'_yoy_pct']=(value/v-1)*100;citations[metric+'_yoy_pct']=[row['id'],prior['id']]
     rev=latest('revenue')
@@ -85,18 +88,49 @@ def fundamental_metrics(rows):
             r=matching(metric,rev)
             if r:
                 out[metric+'_margin_pct']=r['payload']['value']/rev['payload']['value']*100;citations[metric+'_margin_pct']=[rev['id'],r['id']]
+                prior_ids=citations.get('revenue_yoy_pct',[])
+                prior_rev=next((x for x in facts if len(prior_ids)==2 and x['id']==prior_ids[1]),None)
+                prior_metric=matching(metric,prior_rev) if prior_rev else None
+                if prior_metric and prior_rev['payload']['value']>0:
+                    prior_margin=prior_metric['payload']['value']/prior_rev['payload']['value']*100
+                    out[metric+'_prior_margin_pct']=prior_margin
+                    out[metric+'_margin_change_pp']=out[metric+'_margin_pct']-prior_margin
+                    citations[metric+'_margin_change_pp']=[rev['id'],r['id'],prior_rev['id'],prior_metric['id']]
     # Cash-flow statements are often YTD. Pair exact windows and label them as such.
     cashflows=[r for r in facts if r['payload']['metric']=='cfo' and r['temporal']['state']=='current']
     if cashflows:
         cfo=max(cashflows,key=lambda r:(r['period_end'],r.get('period_start') or ''))
         capex=matching('capex',cfo);income=matching('net_income',cfo);sbc=matching('sbc',cfo)
         out['cashflow_window']={'start':cfo.get('period_start'),'end':cfo['period_end'],'duration_class':cfo['payload']['duration_class']}
+        out['cashflow_cfo']=cfo['payload']['value'];out['cashflow_unit']=cfo['payload']['unit']
+        if income:out['cashflow_net_income']=income['payload']['value']
+        if capex:out['cashflow_capex']=capex['payload']['value']
         if capex:
             out['free_cash_flow']=cfo['payload']['value']-capex['payload']['value'];citations['free_cash_flow']=[cfo['id'],capex['id']]
         if income and income['payload']['value']>0:
             out['cash_conversion']=cfo['payload']['value']/income['payload']['value'];citations['cash_conversion']=[cfo['id'],income['id']]
         if sbc and capex:
             out['fcf_less_sbc']=out['free_cash_flow']-sbc['payload']['value'];citations['fcf_less_sbc']=[cfo['id'],capex['id'],sbc['id']]
+        prior=prior_comparable(cfo)
+        if prior:
+            out['prior_cashflow_window']={'start':prior.get('period_start'),'end':prior['period_end'],'duration_class':prior['payload']['duration_class']}
+            prior_income=matching('net_income',prior);prior_capex=matching('capex',prior)
+            if prior['payload']['value']>0:
+                out['cashflow_cfo_yoy_pct']=(cfo['payload']['value']/prior['payload']['value']-1)*100
+                citations['cashflow_cfo_yoy_pct']=[cfo['id'],prior['id']]
+            if capex and prior_capex and prior_capex['payload']['value']>0:
+                out['cashflow_capex_yoy_pct']=(capex['payload']['value']/prior_capex['payload']['value']-1)*100
+                citations['cashflow_capex_yoy_pct']=[capex['id'],prior_capex['id']]
+            if income and prior_income and min(income['payload']['value'],prior_income['payload']['value'])>0:
+                out['prior_cash_conversion']=prior['payload']['value']/prior_income['payload']['value']
+                out['cash_conversion_change_pp']=100*(out['cash_conversion']-out['prior_cash_conversion'])
+                citations['cash_conversion_change_pp']=citations['cash_conversion']+[prior['id'],prior_income['id']]
+            if capex and prior_capex:
+                prior_fcf=prior['payload']['value']-prior_capex['payload']['value']
+                out['prior_free_cash_flow']=prior_fcf
+                if prior_fcf>0:
+                    out['free_cash_flow_yoy_pct']=(out['free_cash_flow']/prior_fcf-1)*100
+                    citations['free_cash_flow_yoy_pct']=citations['free_cash_flow']+[prior['id'],prior_capex['id']]
     return out,citations
 
 
@@ -175,6 +209,14 @@ def analyze(rows,ticker):
     bench=next((r for r in current(rows,'technical') if r['ticker']=='SPY'),None)
     tech=technicals(techrows[-1],bench) if techrows else {}
     fund,fcites=fundamental_metrics(own);est,eids=estimate_metrics(own)
+    profiles=[r['payload'] for r in current(own,'profile')]
+    financial_firm=any(str(p.get('sic',''))[:2] in {'60','63'} or str(p.get('sic',''))=='6211' or
+        re.search(r'bank|capital markets|insurance(?![\s-]*brokers)',str(p.get('industry','')),re.I) for p in profiles)
+    applicability={}
+    if financial_firm:
+        for metric in ('cash_conversion','free_cash_flow','fcf_less_sbc','prior_cash_conversion','cash_conversion_change_pp','prior_free_cash_flow','free_cash_flow_yoy_pct'):
+            fund.pop(metric,None);fcites.pop(metric,None)
+        applicability['cash_flow_valuation']='Not applicable to this financial institution: assess regulatory capital, credit losses, funding costs, normalized earnings and book value.'
     findings=[]
     def finding(key,dimension,direction,title,detail,ids,materiality=2,conditions=None):
         evidence=[r for r in rows if r['id'] in ids]
@@ -186,12 +228,40 @@ def analyze(rows,ticker):
     rg=fund.get('revenue_yoy_pct');eg=fund.get('net_income_yoy_pct')
     if number(rg):finding('revenue_growth','fundamentals','bullish' if rg>10 else 'bearish' if rg<0 else 'neutral','Latest comparable-quarter revenue',f'Revenue changed {rg:.1f}% year over year for quarter ending {fund["revenue_period"]}. Growth alone does not establish an expectations beat.',fcites['revenue_yoy_pct'],3)
     if number(eg):finding('profit_growth','fundamentals','bullish' if eg>10 else 'bearish' if eg<0 else 'neutral','Profit growth versus revenue',f'Net income changed {eg:.1f}% year over year. Check one-offs and adjusted/GAAP reconciliation.',fcites['net_income_yoy_pct'],2)
+    operating_growth=fund.get('op_income_yoy_pct')
+    if number(eg) and number(operating_growth) and eg-operating_growth>50 and fund.get('net_income_period')==fund.get('op_income_period'):
+        finding('earnings_normalization','accounting','neutral','Headline profit growth needs normalization',
+            f'Net income grew {eg:.1f}% versus operating income {operating_growth:.1f}% in comparable quarters. '
+            'The difference is not proof of recurring operating improvement. Reconcile investment gains, interest, taxes and other non-operating items before extrapolating earnings or interpreting cash conversion.',
+            fcites['net_income_yoy_pct']+fcites['op_income_yoy_pct'],3)
     for m in ('inventory','receivables'):
         g=fund.get(m+'_yoy_pct')
         if number(g) and number(rg) and g-rg>20 and fund.get(m+'_period')==fund.get('revenue_period'):
-            finding(m+'_divergence','accounting','bearish',m.title()+' growth outruns sales',f'{m.title()} growth {g:.1f}% exceeds revenue growth {rg:.1f}% by {g-rg:.1f}pp. Test acquisition, seasonality and customer terms before concluding deterioration.',fcites[m+'_yoy_pct']+fcites['revenue_yoy_pct'],3)
+            scale=fund[m]/fund['revenue']*100 if fund.get('revenue',0)>0 else None
+            small=scale is not None and scale<5
+            detail=f'{m.title()} growth {g:.1f}% exceeds revenue growth {rg:.1f}% by {g-rg:.1f}pp.'
+            if scale is not None:detail+=f' The balance equals {scale:.1f}% of quarterly revenue (a scale comparison, not a cash-flow ratio).'
+            detail+=(' Small company-level exposure; verify concentrated segment risk before escalating.' if small else '')+' Test acquisition, seasonality and customer terms before concluding deterioration.'
+            finding(m+'_divergence','accounting','neutral' if small else 'bearish',m.title()+' growth outruns sales',detail,fcites[m+'_yoy_pct']+fcites['revenue_yoy_pct'],1 if small else 3)
     cc=fund.get('cash_conversion')
-    if number(cc) and cc<.75:finding('cash_conversion','accounting','bearish','Cash generation lags reported earnings',f'Operating cash flow was {cc:.2f} times net income over {fund["cashflow_window"]["start"]} to {fund["cashflow_window"]["end"]}. The numerator and denominator use the same reporting window.',fcites['cash_conversion'],3)
+    if number(cc):
+        detail=f'Operating cash flow {fund["cashflow_cfo"]:,.0f} {fund["cashflow_unit"]} divided by net income {fund["cashflow_net_income"]:,.0f} {fund["cashflow_unit"]} was {cc:.2f} times over {fund["cashflow_window"]["start"]} to {fund["cashflow_window"]["end"]}. The numerator and denominator use the same reporting window.'
+        ids=fcites['cash_conversion']
+        if 'prior_cash_conversion' in fund:
+            detail+=f' The comparable prior-year window was {fund["prior_cash_conversion"]:.2f} times; change {fund["cash_conversion_change_pp"]:+.1f} percentage points. This ratio does not isolate working capital from tax or non-cash profit effects.'
+            ids=fcites['cash_conversion_change_pp']
+        else:detail+=' A comparable prior-period ratio is unavailable; this level alone does not establish deterioration.'
+        finding('cash_conversion','accounting','bearish' if cc<.75 else 'neutral','Cash generation relative to reported earnings',detail,ids,3 if cc<.75 else 2)
+    if 'free_cash_flow_yoy_pct' in fund:
+        detail=f'Operating cash flow less capital expenditure changed {fund["free_cash_flow_yoy_pct"]:+.1f}% year over year for the {fund["cashflow_window"]["duration_class"]} window ending {fund["cashflow_window"]["end"]}.'
+        if 'cashflow_cfo_yoy_pct' in fund:detail+=f' Operating cash flow changed {fund["cashflow_cfo_yoy_pct"]:+.1f}%.'
+        if 'cashflow_capex_yoy_pct' in fund:detail+=f' Capital expenditure changed {fund["cashflow_capex_yoy_pct"]:+.1f}%.'
+        detail+=' Capital expenditure reduces FCF, not operating cash flow. These historical growth rates are not forward forecasts.'
+        finding('cash_flow_growth','fundamentals','neutral','Comparable-window free cash flow',detail,fcites['free_cash_flow_yoy_pct'],2)
+    if 'op_income_margin_change_pp' in fund:
+        change=fund['op_income_margin_change_pp']
+        finding('operating_margin','fundamentals','bullish' if change>0 else 'bearish' if change<0 else 'neutral','Comparable-quarter operating margin',
+            f'Operating margin was {fund["op_income_margin_pct"]:.1f}% versus {fund["op_income_prior_margin_pct"]:.1f}% a year earlier, a {change:+.1f} percentage-point change for the quarter ending {fund["op_income_period"]}. Identify the actual cost, mix and pricing drivers before attributing the change.',fcites['op_income_margin_change_pp'],2)
     dilution=fund.get('shares_diluted_yoy_pct')
     if number(dilution) and dilution>3:finding('dilution','financing','bearish','Per-share dilution headwind',f'Weighted diluted shares rose {dilution:.1f}% in comparable quarters; reconcile stock splits and deal issuance.',fcites['shares_diluted_yoy_pct'],2)
     if techrows:
@@ -212,8 +282,13 @@ def analyze(rows,ticker):
     revisions=[v for k,v in est.items() if k.endswith('eps_revision_30d_pct')]
     if revisions:
         up=sum(v>0 for v in revisions);down=sum(v<0 for v in revisions)
-        finding('estimate_revision','expectations','bullish' if up>down else 'bearish' if down>up else 'neutral','Forward earnings expectations are changing','; '.join(f'{dict(zip(("0q","+1q","0y","+1y"),("Current quarter","Next quarter","Current fiscal year","Next fiscal year")))[k.split("_")[0]]}: EPS estimate {v:+.1f}% over 30 days' for k,v in est.items() if k.endswith('eps_revision_30d_pct'))+'. These are current provider fiscal-period labels, not pre-event consensus.',eids,3)
-    if number(rg) and rg>10 and revisions and all(v<0 for v in revisions):finding('growth_revision_conflict','expectations','bearish','Strong reported growth conflicts with falling expectations','Backward-looking growth is positive while every observed forward EPS revision is negative. Investigate margins, outlook and the comparison base before buying the headline.',fcites['revenue_yoy_pct']+eids,3)
+        magnitude=max(abs(v) for v in revisions)
+        materiality=1 if magnitude<1 else 2 if magnitude<3 else 3
+        direction='neutral' if materiality==1 else 'bullish' if up>down else 'bearish' if down>up else 'neutral'
+        detail='; '.join(f'{dict(zip(("0q","+1q","0y","+1y"),("Current quarter","Next quarter","Current fiscal year","Next fiscal year")))[k.split("_")[0]]}: EPS estimate {v:+.1f}% over 30 days' for k,v in est.items() if k.endswith('eps_revision_30d_pct'))+'. These are current provider fiscal-period labels, not pre-event consensus.'
+        if materiality==1:detail+=' All changes are below 1%; the attention heuristic treats these as context, not a changed earnings thesis.'
+        finding('estimate_revision','expectations',direction,'Forward earnings expectations are changing',detail,eids,materiality)
+    if number(rg) and rg>10 and revisions and all(v<0 for v in revisions) and min(revisions)<=-1:finding('growth_revision_conflict','expectations','bearish','Strong reported growth conflicts with falling expectations','Backward-looking growth is positive while every observed forward EPS revision is negative. Investigate margins, outlook and the comparison base before buying the headline.',fcites['revenue_yoy_pct']+eids,3)
     for r in current(own,'filing'):
         form=r['payload']['form']
         if form in {'S-3','S-3ASR','424B5','NT 10-Q','NT 10-K','SC 13D','SC 13D/A'}:
@@ -241,7 +316,11 @@ def analyze(rows,ticker):
                'sources':[s.id for s in SOURCES if s.dimension==k]} for k,v in DIMENSIONS.items()]
     from .valuation import valuation
     valuation_result=valuation(rows,ticker)
-    return {'valuation':valuation_result,'technicals':tech,'fundamentals':fund,'fundamental_evidence':fcites,'estimates':est,
+    if financial_firm:
+        for key in ('ttm_fcf_proxy','ttm_fcf_less_sbc','fcf_yield_pct','implied_growth_sensitivity'):valuation_result.pop(key,None)
+        valuation_result['cash_flow_model']='not_applicable_financial_institution'
+        valuation_result['interpretation']=applicability['cash_flow_valuation']
+    return {'metric_applicability':applicability,'valuation':valuation_result,'technicals':tech,'fundamentals':fund,'fundamental_evidence':fcites,'estimates':est,
             'options':option_metrics(own,tech.get('close')),'news_clusters':deduplicate_news(own),
             'findings':findings,'hypotheses':hypotheses,'coverage':coverage,
             'ranking_basis':'Research attention: materiality first, independently sourced support second. Not return probabilities or an additive buy score.'}

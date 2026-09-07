@@ -33,6 +33,8 @@ def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=re
         from .runtime import require_config
         require_config()
     ticker=collectors.symbol(ticker);data=Path(data);started=utcnow();run_id=run_id or uuid.uuid4().hex
+    from advisor.release_integrity import tree_digest
+    source_revision=tree_digest(Path(__file__).resolve().parent)
     if not run_id.isalnum() or len(run_id)>64:raise ValueError('Invalid run identifier')
     root=data/'intelligence'/'investigations'/ticker/run_id;root.mkdir(parents=True,exist_ok=True)
     if (root/'report.json').exists():raise ValueError('An investigation run is immutable; use a new run identifier')
@@ -71,6 +73,13 @@ def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=re
         now=utcnow()
         stamped=annotate(derive(list({r['id']:r for r in rows}.values()),now),now)
         result=analyze(stamped,ticker)
+        profiles=[r['payload'] for r in stamped if r['ticker']==ticker and r['kind']=='profile']
+        result['issuer_identity']={'ticker':ticker,'name':next((p.get('name') or p.get('longName') for p in profiles if p.get('name') or p.get('longName')),ticker),
+            'sector':next((p.get('sector') for p in profiles if p.get('sector')),None),
+            'website':next((p.get('website') for p in profiles if p.get('website')),None)}
+        result['original_sources']=[{'title':r['title'],'url':r['url'],'published_at':r['published_at']} for r in
+            sorted(stamped,key=lambda r:r.get('published_at') or '',reverse=True)
+            if r['ticker']==ticker and r['kind']=='document' and r['temporal']['state']=='current'][:8]
         from .planner import plan
         result['investigation_plan']=plan(stamped,result,ticker)
         from .changes import compare
@@ -80,20 +89,45 @@ def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=re
     synthesis={'summary':'Computed evidence scan. Deep investigation has not completed.','insights':[],
                'action':'investigate_further','action_reason':'Review the ranked findings and unresolved questions below.',
                'entry_conditions':[],'exit_conditions':[],'next_checks':[],'contradictions':[],'review_status':'not_run'}
+    call_number=0
+    def invoke_model(prompt,schema,**kwargs):
+        nonlocal call_number
+        call_number+=1
+        callroot=root/'model_calls'/str(call_number)
+        callroot.mkdir(parents=True,mode=0o700,exist_ok=True)
+        atomic(callroot/'request.json',{'prompt':prompt,'schema':schema,'options':kwargs,'at':utcnow().isoformat()})
+        try:
+            value,usage=model(prompt,schema,**kwargs)
+            atomic(callroot/'response.json',{'value':value,'usage':usage,'at':utcnow().isoformat()})
+            return value,usage
+        except Exception as exc:
+            atomic(callroot/'failure.json',{'error':type(exc).__name__+': '+str(exc)[:200],'at':utcnow().isoformat()})
+            raise
     research_packets=[];proposal={};review={};model_limit=False
     if deep:
         for round_number in range(1,5):
             update('research',f'Research round {round_number}: follow material leads and challenge the strongest thesis')
             try:
-                packet,usage=reasoner.research(ticker,analysis,round_number=round_number,previous=research_packets,runner=model)
+                packet,usage=reasoner.research(ticker,analysis,round_number=round_number,previous=research_packets,runner=invoke_model)
                 model_usage.append(usage);research_packets.append(packet);searches.extend(packet.get('queries_run',[]))
                 new,rejected=reasoner.ingest_web(ticker,packet);rejections.extend(rejected)
-                seen={r['url'] for r in rows};novel=[r for r in new if r['url'] not in seen]
-                rows.extend(novel);relationships.extend(packet.get('relationships',[]))
+                seen={r['url'] for r in rows};novel=[]
+                for row in new:
+                    if row['url'] in seen:continue
+                    novel.append(row);seen.add(row['url'])
+                rows.extend(novel)
+                try:listed=json.loads((data/'intelligence/investigations/cik_map.json').read_text())
+                except (OSError,ValueError):listed={}
+                verified_relations=[]
+                for relation in packet.get('relationships',[]):
+                    if relation.get('ticker') not in listed:
+                        rejections.append({'ticker':relation.get('ticker'),'reason':'unverified_related_security_identifier'});continue
+                    verified_relations.append({**relation,'relationship_status':'source_linked_lead_not_independently_confirmed'})
+                relationships.extend(verified_relations)
                 if round_number==1:
                     verified_urls={r['url'] for r in rows if r['kind']=='document'}
                     followed=set()
-                    for relationship in packet.get('relationships',[])[:3]:
+                    for relationship in verified_relations[:3]:
                         try:
                             peer=collectors.symbol(relationship.get('ticker',''))
                             if peer==ticker or peer in followed or relationship.get('evidence_url') not in verified_urls:continue
@@ -114,19 +148,19 @@ def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=re
         update('synthesize','Connecting evidence, expectations, contradictions and actionable conditions')
         try:
             if model_limit:raise RuntimeError('Model quota or rate limit reached; further model calls skipped for this run')
-            proposal,usage=reasoner.synthesize(ticker,stamped,analysis,runner=model);model_usage.append(usage)
+            proposal,usage=reasoner.synthesize(ticker,stamped,analysis,runner=invoke_model);model_usage.append(usage)
             atomic(root/'proposal.json',proposal)
             update('challenge','Checking the strongest counter-thesis and every load-bearing source')
-            review,usage=reasoner.review(ticker,proposal,stamped,runner=model,analysis=analysis);model_usage.append(usage)
+            review,usage=reasoner.review(ticker,proposal,stamped,runner=invoke_model,analysis=analysis);model_usage.append(usage)
             synthesis=reasoner.finalize(proposal,review,stamped)
             if synthesis.get('review_status')!='model_challenged':
                 update('revise','Correcting failed source checks and reconsidering the proposed action')
                 atomic(root/'first_review.json',{'proposal':proposal,'review':review,'checks':synthesis.get('rejected_insights',[])})
-                proposal,usage=reasoner.revise(ticker,proposal,{'review':review,'checks':synthesis.get('rejected_insights',[])},stamped,analysis,runner=model)
+                proposal,usage=reasoner.revise(ticker,proposal,{'review':review,'checks':synthesis.get('rejected_insights',[])},stamped,analysis,runner=invoke_model)
                 model_usage.append(usage);atomic(root/'proposal.json',proposal)
                 review={} # Never apply a previous review to changed claims.
                 update('challenge','Reviewing the revised report against sources and computed results')
-                review,usage=reasoner.review(ticker,proposal,stamped,runner=model,analysis=analysis)
+                review,usage=reasoner.review(ticker,proposal,stamped,runner=invoke_model,analysis=analysis)
                 model_usage.append(usage);synthesis=reasoner.finalize(proposal,review,stamped)
         except Exception as exc:errors.append('Synthesis/review: '+type(exc).__name__+': '+str(exc)[:120])
     # Clock advances during investigation; reassess at publication, never renew underlying source timestamps.
@@ -139,7 +173,8 @@ def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=re
                         'relationships':relationships,'unresolved':list(dict.fromkeys(q for p in research_packets for q in p.get('unresolved',[]))),
                         'stop_reason':'research_limit_reached' if len(research_packets)==4 else 'questions_resolved_or_no_new_verified_evidence' if len(research_packets)>=2 else 'model_unavailable_or_incomplete' if deep else 'evidence_scan_requested',
                         'universal_exhaustion_claimed':False},
-              'model_usage':model_usage,'stages':stages,'methodology_version':'investigator-1',
+              'model_usage':model_usage,'stages':stages,'methodology_version':'investigator-2',
+              'investigator_code_sha256':source_revision,
               'execution_authority':False}
     snapshot['snapshot_hash']=digest(snapshot)
     atomic(root/'report.json',snapshot);(root/'report.md').write_text(markdown(snapshot))

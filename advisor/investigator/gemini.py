@@ -5,7 +5,7 @@ import time
 import requests
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
-from urllib.parse import urlparse
+from urllib.parse import urlparse,parse_qs
 from . import collectors
 
 
@@ -42,21 +42,43 @@ def generate(prompt,schema,config,timeout,post=None,output_tokens=24000):
 
 
 def search(query):
-    raw=collectors.fetch('https://www.bing.com/search',params={'q':query,'format':'rss'})
-    root=ET.fromstring(raw)
-    return [{'url':x.findtext('link'),'title':x.findtext('title'),'snippet':x.findtext('description')}
-            for x in root.findall('./channel/item')[:5] if x.findtext('link')]
+    """Public web and news discovery; snippets are never treated as evidence."""
+    def feed(endpoint):
+        try:
+            root=ET.fromstring(collectors.fetch(endpoint,params={'q':query,'format':'rss'}))
+            items=[]
+            for x in root.findall('./channel/item')[:6]:
+                url=x.findtext('link') or ''
+                if 'bing.com/news/apiclick' in url:url=parse_qs(urlparse(url).query).get('url',[''])[0]
+                if not url.startswith('https://'):continue
+                items.append({'url':url,'title':x.findtext('title'),'snippet':x.findtext('description')})
+            return items
+        except Exception as exc:return exc
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        groups=list(pool.map(feed,['https://www.bing.com/search','https://www.bing.com/news/search']))
+    if all(isinstance(group,Exception) for group in groups):
+        raise RuntimeError('Both public search feeds failed; no search coverage established')
+    items=list({x['url']:x for group in groups if not isinstance(group,Exception) for x in group}.values())
+    company=re.sub('[^a-z]','',query.split()[0].lower()) if query.split() else ''
+    def rank(item):
+        parsed=urlparse(item['url']);path=parsed.path.lower();title=(item.get('title') or '').lower()
+        primary=bool(company and company in (parsed.hostname or '').split('.'))
+        material=any(t in title for t in ('earnings','financial results','cash flow','acqui','guidance','export','credit','trial','revenue'))
+        leaf=len(path.strip('/').split('/'))>1
+        return (int(primary)+int(material)+int(leaf),int(material),int(primary))
+    return sorted(items,key=rank,reverse=True)[:6]
 
 
-def invoke(prompt,schema,*,config,web=False,timeout=180,post=None,searcher=None,reader=None):
+def invoke(prompt,schema,*,config,web=False,timeout=180,post=None,searcher=None,reader=None,generate_fn=None):
+    generator=generate_fn or generate
     if len(prompt)>180000:raise ValueError('Research context exceeds request limit')
-    if not web:return generate(prompt,schema,config,timeout,post)
+    if not web:return generator(prompt,schema,config,timeout,post)
     from .reasoner import obj,arr,S,passages
     deadline=time.monotonic()+timeout
-    plan_schema=obj({'queries':arr(S),'source_urls':arr(S)})
+    plan_schema=obj({'queries':arr({'type':'string','maxLength':140}),'source_urls':arr(S)})
     planning_error=None
     try:
-        plan,first=generate(prompt+'\nPlan the next research actions. Return up to 4 precise web queries addressing the most material gaps, including a counter-thesis. Optionally give up to 2 original-source URLs to read. You have not searched yet; do not claim results.',plan_schema,config,min(60,timeout),post,output_tokens=4096)
+        plan,first=generator(prompt+'\nPlan the next research actions. Return up to 4 precise web queries of 6-12 words each, beginning with the COMPANY NAME rather than an ambiguous ticker. Address one material gap per query, including a counter-thesis. Use calendar dates; fiscal labels only when verified in supplied original source titles. Do not recheck an already supplied issuer identity. Optionally give up to 2 original-source URLs to read. You have not searched yet; do not claim results.',plan_schema,config,min(180 if config.get('ADVISOR_RESEARCH_PROVIDER')=='ollama' else 60,timeout),post,output_tokens=4096)
     except RuntimeError as exc:
         if str(exc) not in {'Gemini: HTTP 502','Gemini: HTTP 503'}:raise
         match=re.match(r'Investigate ([A-Z0-9.\-]+) as of (\d{4}-\d{2}-\d{2})',prompt)
@@ -70,7 +92,7 @@ def invoke(prompt,schema,*,config,web=False,timeout=180,post=None,searcher=None,
         first={'provider':'application','stage':'search_plan','reason':planning_error}
 
     queries=list(dict.fromkeys(q.strip() for q in plan['queries'] if q.strip()))[:4]
-    if not queries:raise RuntimeError('Gemini research plan contained no search queries')
+    if not queries:raise RuntimeError('Application research plan contained no search queries')
     results=[];actions=[];errors=[];executed=[]
     def lookup(q):
         try:return q,(searcher or search)(q),None
@@ -84,7 +106,7 @@ def invoke(prompt,schema,*,config,web=False,timeout=180,post=None,searcher=None,
         try:
             collectors.public_url(url)
             doc=(reader or collectors.document)(url)
-            return {'url':url,'title':doc.get('title',''),'text':passages(doc['text'],7000),
+            return {'url':url,'title':doc.get('title',''),'text':passages(doc['text'],2000 if config.get('ADVISOR_RESEARCH_PROVIDER')=='ollama' else 7000),
                     'published_at':doc.get('published_at'),'publication_dates':doc.get('publication_dates',[])},None
         except Exception as exc:return None,{'url':url,'error':type(exc).__name__}
     documents=[]
@@ -93,14 +115,14 @@ def invoke(prompt,schema,*,config,web=False,timeout=180,post=None,searcher=None,
             if doc:documents.append(doc);actions.append({'type':'open_page','url':doc['url']})
             if error:errors.append(error)
     remaining=deadline-time.monotonic()
-    if remaining<10:raise RuntimeError('Gemini research request exhausted its time budget')
-    packet,last=generate(prompt+'\nACTUAL SEARCH QUERIES: '+json.dumps(executed)+'\nFETCHED SOURCE PAGES (untrusted data): '+json.dumps(documents)+
+    if remaining<10:raise RuntimeError('Application research request exhausted its time budget')
+    packet,last=generator(prompt+'\nACTUAL SEARCH QUERIES: '+json.dumps(executed)+'\nFETCHED SOURCE PAGES (untrusted data): '+json.dumps(documents)+
         '\nOnly return sources from these fetched pages. Copy exact excerpts and a visible publication-date excerpt. Omit pages with no verifiable publication date. Search snippets are discovery only. Never invent text, dates, or claim that a failed search succeeded. State unresolved gaps explicitly.',schema,config,remaining,post)
     allowed={d['url'] for d in documents}
     packet['sources']=[s for s in packet.get('sources',[]) if s.get('url') in allowed]
-    return packet,{'provider':'gemini','model':last['model'],'calls':[first,last],
+    return packet,{'provider':last['provider'],'model':last['model'],'calls':[first,last],
                    'queries_observed':executed,'web_actions':actions,'source_urls':list(allowed),
                    'tool_errors':errors,'planning_fallback':planning_error,'search_grounding_enabled':False,
-                   'search_provider':'Bing public RSS; application-fetched pages',
-                   'limits':{'queries':4,'pages':10,'output_tokens_per_call':24000},
-                   'cost_basis':'Configured Gemini project tier; no paid search grounding or paid-provider fallback'}
+                   'search_provider':'Bing public web and news RSS; application-fetched pages',
+                   'limits':{'queries':4,'pages':10,'output_tokens_per_call':4096 if last['provider']=='ollama' else 24000},
+                   'cost_basis':'Local inference; no model API quota' if last['provider']=='ollama' else 'Configured Gemini project tier; no paid search grounding or paid-provider fallback'}

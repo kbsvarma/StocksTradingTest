@@ -6,6 +6,13 @@ SCHEMA={'type':'object','properties':{'answer':{'type':'string'}},'required':['a
 CONFIG={'GEMINI_API_KEY':'private-test-key'}
 
 
+def test_search_feed_failure_is_not_reported_as_successful_empty_search(monkeypatch):
+    def failed(*args,**kwargs):raise OSError('offline')
+    monkeypatch.setattr(gemini.collectors,'fetch',failed)
+    with pytest.raises(RuntimeError,match='Both public search feeds failed'):
+        gemini.search('Nvidia earnings')
+
+
 def response(value,finish='STOP',code=200):
     class Response:
         status_code=code
