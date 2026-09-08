@@ -21,7 +21,10 @@ def earnings_metadata(text,published_at):
     from dateutil.parser import parse
     cutoff=parse(str(published_at)).date()
     matches=[]
-    for match in re.finditer(r'\b(?:quarter|months|year)\b[^.;]{0,100}?\bended\s+('+DATE+r')',text[:15000],re.I):
+    # The dated financial statements can follow a long business update. Reading
+    # only the opening pages can select a prior-year comparison as the release
+    # period, wrongly downgrading the entire current earnings release.
+    for match in re.finditer(r'\b(?:quarter|months|year)\b[^.;]{0,100}?\bended\s+('+DATE+r')',text[:300000],re.I):
         try:period=parse(match.group(1)).date()
         except ValueError:continue
         if period<=cutoff:matches.append((period,match.group(0)))

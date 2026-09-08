@@ -68,6 +68,11 @@ def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=re
         received,issues=issuer_collect(ticker,rows,data)
         rows.extend(received);errors.extend(issues)
         source_results['issuer_ir']={'records':len(received),'errors':issues,'status':'partial' if issues else 'complete' if received else 'no_dated_releases'}
+        from .current_news import collect as collect_news
+        update('current_news','Reading current company news; separating reported claims from issuer disclosures')
+        received,issues=collect_news(ticker,rows)
+        rows.extend(received);errors.extend(issues)
+        source_results['current_articles']={'records':len(received),'errors':issues,'status':'partial' if issues else 'complete' if received else 'no_verified_articles'}
     def refresh():
         from .quarters import derive
         now=utcnow()

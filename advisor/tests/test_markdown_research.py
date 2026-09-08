@@ -7,7 +7,7 @@ from advisor.investigator.brief import link_sources,request_model,markdown_packe
 def test_grouped_citations_keep_all_sources_and_reject_invented_ones():
     docs=[{'source_id':'S1','url':'https://example.com/release'},{'source_id':'S2','url':'https://example.com/filing'}]
     text,links=link_sources('Cash generation [S1, S2].',docs)
-    assert len(links)==2 and '[Source 2]' in text
+    assert len(links)==2 and '[S2]' in text
     with pytest.raises(ValueError,match='Unknown'):link_sources('Claim [S1, S99]',docs)
     with pytest.raises(ValueError,match='citations'):link_sources('Claim [S1, S2] https://invented.example/data',docs)
 
@@ -66,10 +66,11 @@ def test_review_keeps_draft_evidence_and_adds_counterevidence():
         prompt=kwargs['json']['contents'][0]['parts'][0]['text']
         assert 'Specific original observation' in prompt
         assert 'Customer financing guarantees' in prompt
+        assert 'Original evidence [S1C900]' in prompt
         return Response()
-    value,usage=verify_report({'report_markdown':'Original draft'},context,rows,{'GEMINI_API_KEY':'secret'},post=post)
+    value,usage=verify_report({'report_markdown':'Original draft'},context,rows,{'GEMINI_API_KEY':'secret'},post=post,raw_draft='Original evidence [S1C900]')
     assert usage['state']=='complete'
-    assert 'Source 1C900' in value['report_markdown']
+    assert '[S1C900](https://example.com/release)' in value['report_markdown']
 
 
 def test_compensation_expense_is_not_selected_from_deferred_tax_asset_table():
@@ -87,3 +88,51 @@ def test_unvalidated_trailing_ratio_and_ambiguous_balance_comparison_not_publish
     assert '16.18' not in result and '26.9' not in result
     assert '$23.98 billion' in result and '$16.7 billion' in result
     assert 'not established' in result
+
+
+def test_calculation_citations_preserve_namespace_and_price_alias():
+    financials=[{'id':'F1','key':'price_reference','source_urls':['https://example.com/price']}]
+    docs=[{'source_id':'S1','url':'https://example.com/release'}]
+    text,links=link_sources('Price [market_reference], release [S1], calculation [F1].',docs,financials=financials)
+    assert '[F1](https://example.com/price)' in text
+    assert '[S1](https://example.com/release)' in text
+    assert '[market_reference]' not in text
+
+
+def test_markdown_packet_carries_market_inputs_into_writer_and_reviewer():
+    from advisor.tests.test_concise_brief import rows
+    records=rows()+[{'id':'event','ticker':'TEST','kind':'catalyst','temporal':{'state':'current'},
+        'url':'https://example.com/calendar','observed_at':'2026-09-01',
+        'payload':{'date_status':'provider_estimate','earnings_date':'2026-09-15'}}]
+    context,_=markdown_packet('TEST',records,{}, {'business_type':'general'})
+    assert context['research_coverage']['dated_catalyst'] is True
+    assert context['market_observations'][0]['value']['date_status']=='provider_estimate'
+    assert context['research_coverage']['read_current_news'] is False
+
+
+def test_pdf_alignment_spaces_do_not_consume_the_evidence_budget():
+    text='Net income was'+(' '*500)+'$21.2 billion, up 41%, or up 13% excluding significant items.'
+    result=chunks(text)
+    assert len(result)==1 and len(result[0])<150
+    assert 'up 13% excluding significant items' in result[0]
+
+
+def test_cited_cash_amount_cannot_be_relabelled_as_cash_plus_investments():
+    from advisor.investigator.brief import scope_guard
+    facts=[{'id':'F13','key':'cash_instant','value':3.592e9,'unit':'USD'}]
+    text='Cash and short-term investments ($3.592 billion as of June 30 [F13]) depleted.'
+    assert 'Cash and cash equivalents' in scope_guard(text,facts)
+    total='Cash and short-term investments were $5.31 billion; cash was $3.592 billion [F13].'
+    assert scope_guard(total,facts)==total
+
+
+def test_bank_amount_and_growth_keep_different_exclusions():
+    from advisor.investigator.brief import accounting_guard
+    context={'business_type':'bank','retrieved_sections':[{'section_id':'S2C9',
+        'text':'Noninterest revenue excluding Markets 2 was $18.7 billion, up 41%, or up 12% also excluding significant items.'}]}
+    wrong='Excluding significant items, noninterest revenue was $18.7 billion, up 12% [S1].'
+    fixed=accounting_guard(wrong,context)
+    assert 'excluding Markets was $18.7 billion, up 41%' in fixed
+    assert '12% when also excluding significant items [S2C9]' in fixed
+    distinct='Noninterest revenue excluding significant items was $13.0 billion, up 12% [S1].'
+    assert accounting_guard(distinct,context)==distinct

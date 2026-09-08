@@ -29,20 +29,33 @@ def collect(ticker,rows,data,*,fetcher=document):
         except (ValueError,TypeError):errors.append('Issuer route configuration invalid')
     if website and website.startswith('https://'):
         roots.append(website)
+    if website and not SEEDS.get(ticker):
+        host=(urlparse(website).hostname or '').removeprefix('www.')
+        if host:roots.extend(['https://investor.'+host,'https://investors.'+host])
     if not roots:return [],['Issuer website/IR route unavailable']
     company_host=urlparse(website or roots[0]).hostname or ''
     company_host=company_host.removeprefix('www.')
     root_hosts={urlparse(url).hostname for url in roots}
     def rank(url):
         u=(urlparse(url).path+' '+labels.get(url,'')).lower()
-        return sum(weight for word,weight in [('financial-results',8),('earnings',7),('acquire',6),('outlook',6),('quarter',5),('partnership',3),('news',1),('investor',1)] if word in u)
+        return sum(weight for word,weight in [('announcement',12),('earnings-date',12),('financial-results',8),('earnings',7),('acquire',6),('outlook',6),('quarter',5),('partnership',3),('news',1),('investor',1)] if word in u)
+    navigation=[]
     for root in roots[:4]:
         try:
             seen.add(root)
             page=fetcher(root);labels.update(page.get('link_details',{}))
+            navigation.extend(u for u in page['links'] if re.search(r'investor|investor relations',u+' '+labels.get(u,''),re.I)
+                and (urlparse(u).hostname==company_host or (urlparse(u).hostname or '').endswith('.'+company_host)))
             links=[u for u in page['links'] if re.search(r'(news|press|earnings|financial-results|acquir|collaboration|partnership|quarterly|results)',urlparse(u).path+' '+labels.get(u,''),re.I)]
             queue.extend((u,root) for u in links if urlparse(u).scheme=='https' and not u.lower().endswith(('.zip','.png','.jpg')))
         except Exception as exc:errors.append('Issuer navigation: '+type(exc).__name__)
+    for route in list(dict.fromkeys(navigation))[:2]:
+        if route in seen:continue
+        try:
+            seen.add(route);page=fetcher(route);labels.update(page.get('link_details',{}))
+            queue.extend((u,route) for u in page['links'] if urlparse(u).scheme=='https'
+                and re.search(r'earnings|news-details|financial-results|results|announcement',u+' '+labels.get(u,''),re.I))
+        except Exception as exc:errors.append('Issuer IR directory: '+type(exc).__name__)
     # Dedupe navigation, prioritize results and economically meaningful announcements.
     queue=list(dict.fromkeys(queue));queue.sort(key=lambda x:rank(x[0]),reverse=True)
     fetched=0

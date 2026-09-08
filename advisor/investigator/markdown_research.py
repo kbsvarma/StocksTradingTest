@@ -12,6 +12,8 @@ TOPICS = {
     'valuation': 'shares outstanding repurchase diluted dividends',
     'risk': 'customer concentration credit financing guarantees commitments default',
     'execution': 'gross margin mix competition supply capacity power deployment',
+    'financing': 'capital funding raise debt equity issuance financing prepayment guarantees',
+    'catalysts': 'earnings announcement conference call results released scheduled date upcoming',
     'balance': 'cash debt receivables inventory liabilities capital CET1 charge offs',
 }
 
@@ -41,11 +43,17 @@ def to_markdown(soup):
 
 
 def chunks(text,limit=1800):
+    # PDF extraction uses spaces to position columns. Markdown tables already
+    # have delimiters; retain line/table structure without wasting retrieval
+    # budget on hundreds of alignment spaces between a metric and its value.
+    text=re.sub(r'[^\S\n]+',' ',text)
     heading='';out=[]
     for block in re.split(r'\n\s*\n',text):
         block=block.strip()
         if not block:continue
-        if block.startswith('#'):heading=block[:180]
+        if block.startswith('#') or (len(block)<150 and '|' not in block and re.search(
+            r'guidance|outlook|capital funding|capital investment|footnotes|balance sheets|statements of cash|non-gaap financial',block,re.I)):
+            heading=block[:180]
         if block.startswith('|'):
             lines=block.splitlines();head=lines[:min(7,len(lines))];batch=[]
             for line in lines[len(head):]:
@@ -67,17 +75,23 @@ def chunks(text,limit=1800):
             for s in out if len(s.strip())>35]
 
 
-def retrieve(documents,*,budget=23000,review=False):
+def retrieve(documents,*,budget=27000,review=False,business_type='general'):
     pool=[]
     for doc in documents:
         for i,text in enumerate(chunks(doc['text'])):
-            pool.append({'source_id':doc['source_id'],'section_id':doc['source_id']+'C'+str(i+1),'text':text})
+            pool.append({'source_id':doc['source_id'],'period_end':doc.get('period_end'),'document_class':doc.get('document_class'),'published_at':doc.get('published_at'),'section_id':doc['source_id']+'C'+str(i+1),'text':text})
     if not pool:return [],dict.fromkeys(TOPICS,'No readable sections')
     tokenize=lambda x:re.findall(r'[a-z0-9]+',x.lower())
     counts=[Counter(tokenize(c['text'])) for c in pool]
     df=Counter(w for c in counts for w in c)
-    topics=list(TOPICS)
-    if review:topics=['risk','quality','execution','balance','drivers','outlook','results','cash','valuation']
+    topic_queries=dict(TOPICS)
+    if business_type=='bank':
+        topic_queries.update(valuation='tangible book value per share ROTCE excluding significant items',
+            cash='net interest income excluding Markets deposits loans funding liquidity',
+            balance='Standardized CET1 capital ratio requirement regulatory net charge offs provisions reserves',
+            quality='net income excluding significant items percent growth pretax after tax gains')
+    topics=list(topic_queries)
+    if review:topics=['risk','quality','financing','execution','balance','drivers','outlook','catalysts','results','cash','valuation']
     selected={};coverage={}
     # Preserve the current release's headline narrative and segment summary before lexical search.
     # Otherwise keyword-dense legal disclaimers can crowd out the actual business results.
@@ -85,15 +99,27 @@ def retrieve(documents,*,budget=23000,review=False):
     if releases:
         current=max(releases,key=lambda d:d.get('published_at') or '')
         anchor_used=0
-        for chunk in [p for p in pool if p['source_id']==current['source_id']][:22]:
-            if anchor_used+len(chunk['text'])>min(6000,budget//3):break
+        release_chunks=[p for p in pool if p['source_id']==current['source_id']]
+        mandatory=[p for p in release_chunks if re.search(r'guidance|outlook|capital funding|expects to raise|equity issuance|excluding.{0,80}(?:gains|items)',p['text'],re.I)
+                   and not re.search(r'forward-looking statements|uncertainties that could',p['text'],re.I)]
+        ordered=mandatory+release_chunks[:22]
+        for chunk in ordered:
+            if chunk['section_id'] in selected:continue
+            if anchor_used+len(chunk['text'])>min(10000,budget//2):break
             selected[chunk['section_id']]=chunk;anchor_used+=len(chunk['text'])
     allowance=(budget-sum(len(c['text']) for c in selected.values()))//len(topics)
     for topic in topics:
-        words=tokenize(TOPICS[topic]);ranked=[]
+        words=tokenize(topic_queries[topic]);ranked=[]
         for i,c in enumerate(counts):
             score=sum(math.log(1+len(pool)/(1+df[w]))*min(c[w],3) for w in words)
             body=pool[i]['text'].lower()
+            # Financial topics cannot silently fall back to superseded balance sheets.
+            if topic in {'results','cash','balance','quality'}:
+                latest=max((d.get('period_end') or '' for d in documents if d.get('document_class') in {'earnings_release','periodic_filing'}),default='')
+                if latest and (pool[i].get('period_end') or '')<latest:score*=.03
+            if topic in {'outlook','financing'} and pool[i].get('document_class')=='earnings_release':score*=3
+            if topic=='quality' and re.search(r'excluding.{0,80}(?:gains|items)',body):score*=8
+            if business_type=='bank' and topic=='balance' and 'cet1' in body and 'requirement' in body:score*=15
             if any(term in body for term in ('uncertainties that could','forward-looking statements','should not be considered as a substitute')):score*=.08
             if topic=='quality' and '|' in body and 'stock' in body and 'compensation' in body:
                 if 'deferred income tax assets' in body or 'deferred tax assets' in body:score=0

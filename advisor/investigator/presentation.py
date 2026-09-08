@@ -113,6 +113,11 @@ def decision_brief(report, now=None):
     direct=synthesis.get('review_status')=='source_linked_brief' and bool(synthesis.get('source_ids')) and all(lookup.get(i,{}).get('temporal',{}).get('state') in {'current','context_only'} for i in synthesis.get('source_ids',[])) and any(lookup.get(i,{}).get('temporal',{}).get('state')=='current' for i in synthesis.get('source_ids',[]))
     if direct:
         verdict,tone={'buy_candidate':('BUY CANDIDATE','green'),'hold':('HOLD','cyan'),'avoid_new_entry':('AVOID NEW ENTRY','red'),'no_edge_found':('NO EDGE FOUND','amber')}.get(synthesis.get('action'),('RESEARCH BRIEF','cyan'))
+        coverage=synthesis.get('research_coverage',{})
+        if synthesis.get('action')=='no_edge_found' and coverage.get('valuation_calculation') is False:
+            verdict,tone='VALUATION UNRESOLVED · RESEARCH GAP','amber'
+        if synthesis.get('verification_state')=='unavailable':
+            verdict,tone='DRAFT · '+verdict,'amber'
         summary=synthesis['summary'];drivers=[];conditions=[]
         basis=synthesis.get('validation_basis','Original-source research brief · No separate adversarial model review')
     if identified and not reviewed and not direct:

@@ -77,6 +77,12 @@ def render(data,principal,selected=None):
     overview,evidence,sources=st.tabs(['DECISION BRIEF','EVIDENCE & DATES','SOURCES & GAPS'])
     with overview:
         if s.get('review_status')=='source_linked_brief':
+            coverage=s.get('research_coverage',{})
+            labels={'valuation_calculation':'valuation calculation','current_results':'current results',
+                'current_transcript':'current earnings transcript','read_current_news':'full current news articles',
+                'dated_short_interest':'dated short interest','provider_estimates':'provider estimates','dated_catalyst':'dated catalyst'}
+            missing=[labels.get(k,k.replace('_',' ')) for k,v in coverage.items() if not v]
+            if missing:st.caption('Not established in this run: '+', '.join(missing)+'.')
             st.markdown(s['report_markdown'].replace('$',r'\$'))
             st.caption(s['validation_basis'])
         from .reconciliation import reconcile

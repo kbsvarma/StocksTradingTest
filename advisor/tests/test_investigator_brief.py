@@ -72,3 +72,15 @@ def test_model_quota_failure_is_not_an_investment_opinion():
     assert brief['verdict']=='ANALYSIS BLOCKED · MODEL LIMIT'
     assert not brief['conditions'] and not brief['insights']
     assert brief['findings'] and 'No investment conclusion' in brief['summary']
+
+
+def test_missing_valuation_and_unreviewed_drafts_have_distinct_labels():
+    r=record(ticker='TEST',source='issuer_ir',kind='document',payload={'text':'Current issuer results.'},retrieved_at=NOW,published_at=NOW)
+    raw=report([r]);raw['synthesis']={'review_status':'source_linked_brief','source_ids':[r['id']],
+        'summary':'Business analysis available; valuation needs evidence.','action':'no_edge_found',
+        'research_coverage':{'valuation_calculation':False},'verification_state':'complete'}
+    assert decision_brief(raw,NOW)['verdict']=='VALUATION UNRESOLVED · RESEARCH GAP'
+    raw['synthesis']['verification_state']='unavailable'
+    assert decision_brief(raw,NOW)['verdict'].startswith('DRAFT · ')
+    raw['synthesis'].update(action='hold',verification_state='complete')
+    assert decision_brief(raw,NOW)['verdict']=='HOLD'

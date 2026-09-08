@@ -1,5 +1,12 @@
 from datetime import datetime,timezone
 from advisor.investigator.source_documents import earnings_metadata
+
+
+def test_latest_period_after_long_business_update_overrides_prior_year_comparison():
+    text='For the quarter ended June 30, 2025, revenue was lower. '+('Business update. '*1200)+' Three months ended June 30, 2026.'
+    metadata,period=earnings_metadata(text,'2026-07-30')
+    assert period=='2026-06-30'
+    assert metadata['period_basis_excerpt'] in text
 from advisor.investigator.temporal import record,annotate
 
 

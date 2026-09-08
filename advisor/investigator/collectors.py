@@ -121,7 +121,10 @@ def sec(ticker, data, *, get=getjson):
     except Exception as exc:errors.append('SEC submissions: '+type(exc).__name__)
     try:
         raw=get(facts_url);retrieved=utcnow()
-        extra={'capex':['PaymentsToAcquirePropertyPlantAndEquipment','PaymentsToAcquireProductiveAssets'],'inventory':['InventoryNet'],'receivables':['AccountsReceivableNetCurrent'],
+        extra={'total_debt':['DebtLongtermAndShorttermCombinedAmount'],
+               'current_debt':['DebtCurrent','NotesPayableCurrent','LongTermDebtCurrent'],
+               'noncurrent_debt':['LongTermDebtNoncurrent','LongTermNotesPayable'],
+               'capex':['PaymentsToAcquirePropertyPlantAndEquipment','PaymentsToAcquireProductiveAssets'],'inventory':['InventoryNet'],'receivables':['AccountsReceivableNetCurrent'],
                'sbc':['ShareBasedCompensation'],'current_assets':['AssetsCurrent'],
                'current_liabilities':['LiabilitiesCurrent'],'interest_expense':['InterestExpense'],
                'cost_of_revenue':['CostOfRevenue','CostOfGoodsAndServicesSold']}
