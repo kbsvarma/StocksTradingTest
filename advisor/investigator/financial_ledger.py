@@ -6,7 +6,8 @@ import re
 LABELS={'revenue':'Revenue','net_income':'GAAP consolidated net income','op_income':'GAAP operating income',
  'eps_diluted':'GAAP diluted EPS','cash':'Cash and cash equivalents','equity':'Stockholders equity',
  'cfo':'Operating cash flow','capex':'Cash capital expenditures','sbc':'Stock compensation expense',
- 'total_debt':'Reported total debt','current_debt':'Current debt','noncurrent_debt':'Noncurrent debt','interest_expense':'Interest expense'}
+ 'total_debt':'Reported total debt','current_debt':'Current debt','noncurrent_debt':'Noncurrent debt','interest_expense':'Interest expense',
+ 'shares_outstanding':'Reported common shares outstanding'}
 
 
 def build(rows,ticker,valuation=None):
@@ -51,7 +52,9 @@ def build(rows,ticker,valuation=None):
             if not eligible:continue
             r=max(eligible,key=lambda r:(r['period_end'],r.get('published_at') or ''))
             selected[metric,duration]=r
-            add(metric+'_'+duration,label+' · '+duration,r['payload']['value'],r['payload']['unit'],r.get('period_start'),r['period_end'],[r],'Reported fact')
+            definition=r['payload'].get('aggregation','')
+            if r['payload'].get('share_classes'):definition+='; reported share classes: '+str(r['payload']['share_classes'])
+            add(metric+'_'+duration,label+' · '+duration,r['payload']['value'],r['payload']['unit'],r.get('period_start'),r['period_end'],[r],'Reported fact',definition)
     for duration in ('quarter','ytd','annual'):
         rev=selected.get(('revenue',duration))
         if rev and rev['payload']['value']>0:

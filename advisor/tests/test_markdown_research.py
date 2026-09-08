@@ -121,9 +121,12 @@ def test_cited_cash_amount_cannot_be_relabelled_as_cash_plus_investments():
     from advisor.investigator.brief import scope_guard
     facts=[{'id':'F13','key':'cash_instant','value':3.592e9,'unit':'USD'}]
     text='Cash and short-term investments ($3.592 billion as of June 30 [F13]) depleted.'
-    assert 'Cash and cash equivalents' in scope_guard(text,facts)
+    assert 'cash and cash equivalents' in scope_guard(text,facts)
     total='Cash and short-term investments were $5.31 billion; cash was $3.592 billion [F13].'
     assert scope_guard(total,facts)==total
+    reversed_order='Rivian held $3.592 billion in cash, cash equivalents, and restricted cash [S2C66] [F13].'
+    assert 'restricted cash' not in scope_guard(reversed_order,facts)
+    assert 'restricted cash' not in scope_guard(reversed_order.replace('[S2C66] [F13]','[S2C66, F13]'),facts)
 
 
 def test_bank_amount_and_growth_keep_different_exclusions():

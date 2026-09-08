@@ -326,9 +326,14 @@ def scope_guard(text,financials=()):
         entry=cash.get(match['ident'])
         amount=float(match['amount'].replace(',',''))*(1e9 if match['unit'].lower() in {'billion','bn'} else 1e6)
         if entry and abs(amount-entry['value'])<=max(1,abs(entry['value'])*.005):
-            return 'Cash and cash equivalents'+match['rest']
+            a,b=match.span('label');start=match.start()
+            return match[0][:a-start]+'cash and cash equivalents'+match[0][b-start:]
         return match[0]
-    text=re.sub(r'cash(?:,\s*cash equivalents,?)?\s*(?:and|&)\s*(?:short[- ]term investments|marketable securities)(?P<rest>.{0,100}?\$(?P<amount>[\d,.]+)\s*(?P<unit>billion|million|bn|m)\b.{0,150}?\[(?P<ident>F\d+)\])',cash_scope,text,flags=re.I)
+    cash_label=r'(?P<label>cash(?:,\s*cash equivalents,?)?\s*(?:and|&)\s*(?:short[- ]term investments|marketable securities|restricted cash))'
+    amount=r'\$(?P<amount>[\d,.]+)\s*(?P<unit>billion|million|bn|m)\b'
+    citation=r'.{0,250}?\[(?:(?:S\d+(?:C\d+)?|F\d+)\s*[,;]\s*)*(?P<ident>F\d+)(?:\s*[,;]\s*S\d+(?:C\d+)?)*\]'
+    text=re.sub(cash_label+r'.{0,100}?'+amount+citation,cash_scope,text,flags=re.I)
+    text=re.sub(amount+r'\s+in\s+'+cash_label+citation,cash_scope,text,flags=re.I)
     paragraphs=[]
     for part in text.split('\n\n'):
         if re.search(r'\bTTM\b|trailing.{0,30}(?:EPS|P/E|earnings|yield)|\bP/E\b|EV/EBITDA',part,re.I):
