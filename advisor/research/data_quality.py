@@ -74,7 +74,13 @@ def assess(panels: Mapping[str, object], requested: int, now=None) -> dict:
     negative_volume = (volume < 0).any(axis=0)
     ohlc_bad = ((low > high) | (close < low) | (close > high)).any(axis=0)
     if opens is not None:
-        ohlc_bad |= ((opens < low) | (opens > high) | opens.isna()).any(axis=0)
+        # Outer-aligned histories can start on different dates. An entirely
+        # absent bar is not an impossible OHLC relationship; coverage and
+        # staleness checks handle missing observations. A partial bar still
+        # fails when any price exists without its opening observation.
+        price_present = close.notna() | high.notna() | low.notna()
+        ohlc_bad |= ((opens < low) | (opens > high) |
+                     (opens.isna() & price_present)).any(axis=0)
     returns = close.pct_change(fill_method=None).tail(90)
     extreme = (returns.abs() > 0.50).any(axis=0)
     stale = close.tail(10).notna().sum(axis=0) < 5

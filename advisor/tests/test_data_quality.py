@@ -41,6 +41,19 @@ def test_benchmark_anomaly_fails_closed():
     assert any("benchmark SPY" in error for error in result["errors"])
 
 
+def test_outer_aligned_benchmark_history_is_not_an_ohlc_violation():
+    panels = _panels()
+    panels['Open'] = panels['Close'].copy()
+    for panel in panels.values():
+        panel.loc[panel.index[:3], '^VIX'] = float('nan')
+    assert assess(panels, requested=3, now='2026-07-16')['ok']
+    # Missing Open on an observed bar remains a blocking benchmark error.
+    panels['Open'].loc[panels['Open'].index[-1], '^VIX'] = float('nan')
+    result = assess(panels, requested=3, now='2026-07-16')
+    assert not result['ok']
+    assert 'OHLC relationship violation' in result['quarantine']['^VIX']
+
+
 def test_stale_or_misaligned_panel_fails_closed():
     panels = _panels()
     panels["Volume"] = panels["Volume"].iloc[:-1]

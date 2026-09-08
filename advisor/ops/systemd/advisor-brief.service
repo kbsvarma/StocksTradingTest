@@ -11,6 +11,8 @@ Environment=ADVISOR_PYTHON=%h/stockstest/.venv/bin/python
 Environment=CLAUDE_BIN=%h/.nvm/versions/node/v24.20.0/bin/claude
 Environment=ADVISOR_ENV_FILE=%h/.trendbot_env
 ExecStart=/bin/bash %h/stockstest/advisor/run_brief.sh
+# The orchestrator returns 76 when the input fingerprint has not changed.
+SuccessExitStatus=76
 TimeoutStartSec=5400
 UMask=0077
 NoNewPrivileges=true

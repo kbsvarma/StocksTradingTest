@@ -20,13 +20,13 @@ def clock(v):
     try:return datetime.fromtimestamp(v,timezone.utc).strftime('%d %b %Y %H:%M UTC')
     except (ValueError,TypeError,OSError):return str(v)
 
-def figure(snapshot,*,style='Candles',averages=True,compare=None,period='5Y'):
+def figure(snapshot,*,style='Candles',averages=True,compare=None,period='1W'):
     f=frame(snapshot)
     if f.empty:return None
     for n in (50,200):f[f'MA{n}']=f.Close.rolling(n).mean()
     last=f.index[-1]
     cutoff={'1M':last-pd.DateOffset(months=1),'6M':last-pd.DateOffset(months=6),'YTD':pd.Timestamp(year=last.year,month=1,day=1,tz=last.tz),'1Y':last-pd.DateOffset(years=1)}.get(period,f.index[0])
-    f=f.loc[f.index>=cutoff]
+    f=f.tail(5) if period=='1W' else f.loc[f.index>=cutoff]
     fig=make_subplots(rows=2,cols=1,shared_xaxes=True,vertical_spacing=.025,row_heights=[.82,.18])
     close=f['Close'];ticker=snapshot['ticker']
     if compare:
@@ -74,7 +74,10 @@ def render_market(data,ticker):
     if compare!='None' and not benchmark.get('bars'):
         with st.spinner('Loading comparison history…'):benchmark=refresh(data,compare)
     if compare!='None' and not benchmark.get('bars'):st.warning('Comparison data is unavailable; showing the stock price chart only.')
-    period=st.segmented_control('Chart range',['1M','6M','YTD','1Y','5Y'],default='5Y',key='market_period',label_visibility='collapsed') or '5Y'
+    if st.session_state.get('market_period_ticker')!=ticker:
+        st.session_state['market_period']='1W'
+        st.session_state['market_period_ticker']=ticker
+    period=st.segmented_control('Chart range',['1W','1M','6M','YTD','1Y','5Y'],key='market_period',label_visibility='collapsed') or '1W'
     chart=figure(snapshot,style=style,averages=averages,compare=benchmark,period=period)
     st.plotly_chart(chart,use_container_width=True,key='investigation_market_chart_'+ticker,config={'displayModeBar':True,'displaylogo':False,'scrollZoom':True,'responsive':True,'modeBarButtonsToRemove':['lasso2d','select2d']})
     st.caption(f'Adjusted daily prices · {snapshot.get("history_as_of","")[:10]} last bar · {len(snapshot["bars"]):,} sessions. Drag to pan, wheel/pinch to zoom, select a range, or double-click to reset. Comparison returns start at the first common session in the selected range; zooming does not change that base.')

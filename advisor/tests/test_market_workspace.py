@@ -57,6 +57,39 @@ def test_short_range_rescales_data_but_keeps_full_history_moving_average():
     assert all(pd.notna(v) for v in ma200.y)
 
 
+def test_investigate_defaults_to_last_five_sessions_with_long_ranges_available():
+    dates=pd.bdate_range('2025-01-01',periods=400,tz='UTC')
+    snapshot={'ticker':'TEST','bars':[{'Date':d.isoformat(),'Close':100+i,'Open':100+i,'High':101+i,'Low':99+i,'Volume':100} for i,d in enumerate(dates)]}
+    fig=figure(snapshot)
+    assert list(fig.data[0].x)==list(dates[-5:])
+    assert len(figure(snapshot,period='5Y').data[0].x)==400
+    assert all(pd.notna(v) for v in next(t for t in fig.data if t.name=='MA 200').y)
+
+
+def test_investigate_range_resets_on_new_ticker_and_preserves_same_ticker_choice(tmp_path):
+    from streamlit.testing.v1 import AppTest
+    from advisor.market_data import refresh
+    for ticker in ('TEST','NEXT'):
+        refresh(tmp_path,ticker,factory=lambda _:Market())
+    app=AppTest.from_string('''
+import streamlit as st
+from pathlib import Path
+from advisor.market_view import render_market
+render_market(Path(st.session_state['data']),st.session_state['ticker'])
+''')
+    app.session_state['data']=str(tmp_path)
+    app.session_state['ticker']='TEST'
+    app.run()
+    assert not app.exception
+    assert app.session_state['market_period']=='1W'
+    app.get('button_group')[0].set_value(['5Y']).run()
+    assert app.session_state['market_period']=='5Y'
+    app.session_state['ticker']='NEXT'
+    app.get('button_group')[0].set_value(['5Y']).run()
+    assert not app.exception
+    assert app.session_state['market_period']=='1W'
+
+
 def test_watch_chart_scales_visible_prices_and_reports_period_return():
     from advisor.watchlist_workspace import watch_chart
     bars=pd.DataFrame({'Close':[200+i*.2 for i in range(100)]},index=pd.bdate_range('2026-01-01',periods=100))
