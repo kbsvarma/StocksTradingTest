@@ -68,6 +68,10 @@ def render(data,principal,selected=None):
     except FileNotFoundError:
         st.info(f'Run a fresh investigation to examine {ticker} fundamentals, expectations, price structure and dated sources.');return
     except (ValueError,KeyError) as exc:st.error(str(exc));return
+    if job and job.get('run_id')!=report.get('run_id'):
+        st.info('Previous saved report below · '+str(report.get('as_of',''))+' · It is not the result of the current investigation.')
+        if report.get('synthesis',{}).get('review_status')!='source_linked_brief':
+            return  # Do not repeat an obsolete model-limit banner beneath the current job status.
     brief=decision_brief(report);lookup=brief['lookup'];analysis=report['analysis'];s=report['synthesis']
     rich(f'<div class="ad-verdict {brief["tone"]}"><div class="ad-kicker">{safe(brief["verdict"])}</div><p>{safe(brief["summary"])}</p><small>AS OF {safe(report["as_of"][:19].replace("T"," "))} UTC · {safe(brief["basis"])}</small></div>')
     overview,evidence,sources=st.tabs(['DECISION BRIEF','EVIDENCE & DATES','SOURCES & GAPS'])

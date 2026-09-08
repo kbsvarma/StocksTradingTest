@@ -171,7 +171,7 @@ def sec(ticker, data, *, get=getjson):
                     'tag':'dei:EntityCommonStockSharesOutstanding','share_classes':cover['classes'],'aggregation':cover['basis']},
                     period_end=cover['period_end'],retrieved_at=now,published_at=r['published_at'],url=r['url'],authority='primary',title='Cover-page common shares outstanding'))
             period=r['payload'].get('report_date') if periodic else None
-            rows.append(record(ticker=ticker,source='sec_exhibits',kind='document',payload={'text':body['text'],'links':body['links'],
+            rows.append(record(ticker=ticker,source='sec_exhibits',kind='document',payload={'text':body['text'],'markdown':body.get('markdown',body['text']),'links':body['links'],
                 'document_class':'periodic_filing' if periodic else 'event_filing','form':r['payload']['form']},
                 period_end=period or None,retrieved_at=now,published_at=r['published_at'],url=r['url'],authority='primary',independence=r['independence'],title=r['title']))
             if r['payload']['form']=='8-K':
@@ -181,7 +181,7 @@ def sec(ticker, data, *, get=getjson):
                     doc=document(url)
                     from .source_documents import earnings_metadata
                     metadata,period=earnings_metadata(doc['text'],r['published_at']) if '2.02' in r['payload'].get('items','') else ({},None)
-                    rows.append(record(ticker=ticker,source='sec_exhibits',kind='document',payload={'text':doc['text'],**metadata,**{k:doc[k] for k in ('format','page_spans') if k in doc}},
+                    rows.append(record(ticker=ticker,source='sec_exhibits',kind='document',payload={'text':doc['text'],'markdown':doc.get('markdown',doc['text']),**metadata,**{k:doc[k] for k in ('format','page_spans') if k in doc}},
                         period_end=period,retrieved_at=utcnow(),published_at=r['published_at'],url=url,authority='primary',independence=r['independence'],title='8-K earnings release exhibit' if metadata else '8-K release exhibit'))
         except Exception as exc:errors.append('SEC document: '+type(exc).__name__)
     return rows,errors
@@ -231,9 +231,11 @@ def document(url):
     main=soup.select_one('main, [role=main]')
     content=main if main and len(main.get_text(' ',strip=True))>=200 else soup
     text=' '.join(content.stripped_strings)
+    from .markdown_research import to_markdown
+    markdown=to_markdown(content)
     from .source_documents import visible_publication,earnings_call_metadata
     visible,excerpt=visible_publication(text)
-    return {'text':text[:300_000],'links':links,'link_details':link_details,'published_at':min(dates) if dates else visible,'publication_excerpt':excerpt,'title':title,'cover_shares':share_counts,**earnings_call_metadata(title,text)}
+    return {'text':text[:300_000],'markdown':markdown[:600_000],'links':links,'link_details':link_details,'published_at':min(dates) if dates else visible,'publication_excerpt':excerpt,'title':title,'cover_shares':share_counts,**earnings_call_metadata(title,text)}
 
 
 def yahoo(ticker, *, factory=None):

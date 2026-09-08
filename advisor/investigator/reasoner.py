@@ -47,7 +47,7 @@ def passages(text,limit=9000,priority_terms=()):
     for term in terms:
         start=0
         for _ in range(3 if compact and term in {'revenue increased','cloud services','remaining performance obligation'} else 1 if compact else 2):
-            pos=lower.find(term,start)
+            pos=lower.find(term.lower(),start)
             if pos<0:break
             left=max(0,pos-(90 if compact else 250));right=min(len(text),pos+(330 if compact else 1100))
             if compact:

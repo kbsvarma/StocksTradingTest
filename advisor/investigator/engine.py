@@ -109,7 +109,7 @@ def run(ticker,data,*,deep=False,progress=None,run_id=None,collect=None,model=re
     if concise:
         update('synthesize','Writing the investment report from original sources and checked financial calculations')
         from .brief import generate
-        synthesis,usage=generate(ticker,stamped,analysis,trace=lambda value:atomic(root/'model_output.json',value))
+        synthesis,usage=generate(ticker,stamped,analysis,trace=lambda value:atomic(root/'model_output.json',value),progress=update)
         model_usage.append(usage);atomic(root/'proposal.json',synthesis)
     if deep and not concise:
         for round_number in range(1,5):

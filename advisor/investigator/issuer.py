@@ -67,7 +67,7 @@ def collect(ticker,rows,data,*,fetcher=document):
             from .source_documents import earnings_metadata
             metadata,period=earnings_metadata(doc['text'],doc['published_at']) if financial else ({},None)
             if call:metadata={k:doc[k] for k in ('document_class','event_basis_excerpt','availability_basis')}
-            output.append(record(ticker=ticker,source='issuer_ir',kind='document',payload={'text':doc['text'],'discovered_from':parent,'dimension':dimension,'relevance':'direct' if financial or material else 'unverified','publication_basis':'visible document dateline' if doc.get('publication_excerpt') else 'page metadata',**metadata,**{k:doc[k] for k in ('format','page_spans') if k in doc}},
+            output.append(record(ticker=ticker,source='issuer_ir',kind='document',payload={'text':doc['text'],'markdown':doc.get('markdown',doc['text']),'discovered_from':parent,'dimension':dimension,'relevance':'direct' if financial or material else 'unverified','publication_basis':'visible document dateline' if doc.get('publication_excerpt') else 'page metadata',**metadata,**{k:doc[k] for k in ('format','page_spans') if k in doc}},
                 period_end=period,retrieved_at=utcnow(),observed_at=utcnow() if call else None,event_at=doc.get('event_at'),published_at=doc.get('published_at'),url=url,authority='issuer_statement',independence='issuer:'+ticker,title=doc.get('title') or url.rsplit('/',1)[-1]))
         except Exception as exc:errors.append('Issuer release: '+type(exc).__name__+' ('+(urlparse(url).hostname or '')+urlparse(url).path+')')
     return output,errors

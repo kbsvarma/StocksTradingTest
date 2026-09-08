@@ -18,10 +18,10 @@ def config():
         for line in path.read_text().splitlines():
             if not line.strip() or line.lstrip().startswith('#') or '=' not in line:continue
             key,value=line.split('=',1);key=key.strip().removeprefix('export ')
-            if key not in {'OPENAI_API_KEY','ADVISOR_RESEARCH_MODEL','ADVISOR_RESEARCH_REASONING','GEMINI_API_KEY','ADVISOR_RESEARCH_PROVIDER','ADVISOR_RESEARCH_SAMPLING','ADVISOR_RESEARCH_WORKFLOW'}:continue
+            if key not in {'OPENAI_API_KEY','ADVISOR_RESEARCH_MODEL','ADVISOR_RESEARCH_REASONING','GEMINI_API_KEY','ADVISOR_RESEARCH_PROVIDER','ADVISOR_RESEARCH_SAMPLING','ADVISOR_RESEARCH_WORKFLOW','ADVISOR_BANK_RESEARCH_MODEL'}:continue
             parts=shlex.split(value,comments=True)
             if len(parts)==1:values[key]=parts[0]
-    values.update({k:os.environ[k] for k in ('OPENAI_API_KEY','ADVISOR_RESEARCH_MODEL','ADVISOR_RESEARCH_REASONING','GEMINI_API_KEY','ADVISOR_RESEARCH_PROVIDER','ADVISOR_RESEARCH_SAMPLING','ADVISOR_RESEARCH_WORKFLOW') if os.environ.get(k)})
+    values.update({k:os.environ[k] for k in ('OPENAI_API_KEY','ADVISOR_RESEARCH_MODEL','ADVISOR_RESEARCH_REASONING','GEMINI_API_KEY','ADVISOR_RESEARCH_PROVIDER','ADVISOR_RESEARCH_SAMPLING','ADVISOR_RESEARCH_WORKFLOW','ADVISOR_BANK_RESEARCH_MODEL') if os.environ.get(k)})
     return values
 
 
