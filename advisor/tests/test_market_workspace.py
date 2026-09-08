@@ -82,10 +82,12 @@ render_market(Path(st.session_state['data']),st.session_state['ticker'])
     app.run()
     assert not app.exception
     assert app.session_state['market_period']=='1W'
-    app.get('button_group')[0].set_value(['5Y']).run()
+    control=app.get('button_group')[0]
+    control.set_value('5Y' if hasattr(control,'_is_single_select') else ['5Y']).run()
     assert app.session_state['market_period']=='5Y'
     app.session_state['ticker']='NEXT'
-    app.get('button_group')[0].set_value(['5Y']).run()
+    control=app.get('button_group')[0]
+    control.set_value('5Y' if hasattr(control,'_is_single_select') else ['5Y']).run()
     assert not app.exception
     assert app.session_state['market_period']=='1W'
 

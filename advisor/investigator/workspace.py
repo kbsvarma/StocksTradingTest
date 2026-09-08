@@ -1,5 +1,6 @@
 """Readable investment briefs with source-linked reasoning and explicit coverage failures."""
 import json
+from datetime import datetime
 from html import escape
 from pathlib import Path
 import pandas as pd
@@ -8,6 +9,7 @@ from .engine import load_latest, load_run, markdown
 from .jobs import start, read_status, active_job
 from .presentation import decision_brief, MEANING
 from .search import resolve, LABELS
+from .archive import recent_reports, generated_label
 
 
 def rich(text):st.markdown(text,unsafe_allow_html=True)
@@ -15,7 +17,25 @@ def safe(value):return escape(str(value))
 def label(value):return str(value).replace('_',' ').capitalize()
 
 
+def render_archive(data):
+    with st.expander('Investigation archive · latest 5 searches',expanded=True):
+        rows=recent_reports(data)
+        if not rows:
+            st.caption('Completed investigations will appear here with their generation date.')
+        for row in rows:
+            suffix=' · Partial report' if row['state']=='partial' else ''
+            if st.button(f"{row['ticker']} · {row['label']}{suffix}",
+                         key='archive_'+row['ticker']+'_'+row['run_id'],use_container_width=True):
+                st.session_state['investigation_archive_selection']=row
+                st.session_state['investigator_ticker']=row['ticker']
+                st.session_state['ad_symbol']=row['ticker']
+                st.session_state.pop('ad_investigate_requested',None)
+                st.session_state.pop('ad_market_requested',None)
+                st.rerun()
+
+
 def render(data,principal,selected=None):
+    render_archive(data)
     ticker=st.session_state.get('investigator_ticker') or selected
     if not ticker:
         st.info('Search for a company or ticker above to begin.');return
@@ -29,6 +49,7 @@ def render(data,principal,selected=None):
         requested=st.button('Investigating…' if active else 'Run fresh investigation',type='primary',use_container_width=True,disabled=bool(active) or principal.role not in {'analyst','admin'},key='investigation_run')
     pending=st.session_state.pop('ad_investigate_requested',None)
     if requested or pending==ticker:
+        st.session_state.pop('investigation_archive_selection',None)
         try:
             verified=resolve(ticker,data)
             job=start(data,verified,principal,deep=True)
@@ -41,11 +62,15 @@ def render(data,principal,selected=None):
         st.caption(f"Research engine: {runtime['provider']} · {runtime['model']}")
     if not runtime['configured']:
         st.warning('Research engine setup required: the application model credential is missing. Saved reports and charts remain available; a new full investigation cannot run yet.')
+    archived=st.session_state.get('investigation_archive_selection')
+    if archived and archived['ticker']!=ticker:
+        st.session_state.pop('investigation_archive_selection',None)
+        archived=None
     job=st.session_state.get('investigation_job')
     if not job or job.get('ticker')!=ticker:
         try:job=json.loads((Path(data)/'intelligence/investigations'/ticker/'active.json').read_text())
         except (ValueError,OSError):job=None
-    if job and job.get('ticker')==ticker:
+    if job and job.get('ticker')==ticker and not archived:
         @st.fragment(run_every='5s')
         def status_fragment():
             status=read_status(data,ticker,job['run_id'])
@@ -64,15 +89,21 @@ def render(data,principal,selected=None):
         status_fragment()
     from advisor.market_view import render_market
     render_market(data,ticker)
-    try:report=load_latest(data,ticker)
+    try:report=load_run(data,ticker,archived['run_id']) if archived else load_latest(data,ticker)
     except FileNotFoundError:
         st.info(f'Run a fresh investigation to examine {ticker} fundamentals, expectations, price structure and dated sources.');return
     except (ValueError,KeyError) as exc:st.error(str(exc));return
-    if job and job.get('run_id')!=report.get('run_id'):
+    if archived:
+        st.info('Saved intelligence report · Generated '+generated_label(report['as_of'])+
+                '. Report evidence is from this saved run; the chart shows the latest cached market history.')
+        if st.button('Return to latest report',key='archive_latest'):
+            st.session_state.pop('investigation_archive_selection',None);st.rerun()
+    if not archived and job and job.get('run_id')!=report.get('run_id'):
         st.info('Previous saved report below · '+str(report.get('as_of',''))+' · It is not the result of the current investigation.')
         if report.get('synthesis',{}).get('review_status')!='source_linked_brief':
             return  # Do not repeat an obsolete model-limit banner beneath the current job status.
-    brief=decision_brief(report);lookup=brief['lookup'];analysis=report['analysis'];s=report['synthesis']
+    brief=decision_brief(report,now=datetime.fromisoformat(report['as_of'].replace('Z','+00:00'))) if archived else decision_brief(report)
+    lookup=brief['lookup'];analysis=report['analysis'];s=report['synthesis']
     rich(f'<div class="ad-verdict {brief["tone"]}"><div class="ad-kicker">{safe(brief["verdict"])}</div><p>{safe(brief["summary"])}</p><small>AS OF {safe(report["as_of"][:19].replace("T"," "))} UTC · {safe(brief["basis"])}</small></div>')
     overview,evidence,sources=st.tabs(['DECISION BRIEF','EVIDENCE & DATES','SOURCES & GAPS'])
     with overview:
