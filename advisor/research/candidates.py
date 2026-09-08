@@ -318,7 +318,7 @@ def build() -> dict:
         stakes = sc.get("stakes", [])
         pop = {s["ticker"]: s["pct_of_class"] for s in stakes
                if s.get("pct_of_class") is not None}
-        for stake in stakestake[:CAPS["activist_stake"]]:
+        for stake in stakes[:CAPS["activist_stake"]]:
             tier = ("new_13D" if stake.get("new_13d") else
                     "13D_amendment" if stake.get("is_13d") else "13G_passive")
             add(stake["ticker"], "activist_stake",

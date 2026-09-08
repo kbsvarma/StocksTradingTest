@@ -71,6 +71,22 @@ def test_live_generators_are_reported_live(env):
     assert res["generator_health"]["tactical_long"]["n"] == 1
 
 
+def test_filed_activist_stake_enters_discovery_slate(env):
+    _signals(env)
+    manifest=env/'_meta'/'ingest_manifest.json'
+    doc=json.loads(manifest.read_text())
+    doc['datasets']['schedule13']={'ok':True,'as_of':datetime.now(ET).isoformat()}
+    manifest.write_text(json.dumps(doc))
+    (env/'positioning').mkdir()
+    (env/'positioning'/'schedule13_signals.json').write_text(json.dumps({
+        'as_of':datetime.now(ET).isoformat(),'window_days':30,'stakes':[{'ticker':'BBB','pct_of_class':7.2,
+        'new_13d':True,'is_13d':True,'filer':'Example investor'}]}))
+    result=candidates.build()
+    assert 'activist_stake' in result['generators_live']
+    row=next(row for row in result['slate'] if row['ticker']=='BBB')
+    assert 'activist_stake' in row['generators']
+
+
 def test_single_family_slate_raises_a_breadth_warning(env):
     """The exact condition that held for a month and nothing said so."""
     _signals(env)

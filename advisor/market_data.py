@@ -1,7 +1,7 @@
 """On-demand public market snapshots. Failed refreshes never erase good history."""
 import json
 from pathlib import Path
-from datetime import datetime,timezone
+from datetime import datetime,timezone,timedelta
 import pandas as pd
 from advisor.investigator.collectors import symbol,clean,frame_rows
 from advisor.investigator.engine import atomic
@@ -42,6 +42,36 @@ def frame(snapshot):
     for col in ('Open','High','Low','Close','Volume'):
         if col in raw:raw[col]=pd.to_numeric(raw[col],errors='coerce')
     return raw.dropna(subset=['Close'])
+
+
+def refresh_week(data,ticker,*,factory=None):
+    """Cache real intraday observations; never interpolate daily closes."""
+    ticker=symbol(ticker)
+    if factory is None:
+        import yfinance as yf
+        factory=yf.Ticker
+    out=load(data,ticker)
+    now=datetime.now(timezone.utc).isoformat()
+    try:
+        start=(datetime.now(timezone.utc)-timedelta(days=45)).date().isoformat()
+        history=factory(ticker).history(start=start,interval='15m',prepost=False,
+                                       auto_adjust=True,actions=False,timeout=15)
+        if history is None or history.empty:raise ValueError('No intraday history returned')
+        out.update(intraday_bars=frame_rows(history),intraday_as_of=history.index[-1].isoformat(),
+                   intraday_retrieved_at=now,intraday_error=None)
+    except Exception as exc:
+        out['intraday_error']='Intraday history: '+type(exc).__name__
+    out.update(ticker=ticker,intraday_attempted_at=now,intraday_window_days=45)
+    atomic(Path(data)/'market'/f'{ticker}.json',out)
+    return out
+
+
+def intraday_due(snapshot):
+    if snapshot.get('intraday_window_days')!=45:return True
+    try:
+        stamp=datetime.fromisoformat(snapshot.get('intraday_attempted_at'))
+        return (datetime.now(timezone.utc)-stamp).total_seconds()>900
+    except (TypeError,ValueError):return True
 
 def watch_symbols(store):
     saved=store.workspace('watchlist')
