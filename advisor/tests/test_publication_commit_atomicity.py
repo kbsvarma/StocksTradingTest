@@ -31,6 +31,10 @@ def ctx(tmp_path, monkeypatch):
     import advisor.brief_check as bc
     monkeypatch.setattr(bc, "_existing_open_capital", lambda keys: 0.0)
     assemble(d)
+    (d / "factor_sheet.json").write_text(json.dumps({
+        "panel_build_id": "fixture-panel",
+        "data_quality": {"latest_market_date": "2026-09-03"},
+    }))
     # isolate every deterministic side effect
     monkeypatch.setattr(pc, "add_batch",
                         lambda entries: [{**e, "id": f"J-{i}"}

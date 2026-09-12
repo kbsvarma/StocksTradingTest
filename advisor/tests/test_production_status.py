@@ -72,6 +72,16 @@ def test_publication_day_reuses_session_issue_until_today_is_published(tmp_path,
     assert ps._publication_day(now,'2026-09-11')=='2026-09-14'
 
 
+def test_publication_receipt_is_bound_to_current_panel_and_required_session():
+    signals={'panel_build_id':'panel-1'}
+    receipt={'schema_version':2,'price_bar':'2026-09-11',
+             'panel_build_id':'panel-1','factor_sheet_sha256':'a'*64}
+    assert ps._receipt_matches_market(receipt,signals,'2026-09-11') is True
+    assert ps._receipt_matches_market({**receipt,'price_bar':'2026-09-10'},signals,'2026-09-11') is False
+    assert ps._receipt_matches_market({**receipt,'panel_build_id':'panel-0'},signals,'2026-09-11') is False
+    assert ps._receipt_matches_market({**receipt,'schema_version':1},signals,'2026-09-11') is False
+
+
 def test_malformed_acceptance_and_ranking_artifacts_fail_closed(tmp_path,monkeypatch):
     (tmp_path/'intelligence').mkdir();(tmp_path/'research').mkdir()
     monkeypatch.setattr(ps,'DATA',tmp_path)

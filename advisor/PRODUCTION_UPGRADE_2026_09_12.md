@@ -1,6 +1,6 @@
 # Advisor production upgrade — 2026-09-12
 
-This change set implements 24 evidence-driven passes. It does not claim proven
+This change set implements 26 evidence-driven passes. It does not claim proven
 alpha, commercial data rights, regulatory approval, or permission to route
 orders.
 
@@ -28,10 +28,14 @@ orders.
 22. Added API rate limiting, security headers, and explicit write-method denial.
 23. Added a hardened, loopback-only, policy-gated API service unit.
 24. Repaired the watchlist chart-period widget's cross-rerun state contract.
+25. Cryptographically bound each publication receipt to its factor sheet,
+    panel build, and latest completed market session.
+26. Added a controlled weekend catch-up path for explicit on-demand briefs
+    while keeping unattended weekend schedules disabled.
 
 Verification before deployment:
 
-- 696 Advisor tests passed.
+- 698 Advisor tests passed.
 - Python compilation passed.
 - Deployment shell syntax passed.
 - Fourteen systemd units rendered for review.

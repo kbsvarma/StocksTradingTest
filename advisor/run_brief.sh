@@ -43,9 +43,14 @@ if [ "$PROBE_OK" -ne 1 ]; then
   exit 78
 fi
 
-# Skip weekends outright (launchd schedule already excludes them; belt+braces)
+# Scheduled runs skip weekends. The explicitly invoked on-demand unit may run a
+# catch-up issue after the latest exchange session; publication_commit binds it
+# to that session's immutable factor sheet before allowing any side effect.
 DOW=$(date +%u)
-if [ "$DOW" -gt 5 ]; then echo "weekend — skipping"; exit 0; fi
+if [ "$DOW" -gt 5 ] && [ "${ADVISOR_ALLOW_WEEKEND_CATCHUP:-0}" != "1" ]; then
+  echo "weekend — skipping"
+  exit 0
+fi
 
 "$PY" -m advisor.snapshot --json "$CTX/portfolio.json" > "$CTX/portfolio.txt" 2>>advisor/logs/snapshot.err || true
 "$PY" -m advisor.market_context --json "$CTX/market.json" > "$CTX/market.txt" 2>>advisor/logs/market.err || true

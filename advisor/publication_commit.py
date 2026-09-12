@@ -29,6 +29,25 @@ def _load_object(path: Path) -> dict:
     return value
 
 
+def _market_lineage(context_dir: Path) -> dict:
+    """Return immutable market inputs or fail before any publication effect."""
+    factor_path = context_dir / "factor_sheet.json"
+    factor = _load_object(factor_path)
+    panel_build_id = str(factor.get("panel_build_id") or "").strip()
+    price_bar = str((factor.get("data_quality") or {}).get("latest_market_date") or "").strip()
+    try:
+        datetime.strptime(price_bar, "%Y-%m-%d")
+    except ValueError as exc:
+        raise ValueError("factor sheet has no valid latest market date") from exc
+    if not panel_build_id:
+        raise ValueError("factor sheet has no panel build identity")
+    return {
+        "panel_build_id": panel_build_id,
+        "price_bar": price_bar,
+        "factor_sheet_sha256": hashlib.sha256(factor_path.read_bytes()).hexdigest(),
+    }
+
+
 def journal_entries(brief: dict) -> list[dict]:
     """Build the only journal origins permitted from a validated brief."""
     portfolio_status = (brief.get("portfolio_context") or {}).get("status")
@@ -112,6 +131,7 @@ def commit(context_dir: Path, *, notify: bool = True) -> dict:
     brief = _load_object(brief_json)
     if brief.get("redteam") != "applied":
         raise ValueError("publication is not bound to an applied red-team artifact")
+    market_lineage = _market_lineage(context_dir)
     message = render_markdown(brief, context_dir.name)
 
     committed = add_batch(journal_entries(brief))
@@ -144,9 +164,10 @@ def commit(context_dir: Path, *, notify: bool = True) -> dict:
             notification_status = "failed"
 
     receipt = {
-        "schema_version": 1,
+        "schema_version": 2,
         "committed_at": datetime.now(ET).isoformat(),
         "brief_sha256": hashlib.sha256(brief_json.read_bytes()).hexdigest(),
+        **market_lineage,
         "journal_ids": [row.get("id") for row in committed],
         "views": len(view_rows),
         "rejected": len(committed) - len(view_rows),

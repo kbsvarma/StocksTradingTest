@@ -207,6 +207,15 @@ def _publication_day(now:datetime,required_session:str) -> str:
     return required_session
 
 
+def _receipt_matches_market(receipt:dict,signals:dict,required_session:str) -> bool:
+    """Require a publication to prove exactly which market snapshot it used."""
+    return (receipt.get('schema_version') == 2
+            and receipt.get('price_bar') == required_session
+            and bool(receipt.get('factor_sheet_sha256'))
+            and bool(receipt.get('panel_build_id'))
+            and receipt.get('panel_build_id') == signals.get('panel_build_id'))
+
+
 def _check_signals(now: datetime) -> tuple[str, str]:
     signals = _json(DATA / "research" / "signals_latest.json")
     try:
@@ -307,9 +316,12 @@ def assess(now: datetime | None = None) -> dict:
             fabrication_clear = (session_audit.get("usable") is True
                                  and int(session_audit.get("contradicted") or 0) == 0)
             publication_attested = (receipt.get("brief_sha256") == digest
+                                    and _receipt_matches_market(receipt,signals,required_session)
                                     and not validation_errors and fabrication_clear)
             if publication_attested:
-                level, detail = "pass", f"validated publication for completed session {publication_date} verified"
+                level, detail = ("pass", f"issue {publication_date} verified against "
+                                         f"market session {required_session} and panel "
+                                         f"{receipt['panel_build_id']}")
             else:
                 level, detail = "block", "publication artifact or commit receipt failed attestation"
         except Exception as exc:
