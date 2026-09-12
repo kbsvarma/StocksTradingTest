@@ -8,6 +8,11 @@ import json
 from advisor import production_status as ps
 
 
+def test_actionable_gate_includes_model_and_fundamental_readiness():
+    assert 'factor_model' in ps.ACTIONABLE_REQUIRED
+    assert 'fundamental_ingest' in ps.ACTIONABLE_REQUIRED
+
+
 def test_runtime_service_check_requires_every_service(monkeypatch):
     monkeypatch.setattr(ps.sys, "platform", "linux")
     monkeypatch.setattr(ps.subprocess, "run", lambda *a, **k: SimpleNamespace(

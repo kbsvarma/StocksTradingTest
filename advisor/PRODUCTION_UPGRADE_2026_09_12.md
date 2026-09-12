@@ -1,6 +1,6 @@
 # Advisor production upgrade — 2026-09-12
 
-This change set implements 26 evidence-driven passes. It does not claim proven
+This change set implements 27 evidence-driven passes. It does not claim proven
 alpha, commercial data rights, regulatory approval, or permission to route
 orders.
 
@@ -32,10 +32,12 @@ orders.
     panel build, and latest completed market session.
 26. Added a controlled weekend catch-up path for explicit on-demand briefs
     while keeping unattended weekend schedules disabled.
+27. Made discovery-only factor status and insufficient fundamental coverage
+    explicit blockers of actionable recommendations.
 
 Verification before deployment:
 
-- 698 Advisor tests passed.
+- 699 Advisor tests passed.
 - Python compilation passed.
 - Deployment shell syntax passed.
 - Fourteen systemd units rendered for review.

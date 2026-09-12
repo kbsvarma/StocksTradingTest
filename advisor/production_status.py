@@ -33,6 +33,13 @@ REPO = Path(__file__).resolve().parent.parent
 DATA = REPO / "advisor" / "data"
 RUNTIME_SERVICES = ("advisor-terminal.service", "advisor-quoted.service",
                     "advisor-exitwatch.service", "advisor-intelligence.timer")
+ACTIONABLE_REQUIRED = (
+    "dependencies", "runtime_services", "execution_isolation",
+    "continuous_reassessment", "investigator_runtime",
+    "research_acceptance", "prospective_ranking", "market_data", "signals",
+    "technical_state", "data_sources", "fundamental_ingest", "factor_model",
+    "publication", "decision_journal", "release",
+)
 
 
 def _check_dependencies() -> tuple[str, str]:
@@ -375,13 +382,7 @@ def assess(now: datetime | None = None) -> dict:
         "deploy TLS plus per-user identity, authorization, audit and session controls",
         "complete investment-adviser/broker-dealer regulatory and counsel review",
     ]
-    actionable_required = ("dependencies", "runtime_services", "execution_isolation",
-                           "continuous_reassessment",
-                           "investigator_runtime",
-                           "research_acceptance", "prospective_ranking",
-                           "market_data", "signals", "technical_state", "data_sources", "publication",
-                           "decision_journal", "release")
-    actionable_blockers = [name for name in actionable_required
+    actionable_blockers = [name for name in ACTIONABLE_REQUIRED
                            if checks[name]["level"] != "pass"]
     actionable_allowed = bool(actionable_views) and not actionable_blockers
     return {"schema_version": 1, "as_of": now.isoformat(), "verdict": verdict,
