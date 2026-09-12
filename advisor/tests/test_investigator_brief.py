@@ -1,7 +1,7 @@
 from datetime import datetime,timezone,timedelta
 import pytest
 from advisor.investigator.search import resolve,AmbiguousCompany
-from advisor.investigator.presentation import decision_brief
+from advisor.investigator.presentation import decision_brief,display_narrative
 from advisor.investigator.temporal import record
 
 NOW=datetime(2026,9,6,21,tzinfo=timezone.utc)
@@ -83,4 +83,31 @@ def test_missing_valuation_and_unreviewed_drafts_have_distinct_labels():
     raw['synthesis']['verification_state']='unavailable'
     assert decision_brief(raw,NOW)['verdict'].startswith('DRAFT · ')
     raw['synthesis'].update(action='hold',verification_state='complete')
-    assert decision_brief(raw,NOW)['verdict']=='HOLD'
+    assert decision_brief(raw,NOW)['verdict']=='HOLD THESIS · REVIEW REQUIRED'
+
+
+def test_directional_source_linked_brief_cannot_present_as_approved_buy():
+    r=record(ticker='TEST',source='issuer_ir',kind='document',payload={'text':'Current issuer results.'},retrieved_at=NOW,published_at=NOW)
+    raw=report([r]);raw['synthesis']={'review_status':'source_linked_brief','source_ids':[r['id']],
+        'summary':'Potential upside.','action':'buy_candidate','verification_state':'complete',
+        'research_coverage':{'valuation_calculation':True,'current_results':True,
+            'provider_estimates':True,'dated_catalyst':True}}
+    brief=decision_brief(raw,NOW)
+    assert brief['verdict']=='CONSTRUCTIVE THESIS · REVIEW REQUIRED'
+    assert 'Not independently approved' in brief['basis']
+
+
+def test_directional_brief_with_material_coverage_gap_fails_closed():
+    r=record(ticker='TEST',source='issuer_ir',kind='document',payload={'text':'Current issuer results.'},retrieved_at=NOW,published_at=NOW)
+    raw=report([r]);raw['synthesis']={'review_status':'source_linked_brief','source_ids':[r['id']],
+        'summary':'Potential downside.','action':'avoid_new_entry','verification_state':'complete',
+        'research_coverage':{'valuation_calculation':False,'current_results':True,
+            'provider_estimates':True,'dated_catalyst':True}}
+    assert decision_brief(raw,NOW)['verdict']=='RESEARCH INCOMPLETE · MATERIAL COVERAGE GAP'
+
+
+def test_model_decision_heading_is_relabelled_for_display():
+    rendered=display_narrative('Decision: BUY\n\nEvidence follows.','buy_candidate')
+    assert 'Decision: BUY' not in rendered
+    assert 'not an approved recommendation' in rendered
+    assert 'Evidence follows.' in rendered

@@ -152,6 +152,25 @@ def snapshot(data, *, principal=None, now=None):
         call['market_state'] = market_state(call, normalized_quotes.get(call['ticker']), now=now)
     events = read_rows(data/'alerts'/'intraday_alerts.jsonl', issues)[-100:]
     packets = read_json(data/'intelligence'/'worker_status.json', issues)
+    worker_health={'status':'missing','age_seconds':None,'reason':'Worker status unavailable'}
+    try:
+        worker_at=timestamp(packets['as_of'])
+        age=(now-worker_at).total_seconds()
+        if age < -300:worker_health={'status':'failed','age_seconds':age,'reason':'Worker timestamp is in the future'}
+        elif age > 300:worker_health={'status':'stale','age_seconds':age,'reason':f'No reassessment for {age/60:.0f} minutes'}
+        elif packets.get('status')!='healthy':worker_health={'status':'failed','age_seconds':age,'reason':f"Worker reported {packets.get('status','unknown')}"}
+        else:worker_health={'status':'healthy','age_seconds':age,'reason':'Continuous reassessment is current'}
+    except (KeyError,ValueError,TypeError):pass
+    if worker_health['status']!='healthy':issues.append('Intelligence worker: '+worker_health['reason'])
+    investigation_quality=[]
+    try:
+        from advisor.investigator.archive import recent_reports
+        from advisor.investigator.quality import assess as assess_investigation
+        for item in recent_reports(data,limit=10):
+            report=read_json(data/'intelligence'/'investigations'/item['ticker']/item['run_id']/'report.json',issues)
+            investigation_quality.append({**item,**assess_investigation(report)})
+    except Exception as exc:
+        issues.append(f'Investigation quality inventory unavailable: {type(exc).__name__}')
     outcomes = read_json(data/'intelligence'/'outcomes.json', issues).get('rows', [])
     for c in calls:
         if c.get('entry_observed_px'):
@@ -167,11 +186,22 @@ def snapshot(data, *, principal=None, now=None):
         freshness = {'status': 'current' if current else 'stale', 'as_of': slate['as_of'],
                      'reason': f'Required completed session: {required}'}
     except (ValueError, KeyError, TypeError): pass
+    performance=scorecard(outcomes)
+    ranking=read_json(research/'ranking_evaluation.json',issues)
+    correctness=read_json(data/'intelligence'/'research_acceptance.json',issues)
+    commercial=read_json(data/'intelligence'/'commercial_acceptance.json',issues)
+    from advisor.intelligence.promotion_gate import assess as promotion_assess
+    promotion=promotion_assess(performance=performance,ranking=ranking,
+                               correctness=correctness,commercial=commercial)
     return {'schema_version': 1, 'as_of': now.isoformat(), 'tenant': principal.tenant,
             'calls': sorted(calls, key=lambda c: c['issued_at'], reverse=True),
             'candidates': slate.get('slate') or [], 'candidate_meta': {k:v for k,v in slate.items() if k != 'slate'},
             'quotes': normalized_quotes, 'signals': signals, 'events': list(reversed(events)),
-            'freshness': freshness, 'issues': issues, 'worker': packets,
-            'performance': scorecard(outcomes), 'calibration': read_json(research/'calibration_latest.json', issues),
+            'freshness': freshness, 'issues': issues, 'worker': packets, 'worker_health':worker_health,
+            'performance': performance, 'calibration': read_json(research/'calibration_latest.json', issues),
+            'ranking_evaluation':ranking,
+            'suggestion_health':read_json(research/'suggestion_health.json',issues),
+            'investigation_quality':investigation_quality,
+            'promotion_gate':promotion,
             'portfolio_context': read_json(data/'intelligence'/'portfolio.json',issues),
             'data_root': str(data), 'execution_enabled': False}

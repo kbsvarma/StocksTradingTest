@@ -67,7 +67,10 @@ def render(data,principal):
                 with CallStore(Path(data)/'intelligence/calls.sqlite',principal) as store:save_symbols(store,[t for t in symbols if t not in remove])
                 st.rerun()
     if not symbols:st.info('Your watchlist is empty. Add a company above.');return
-    period=st.segmented_control("Chart period",["1W","1M","3M"],default="3M",selection_mode="single",key="watch_chart_period") or "3M"
+    # Radio has a stable string-valued widget contract across Streamlit reruns;
+    # segmented_control could retain its numeric index while options rerendered.
+    period=st.radio("Chart period",["1W","1M","3M"],index=2,horizontal=True,
+                    key="watch_chart_period",label_visibility='collapsed')
     if period in {'1W','1M'}:
         pending=[ticker for ticker in symbols if intraday_due(load(data,ticker))]
         if pending:

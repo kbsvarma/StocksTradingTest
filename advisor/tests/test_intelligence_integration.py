@@ -31,6 +31,22 @@ def test_corrupt_packet_is_visible_and_does_not_break_other_ingest(tmp_path):
     assert r['status'] == 'degraded' and r['errors'][0]['file'] == 'bad.json'
 
 
+def test_snapshot_surfaces_stale_reassessment_worker(tmp_path):
+    root=tmp_path/'intelligence';root.mkdir()
+    (root/'worker_status.json').write_text(json.dumps({
+        'as_of':'2026-09-04T13:00:00Z','status':'healthy'}))
+    s=snapshot(tmp_path,now=NOW)
+    assert s['worker_health']['status']=='stale'
+    assert any('Intelligence worker' in issue for issue in s['issues'])
+
+
+def test_snapshot_accepts_recent_healthy_reassessment_worker(tmp_path):
+    root=tmp_path/'intelligence';root.mkdir()
+    (root/'worker_status.json').write_text(json.dumps({
+        'as_of':'2026-09-04T13:58:00Z','status':'healthy'}))
+    assert snapshot(tmp_path,now=NOW)['worker_health']['status']=='healthy'
+
+
 def test_legacy_projection_keeps_original_issue_time_and_cannot_promote(tmp_path):
     rows = [{'id': 'x', 'type': 'view', 'yf_ticker': 'TEST', 'instrument': 'TEST', 'ts': '2026-07-01T12:00:00Z',
              'time_stop': '2026-07-20', 'thesis': 'A historical thesis', 'direction': 'long'},

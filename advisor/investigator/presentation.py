@@ -1,9 +1,24 @@
 """Evidence-linked decision briefs, with explicit gates and no invented forecasts."""
 from difflib import get_close_matches
+import re
 from .collectors import symbol
 from .temporal import annotate, utcnow
 
 ALIASES={'NVIDIA':'NVDA','MICROSOFT':'MSFT','APPLE':'AAPL','AMAZON':'AMZN','ALPHABET':'GOOGL','GOOGLE':'GOOGL','TESLA':'TSLA','META':'META','PALANTIR':'PLTR'}
+
+
+def display_narrative(markdown, action):
+    """Relabel model prose without mutating the immutable saved report."""
+    labels={
+        'buy_candidate':'Constructive model thesis — not an approved recommendation',
+        'hold':'Hold model thesis — not an approved recommendation',
+        'avoid_new_entry':'Downside model thesis — not an approved recommendation',
+        'no_edge_found':'No directional edge found by the model',
+    }
+    label=labels.get(action,'Model research narrative — not independently approved')
+    text=str(markdown or '')
+    return re.sub(r'(?im)^(?:\*\*)?Decision(?:\*\*)?\s*:\s*[^\n]+',
+                  f'**Research status: {label}.**',text,count=1)
 
 def resolve_query(query, data=None):
     from .search import resolve
@@ -112,14 +127,26 @@ def decision_brief(report, now=None):
             basis='Source-checked insights · Proposed action did not pass review'
     direct=synthesis.get('review_status')=='source_linked_brief' and bool(synthesis.get('source_ids')) and all(lookup.get(i,{}).get('temporal',{}).get('state') in {'current','context_only'} for i in synthesis.get('source_ids',[])) and any(lookup.get(i,{}).get('temporal',{}).get('state')=='current' for i in synthesis.get('source_ids',[]))
     if direct:
-        verdict,tone={'buy_candidate':('BUY CANDIDATE','green'),'hold':('HOLD','cyan'),'avoid_new_entry':('AVOID NEW ENTRY','red'),'no_edge_found':('NO EDGE FOUND','amber')}.get(synthesis.get('action'),('RESEARCH BRIEF','cyan'))
+        # A source-linked model brief is not an approved call.  Keep its
+        # directional thesis useful without visually bypassing the canonical
+        # calibration, portfolio-context and independent-approval gates.
+        verdict,tone={
+            'buy_candidate':('CONSTRUCTIVE THESIS · REVIEW REQUIRED','amber'),
+            'hold':('HOLD THESIS · REVIEW REQUIRED','amber'),
+            'avoid_new_entry':('DOWNSIDE THESIS · REVIEW REQUIRED','amber'),
+            'no_edge_found':('NO EDGE FOUND','cyan'),
+        }.get(synthesis.get('action'),('RESEARCH BRIEF · REVIEW REQUIRED','amber'))
         coverage=synthesis.get('research_coverage',{})
+        core=('valuation_calculation','current_results','provider_estimates','dated_catalyst')
+        missing_core=[name for name in core if coverage.get(name) is not True]
+        if synthesis.get('action') in {'buy_candidate','avoid_new_entry'} and missing_core:
+            verdict,tone='RESEARCH INCOMPLETE · MATERIAL COVERAGE GAP','red'
         if synthesis.get('action')=='no_edge_found' and coverage.get('valuation_calculation') is False:
             verdict,tone='VALUATION UNRESOLVED · RESEARCH GAP','amber'
         if synthesis.get('verification_state')=='unavailable':
             verdict,tone='DRAFT · '+verdict,'amber'
         summary=synthesis['summary'];drivers=[];conditions=[]
-        basis=synthesis.get('validation_basis','Original-source research brief · No separate adversarial model review')
+        basis=synthesis.get('validation_basis','Original-source research brief · No separate adversarial model review')+' · Not independently approved or empirically calibrated'
     if identified and not reviewed and not direct:
         errors=' '.join(str(x) for x in report.get('errors',[]))
         conditions=[]

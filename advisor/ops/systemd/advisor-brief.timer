@@ -1,8 +1,9 @@
 [Unit]
-Description=Advisor daily brief at 08:15 ET, weekdays
+Description=Advisor daily brief at 08:15 ET weekdays and Friday close
 
 [Timer]
 OnCalendar=Mon..Fri 08:15 America/New_York
+OnCalendar=Fri 18:00 America/New_York
 Persistent=true
 RandomizedDelaySec=30
 

@@ -25,13 +25,17 @@ def assess(research, now=None):
         except (OSError, ValueError) as exc:
             reasons.append(f'Release integrity failure: {exc}')
         if not doc.get('n_priority'):
-            warnings.append('No priority research ideas; inspect candidate blockers')
+            state = read('suggestion_health.json')
+            warnings.append(state.get('reason') or 'No priority research ideas; inspect candidate blockers')
     for name in ('nightly_status.json', 'suggestion_health.json'):
         state = read(name)
         if state.get('status') == 'failed':
             reasons.append(f'{name}: latest refresh failed')
         elif state.get('status') == 'degraded':
-            warnings.append(f'{name}: degraded research coverage')
+            detail=state.get('reason')
+            message=f'{name}: degraded research coverage'
+            if detail and detail not in warnings:message += f' — {detail}'
+            warnings.append(message)
     return {'as_of': now.isoformat(), 'status': 'failed' if reasons else 'degraded' if warnings else 'healthy',
             'ok': not reasons, 'reasons': reasons, 'warnings': warnings,
             'release_id': doc.get('release_id'),

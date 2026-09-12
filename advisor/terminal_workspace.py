@@ -398,6 +398,20 @@ def performance_page(s,data):
         st.dataframe(pd.DataFrame([{k:v for k,v in r.items() if k not in {'note','promotion_allowed'}} for r in groups]),hide_index=True,use_container_width=True)
     else:empty('The new engine has no demonstrated prospective track record yet',
                'Historical research and passing software tests do not establish an investment edge. New episodes retain their entry policy, costs, benchmark window and model version so results can accumulate without rewriting history.')
+    ranking=s.get('ranking_evaluation') or {}
+    with st.expander('Prospective ranking evaluation · full opportunity population',expanded=not bool(ranking.get('comparisons'))):
+        versions=ranking.get('by_scoring_version') or {}
+        if versions:st.json(versions,expanded=True)
+        else:st.info('No ranking window has matured. Selection lift and alpha are unproven.')
+        skipped=ranking.get('skipped') or []
+        if skipped:st.dataframe(pd.DataFrame(skipped[-20:]),hide_index=True,use_container_width=True)
+        st.caption(ranking.get('interpretation') or 'No prospective evaluation artifact is available.')
+    promotion=s.get('promotion_gate') or {}
+    panel('CONTROLLED-LAUNCH EVIDENCE GATE','OBJECTIVE / FAIL CLOSED')
+    if promotion.get('promotion_allowed'):st.success('Eligible for controlled human-reviewed launch')
+    else:
+        st.error('Not eligible for controlled launch')
+        for blocker in promotion.get('blockers') or []:st.caption('• '+blocker)
     a,b=st.columns(2)
     with a:
         panel('WHAT COUNTS')
@@ -522,10 +536,29 @@ def operations_page(s,data,principal,controls):
     a,b=st.columns(2)
     with a:
         panel('INTELLIGENCE WORKER')
+        health=s.get('worker_health') or {}
+        if health.get('status')=='healthy':st.success(health.get('reason'))
+        else:st.error(health.get('reason') or 'Continuous reassessment is unavailable')
         if s['worker']:st.json(s['worker'],expanded=True)
         else:empty('Worker has not published status','The command desk can read historical artifacts. Run the intelligence worker to ingest new packets and process events.')
         panel('DATA DIAGNOSTICS')
         st.json({'freshness':s['freshness'],'issues':s['issues']})
+        from advisor.production_status import assess as production_assess
+        trust=production_assess()
+        if trust['verdict']=='ready':st.success('Deterministic trust gate: READY')
+        elif trust['verdict']=='degraded':st.warning('Deterministic trust gate: DEGRADED')
+        else:st.error('Deterministic trust gate: BLOCKED')
+        st.json({'actionable_recommendations_allowed':trust['actionable_recommendations_allowed'],
+                 'actionable_blockers':trust['actionable_blockers'],'checks':trust['checks']},expanded=False)
+        suggestion=s.get('suggestion_health') or {}
+        if suggestion.get('status')=='degraded':st.warning(suggestion.get('reason') or 'Suggestion coverage is degraded')
+        investigations=s.get('investigation_quality') or []
+        if investigations:
+            panel('LATEST INVESTIGATION QUALITY','MODEL RESEARCH / NOT APPROVED CALLS')
+            st.dataframe(pd.DataFrame([{'Ticker':row['ticker'],'Generated':row['generated_at'][:16],
+                'Quality':row['status'],'Missing':', '.join(row['missing_coverage']),
+                'Source failures':len(row['source_failures'])} for row in investigations]),
+                hide_index=True,use_container_width=True)
     with b:
         panel('ACCESS & AUDIT')
         html(f'<div class="ad-card"><div class="ad-kicker">{esc(principal.tenant.upper())}</div><h3>{esc(principal.role.title())} workspace</h3><p>{esc(principal.user)}</p><div class="ad-card-foot">Tenant-scoped call history · independent reviews · append-only revisions<br>Execution remains disabled.</div></div>')
@@ -538,6 +571,9 @@ def operations_page(s,data,principal,controls):
             except Exception as exc:st.error(f'Audit validation failed: {type(exc).__name__}: {exc}')
         with st.expander('Enterprise provisioning'):
             st.markdown('OIDC mode requires a configured identity provider, verified-email claims and an access policy mapping members to roles and explicit tenant data roots. Local mode has analyst permissions; it cannot independently approve calls. Data licensing and external identity-provider provisioning remain deployment requirements.')
+            st.json({'authentication_mode':os.environ.get('ADVISOR_AUTH_MODE','local'),
+                     'commercial_launch_allowed':False,
+                     'required_controls':['TLS','OIDC/SSO','per-tenant data roots','rate limiting','licensed redistribution rights','regulatory review']})
     if principal.tenant=='model' and principal.role in {'analyst','admin'}:
         panel('RESEARCH GENERATION','EXISTING CONTROLLED PIPELINE')
         controls()

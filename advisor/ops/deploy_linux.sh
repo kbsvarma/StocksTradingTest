@@ -86,6 +86,8 @@ ssh "$HOST" "RELEASE_ID='$RELEASE_ID' COMMIT='$COMMIT' TREE_HASH='$TREE_HASH' DI
 
 echo "[deploy] reload and restart reader services"
 ssh "$HOST" "systemctl --user daemon-reload && \
+  systemctl --user enable --now advisor-intelligence.timer && \
+  systemctl --user enable advisor-research.timer advisor-brief.timer && \
   systemctl --user reset-failed advisor-terminal.service advisor-quoted.service advisor-exitwatch.service && \
   systemctl --user restart advisor-terminal.service advisor-quoted.service advisor-exitwatch.service && \
   systemctl --user start advisor-watchdog.service && \

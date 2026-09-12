@@ -144,6 +144,10 @@ Default binding is loopback. API policy has `tokens` entries containing
 `sha256` of the bearer token, `user`, and `tenant`, plus the same explicit
 `tenants` map shown above. Provision secrets outside source control. Requests
 use `Authorization: Bearer ...`; query-token authentication is rejected.
+Set `rate_limit_per_minute` to an integer from 10 to 10000; the default is 120.
+The packaged `advisor-intelligence-api.service` binds only to loopback and starts
+only when `~/.advisor_api_policy.json` exists. A TLS reverse proxy remains
+mandatory before any client access.
 
 Routes: `GET /health`, `GET /v1/snapshot`, `GET /v1/calls`,
 `GET /v1/calls/{call_id}/history`. Research routes require authentication.

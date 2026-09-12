@@ -150,11 +150,26 @@ def build(top_n: int = 10, as_of: str | None = None,
                     "reason": f"{type(exc).__name__}: {exc}"})
             raise
         if source == "live" and not as_of:
+            reason = _health_reason(result)
             atomic_json(RESEARCH_DIR / "suggestion_health.json", {
                 "status": "failed" if result.get("error") else "degraded" if result.get("n_priority", 0) == 0 else "healthy",
-                "as_of": datetime.now(ET).isoformat(), "reason": result.get("error"),
+                "as_of": datetime.now(ET).isoformat(), "reason": reason,
                 "release_id": result.get("release_id"), "n_priority": result.get("n_priority", 0)})
         return result
+
+
+def _health_reason(result: dict) -> str | None:
+    if result.get("error"):
+        return str(result["error"])
+    if result.get("n_priority", 0):
+        return None
+    blocked = {}
+    for pick in result.get("picks") or []:
+        for blocker in (pick.get("triage") or {}).get("blockers") or []:
+            blocked[blocker] = blocked.get(blocker, 0) + 1
+    leaders = sorted(blocked.items(), key=lambda row: (-row[1], row[0]))[:3]
+    return ("No priority research ideas; leading blockers: " +
+            "; ".join(f"{name} ({count})" for name, count in leaders)) if leaders else "No priority research ideas; no eligible candidates"
 
 
 def _build(top_n: int = 10, as_of: str | None = None,

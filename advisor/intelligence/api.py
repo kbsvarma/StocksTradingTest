@@ -9,12 +9,31 @@ import argparse
 import hashlib
 import hmac
 import json
+import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit, unquote
 from advisor.intelligence.access import Principal
 from advisor.intelligence.adapters import snapshot
 from advisor.intelligence.store import CallStore
+
+
+class FixedWindowLimiter:
+    """Small in-process abuse guard; the reverse proxy remains authoritative."""
+    def __init__(self,clock=time.monotonic):
+        self.clock=clock;self.lock=threading.Lock();self.windows={}
+
+    def allow(self,key,limit):
+        now=self.clock();window=int(now//60)
+        with self.lock:
+            seen,count=self.windows.get(key,(window,0))
+            if seen!=window:seen,count=window,0
+            if count>=limit:return False
+            self.windows[key]=(seen,count+1)
+            if len(self.windows)>10000:
+                self.windows={k:v for k,v in self.windows.items() if v[0]>=window-1}
+            return True
 
 
 def dispatch(path, authorization, policy):
@@ -45,22 +64,36 @@ def dispatch(path, authorization, policy):
 
 
 def handler_for(policy_path):
+    limiter=FixedWindowLimiter()
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             try:
                 policy=json.loads(Path(policy_path).read_text())
-                status,payload=dispatch(self.path,self.headers.get('Authorization'),policy)
-                body=json.dumps(payload,allow_nan=False).encode()
+                limit=policy.get('rate_limit_per_minute',120)
+                if type(limit) is not int or not 10<=limit<=10000:raise ValueError('Invalid API rate limit')
+                auth=self.headers.get('Authorization') or ''
+                identity=self.client_address[0]+':'+hashlib.sha256(auth.encode()).hexdigest()[:16]
+                if self.path!='/health' and not limiter.allow(identity,limit):
+                    status,body=429,b'{"error":"Rate limit exceeded"}'
+                else:
+                    status,payload=dispatch(self.path,auth,policy)
+                    body=json.dumps(payload,allow_nan=False).encode()
             except Exception:
                 status,body=503,b'{"error":"Research service unavailable"}'
             self.send_response(status)
             self.send_header('Content-Type','application/json')
             self.send_header('Cache-Control','no-store')
             self.send_header('X-Content-Type-Options','nosniff')
+            self.send_header('X-Frame-Options','DENY')
+            self.send_header('Referrer-Policy','no-referrer')
+            self.send_header('Content-Security-Policy',"default-src 'none'; frame-ancestors 'none'")
+            if status==429:self.send_header('Retry-After','60')
             self.send_header('Content-Length',str(len(body)))
             if status==401:self.send_header('WWW-Authenticate','Bearer')
             self.end_headers();self.wfile.write(body)
         def do_POST(self):self.send_error(405,'Read-only service')
+        def do_PUT(self):self.send_error(405,'Read-only service')
+        def do_DELETE(self):self.send_error(405,'Read-only service')
         def log_message(self,format,*args):pass  # no token, query or private path logging
     return Handler
 

@@ -21,7 +21,7 @@ REPO = Path(__file__).resolve().parent.parent
 DATA = REPO / "advisor" / "data"
 STATE = DATA / "watchdog_linux_state.json"
 SERVICES = ("advisor-terminal.service", "advisor-quoted.service",
-            "advisor-exitwatch.service")
+            "advisor-exitwatch.service", "advisor-intelligence.timer")
 
 
 def _now() -> datetime:

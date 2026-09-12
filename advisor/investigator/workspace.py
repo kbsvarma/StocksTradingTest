@@ -7,7 +7,7 @@ import pandas as pd
 import streamlit as st
 from .engine import load_latest, load_run, markdown
 from .jobs import start, read_status, active_job
-from .presentation import decision_brief, MEANING
+from .presentation import decision_brief, display_narrative, MEANING
 from .search import resolve, LABELS
 from .archive import recent_reports, generated_label
 
@@ -103,18 +103,24 @@ def render(data,principal,selected=None):
         if report.get('synthesis',{}).get('review_status')!='source_linked_brief':
             return  # Do not repeat an obsolete model-limit banner beneath the current job status.
     brief=decision_brief(report,now=datetime.fromisoformat(report['as_of'].replace('Z','+00:00'))) if archived else decision_brief(report)
+    from .quality import assess as assess_quality
+    quality=assess_quality(report)
     lookup=brief['lookup'];analysis=report['analysis'];s=report['synthesis']
     rich(f'<div class="ad-verdict {brief["tone"]}"><div class="ad-kicker">{safe(brief["verdict"])}</div><p>{safe(brief["summary"])}</p><small>AS OF {safe(report["as_of"][:19].replace("T"," "))} UTC · {safe(brief["basis"])}</small></div>')
     overview,evidence,sources=st.tabs(['DECISION BRIEF','EVIDENCE & DATES','SOURCES & GAPS'])
     with overview:
+        if quality['status']=='blocked':st.error(quality['reason'])
+        elif quality['status']=='degraded':st.warning(quality['reason'])
+        else:st.success(quality['reason'])
         if s.get('review_status')=='source_linked_brief':
             coverage=s.get('research_coverage',{})
             labels={'valuation_calculation':'valuation calculation','current_results':'current results',
                 'current_transcript':'current earnings transcript','read_current_news':'full current news articles',
                 'dated_short_interest':'dated short interest','provider_estimates':'provider estimates','dated_catalyst':'dated catalyst'}
             missing=[labels.get(k,k.replace('_',' ')) for k,v in coverage.items() if not v]
-            if missing:st.caption('Not established in this run: '+', '.join(missing)+'.')
-            st.markdown(s['report_markdown'].replace('$',r'\$'))
+            st.warning('NON-ACTIONABLE MODEL RESEARCH · This investigation is not an independently approved call and has no calibrated success probability.')
+            if missing:st.warning('Not established in this run: '+', '.join(missing)+'.')
+            st.markdown(display_narrative(s['report_markdown'],s.get('action')).replace('$',r'\$'))
             st.caption(s['validation_basis'])
         from .reconciliation import reconcile
         case=reconcile(analysis)

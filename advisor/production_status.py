@@ -26,12 +26,13 @@ from advisor.research.datastore import current_build_dir, current_meta
 from advisor.release_integrity import tree_digest
 from advisor.actionability import is_actionable
 from advisor.source_health import assess as assess_sources
+from advisor.suggestion_policy import last_complete_session
 
 ET = ZoneInfo("America/New_York")
 REPO = Path(__file__).resolve().parent.parent
 DATA = REPO / "advisor" / "data"
 RUNTIME_SERVICES = ("advisor-terminal.service", "advisor-quoted.service",
-                    "advisor-exitwatch.service")
+                    "advisor-exitwatch.service", "advisor-intelligence.timer")
 
 
 def _check_dependencies() -> tuple[str, str]:
@@ -79,6 +80,13 @@ def _check_runtime_services() -> tuple[str, str]:
                if i >= len(states) or states[i] != "active"]
         if bad:
             return "block", "required service failure: " + ", ".join(bad)
+        timers=[unit for unit in RUNTIME_SERVICES if unit.endswith('.timer')]
+        enabled=subprocess.run(["systemctl", "--user", "is-enabled", *timers],
+                               capture_output=True,text=True,timeout=5).stdout.splitlines()
+        disabled=[unit for i,unit in enumerate(timers)
+                  if i>=len(enabled) or enabled[i] not in {'enabled','static'}]
+        if disabled:
+            return "block", "required timer will not survive restart: " + ", ".join(disabled)
         return "pass", f"{len(RUNTIME_SERVICES)} required services active"
     except Exception as exc:
         return "block", f"runtime service health unavailable: {type(exc).__name__}"
@@ -96,10 +104,17 @@ def _check_execution_isolation() -> tuple[str, str]:
         return "block", f"execution isolation cannot be verified: {type(exc).__name__}"
 
 
-def _check_panel(now_s: float) -> tuple[str, str]:
+def _required_market_session(now: datetime) -> str:
+    """One exchange-calendar definition for every research freshness gate."""
+    return last_complete_session(now)
+
+
+def _check_panel(now: datetime) -> tuple[str, str]:
     try:
         meta = current_meta()
-        age_h = (now_s - float(meta["built_unix"])) / 3600
+        age_h = (now.timestamp() - float(meta["built_unix"])) / 3600
+        required = _required_market_session(now)
+        price_bar = str(meta.get("price_bar") or (meta.get("quality") or {}).get("latest_market_date") or "")
         if not meta.get("quality", {}).get("ok"):
             return "block", "current price panel failed its quality gate"
         build = current_build_dir()
@@ -107,13 +122,104 @@ def _check_panel(now_s: float) -> tuple[str, str]:
             got = hashlib.sha256((build / name).read_bytes()).hexdigest()
             if got != expected:
                 return "block", f"price panel integrity mismatch: {name}"
-        if age_h > 30:
-            return "block", f"price panel is {age_h:.1f}h old"
-        if age_h > 20:
-            return "warn", f"price panel is approaching stale ({age_h:.1f}h)"
-        return "pass", f"price panel verified ({age_h:.1f}h old)"
+        if age_h < -0.1:
+            return "block", "price panel build timestamp is in the future"
+        if price_bar != required:
+            return "block", f"price panel ends {price_bar or 'unknown'}; required completed session {required}"
+        return "pass", f"price panel verified through completed session {required} (built {age_h:.1f}h ago)"
     except Exception as exc:
         return "block", f"price panel unavailable: {type(exc).__name__}"
+
+
+def _check_worker(now: datetime) -> tuple[str, str]:
+    worker = _json(DATA / "intelligence" / "worker_status.json")
+    try:
+        observed = datetime.fromisoformat(worker["as_of"])
+        if observed.tzinfo is None:
+            raise ValueError("timezone missing")
+        age_min = (now - observed.astimezone(ET)).total_seconds() / 60
+        if age_min < -5:
+            return "block", "intelligence worker timestamp is in the future"
+        if age_min > 5:
+            return "block", f"intelligence reassessment is stale ({age_min:.0f}m old)"
+        if worker.get("status") != "healthy":
+            return "block", f"intelligence worker is {worker.get('status', 'unknown')}"
+        return "pass", f"continuous intelligence reassessment healthy ({age_min:.1f}m old)"
+    except Exception as exc:
+        return "block", f"intelligence reassessment unavailable: {type(exc).__name__}"
+
+
+def _check_investigator_runtime() -> tuple[str,str]:
+    try:
+        from advisor.investigator.runtime import status
+        runtime=status()
+        if not runtime.get('configured'):
+            return 'block','on-demand research model is not configured'
+        model=str(runtime.get('model') or '').strip()
+        if not model or model=='unconfigured':
+            return 'block','on-demand research model identity is unavailable'
+        return 'pass',f"on-demand research model configured ({runtime.get('provider')}: {model})"
+    except Exception as exc:
+        return 'block',f'on-demand research runtime unavailable: {type(exc).__name__}'
+
+
+def _check_research_acceptance() -> tuple[str,str]:
+    try:
+        report=_json(DATA/'intelligence'/'research_acceptance.json')
+        cases=report.get('cases')
+        errors=report.get('critical_errors')
+        accuracy=report.get('material_claim_accuracy')
+        reviewer=report.get('independent_reviewer')
+        if (type(cases) is int and cases>=40 and errors==0 and
+                isinstance(accuracy,(int,float)) and not isinstance(accuracy,bool) and accuracy>=.95 and reviewer):
+            return 'pass',f'independent research acceptance passed ({cases} cases, {accuracy:.1%} material-claim accuracy)'
+        observed=cases if type(cases) is int and cases>=0 else 0
+        return 'warn',f'independent research acceptance incomplete ({observed}/40 cases)'
+    except Exception as exc:
+        return 'warn',f'independent research acceptance unreadable: {type(exc).__name__}'
+
+
+def _check_ranking_evidence() -> tuple[str,str]:
+    try:
+        evaluation=_json(DATA/'research'/'ranking_evaluation.json')
+        versions=evaluation.get('by_scoring_version') or {}
+        if not isinstance(versions,dict):raise ValueError('invalid versions')
+        mature=[str(name) for name,row in versions.items()
+                if isinstance(row,dict) and type(row.get('n_nonoverlapping_windows')) is int
+                and row['n_nonoverlapping_windows']>=30]
+        if not mature:
+            return 'warn','prospective ranking evidence has fewer than 30 non-overlapping windows'
+        approval=_json(DATA/'research'/'ranking_approval.json')
+        encoded=json.dumps(evaluation,sort_keys=True,separators=(',',':'),allow_nan=False).encode()
+        fingerprint=hashlib.sha256(encoded).hexdigest()
+        if (approval.get('approved') is True and approval.get('evaluation_sha256')==fingerprint
+                and str(approval.get('scoring_version')) in mature and approval.get('independent_reviewer')):
+            return 'pass',f"prospective ranking v{approval['scoring_version']} independently approved"
+        return 'warn','mature prospective ranking evidence requires hash-bound independent approval'
+    except Exception as exc:
+        return 'warn',f'prospective ranking evidence unreadable: {type(exc).__name__}'
+
+
+def _publication_day(now:datetime,required_session:str) -> str:
+    """Use today's attested issue when present, otherwise the session issue."""
+    today=now.date().isoformat()
+    if (DATA/'context'/today/'brief.json').is_file():return today
+    return required_session
+
+
+def _check_signals(now: datetime) -> tuple[str, str]:
+    signals = _json(DATA / "research" / "signals_latest.json")
+    try:
+        issued = datetime.fromisoformat(signals["as_of"])
+        if issued.tzinfo is None or issued > now:
+            raise ValueError("invalid issue timestamp")
+        required = _required_market_session(now)
+        signal_bar = str((signals.get("data_quality") or {}).get("latest_market_date") or "")
+        return (("pass", f"signals verified through completed session {required}")
+                if signal_bar == required else
+                ("block", f"signals end {signal_bar or 'unknown'}; required completed session {required}"))
+    except Exception:
+        return "block", "signals timestamp missing or invalid"
 
 
 def assess(now: datetime | None = None) -> dict:
@@ -129,17 +235,24 @@ def assess(now: datetime | None = None) -> dict:
     level, detail = _check_execution_isolation()
     checks["execution_isolation"] = {"level": level, "detail": detail}
 
-    level, detail = _check_panel(now.timestamp())
+    level, detail = _check_panel(now)
     checks["market_data"] = {"level": level, "detail": detail}
 
     signals = _json(DATA / "research" / "signals_latest.json")
-    try:
-        age_h = (now - datetime.fromisoformat(signals["as_of"])).total_seconds() / 3600
-        level = "pass" if age_h <= 30 else "block"
-        detail = f"signals {age_h:.1f}h old"
-    except Exception:
-        level, detail = "block", "signals timestamp missing or invalid"
+    level, detail = _check_signals(now)
     checks["signals"] = {"level": level, "detail": detail}
+
+    level, detail = _check_worker(now)
+    checks["continuous_reassessment"] = {"level": level, "detail": detail}
+
+    level,detail=_check_investigator_runtime()
+    checks['investigator_runtime']={'level':level,'detail':detail}
+
+    level,detail=_check_research_acceptance()
+    checks['research_acceptance']={'level':level,'detail':detail}
+
+    level,detail=_check_ranking_evidence()
+    checks['prospective_ranking']={'level':level,'detail':detail}
 
     technical = _json(DATA / "research" / "technical_latest.json")
     if technical.get("n_profiled", 0) >= 500 and technical.get("panel_build_id") == signals.get("panel_build_id"):
@@ -179,34 +292,33 @@ def assess(now: datetime | None = None) -> dict:
     }
 
     pipe = _json(DATA / "pipeline_status.json")
-    today = now.date().isoformat()
-    brief = DATA / "context" / today / "brief.json"
-    receipt = _json(DATA / "context" / today / "publication_commit.json")
+    required_session = _required_market_session(now)
+    publication_date = _publication_day(now,required_session)
+    brief = DATA / "context" / publication_date / "brief.json"
+    receipt = _json(DATA / "context" / publication_date / "publication_commit.json")
     fabrication = _json(DATA / "research" / "fabrication_audit.json")
     publication_attested = False
-    if pipe.get("date") == today and pipe.get("state") == "complete" and brief.exists():
+    if pipe.get("date") == publication_date and pipe.get("state") == "complete" and brief.exists():
         try:
             digest = hashlib.sha256(brief.read_bytes()).hexdigest()
             validation_errors, _ = validate_brief(brief)
-            today_audit = next((row for row in fabrication.get("days", [])
-                                if row.get("date") == today), {})
-            fabrication_clear = (today_audit.get("usable") is True
-                                 and int(today_audit.get("contradicted") or 0) == 0)
+            session_audit = next((row for row in fabrication.get("days", [])
+                                  if row.get("date") == publication_date), {})
+            fabrication_clear = (session_audit.get("usable") is True
+                                 and int(session_audit.get("contradicted") or 0) == 0)
             publication_attested = (receipt.get("brief_sha256") == digest
                                     and not validation_errors and fabrication_clear)
             if publication_attested:
-                level, detail = "pass", "today's validated publication and commit receipt verified"
+                level, detail = "pass", f"validated publication for completed session {publication_date} verified"
             else:
                 level, detail = "block", "publication artifact or commit receipt failed attestation"
         except Exception as exc:
             level, detail = "block", f"publication attestation failed: {type(exc).__name__}"
-    elif pipe.get("date") == today and pipe.get("state") == "running":
+    elif pipe.get("date") == publication_date and pipe.get("state") == "running":
         level, detail = "warn", f"pipeline running: {pipe.get('stage', 'unknown')}"
-    elif now.weekday() <= 4 and now.strftime("%H:%M") >= "09:45":
-        level = "block"
-        detail = f"today's publication unavailable ({pipe.get('reason', 'no status')})"
     else:
-        level, detail = "warn", "today's validated publication is not complete"
+        level = "block"
+        detail = f"validated publication for completed session {publication_date} unavailable ({pipe.get('reason', 'no status')})"
     checks["publication"] = {"level": level, "detail": detail}
 
     try:
@@ -252,6 +364,9 @@ def assess(now: datetime | None = None) -> dict:
         "complete investment-adviser/broker-dealer regulatory and counsel review",
     ]
     actionable_required = ("dependencies", "runtime_services", "execution_isolation",
+                           "continuous_reassessment",
+                           "investigator_runtime",
+                           "research_acceptance", "prospective_ranking",
                            "market_data", "signals", "technical_state", "data_sources", "publication",
                            "decision_journal", "release")
     actionable_blockers = [name for name in actionable_required
