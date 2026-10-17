@@ -1,0 +1,23 @@
+2026-10-16 UTC (Oct15 ET), research-only work:
+- Frozen PLAN and current live-source copies; saved source/flags/service preservation.
+- Historical fetch pace changed from1.5s sleep to0.25s sleep after each completed
+  HTTP GET, still skipping first8s of each minute, timeout/backoff retained. This
+  changes only archive retrieval. The isolated fetcher was stopped/restarted to
+  apply it. Existing receipts preserved and gzip integrity checked on resume.
+- Before full stream-quote evaluation: added a separate predeclared comparison
+  using current book quotes AND fast z, not just fast z with cached minute quotes.
+  Same thresholds/bands/caps/sizing/risk. Dense quote max age0.5s; sparse max2s.
+  Sparse data cannot normally establish a subsequent book within25s after a fresh
+  quote signal because samples are33s apart. These are coverage failures, not
+  evidence that live trading would fail. Report fully streaming fills only from
+  the dense archive; never impute missing quotes or fill at the signal book.
+- Matched production execution rule: floor applies to five-contract average
+  entry price, not each individual depth level. Original pre-fix dense artifacts
+  preserved as pre_floor_match_*; all final comparisons rerun after correction.
+- No production source/config/flags/service changes, no orders submitted.
+- Final design-equivalence audit: the initial replay rechecked fast z at the
+  observed fill, unlike production's frozen-signal retries. Removed this extra
+  filter in the primary comparison; all final results rerun. Retained earlier
+  dense artifacts under revalidate_* for traceability, not as the final answer.
+  Z observed at execution remains diagnostic; the entry threshold is evaluated
+  at qualification. This supersedes PLAN's extra candidate-z-at-fill condition.

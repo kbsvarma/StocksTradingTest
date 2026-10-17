@@ -1,0 +1,27 @@
+title = "StocksTradingTest secret scanning"
+
+[extend]
+useDefault = true
+
+# These are field names, not credentials. Keep exceptions constrained to
+# their exact source line and source file, including the deployed snapshot.
+[[allowlists]]
+description = "Market-context relative-return field name"
+condition = "AND"
+paths = ['''(^|/)advisor/investigator/market_context\.py$''']
+regexTarget = "line"
+regexes = ['''^\s*unit=' pp' if key=='relative_21d_pp' else '%' if key\.endswith\('_pct'\) else ''\s*$''']
+
+[[allowlists]]
+description = "WTI research scenario dictionary key"
+condition = "AND"
+paths = ['''(^|/)kalshi_wti_add5_2026_10_15/make_report\.py$''']
+regexTarget = "line"
+regexes = ['''^key='cap40_z_ge_-0\.5_60to180'\s*$''']
+
+[[rules]]
+id = "databento-literal-client-key"
+description = "Hardcoded Databento Historical client credential"
+regex = '''(?i)(?:db|databento)\.Historical\(\s*["']([A-Za-z0-9_-]{20,})["']'''
+secretGroup = 1
+entropy = 3.0

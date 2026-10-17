@@ -1,0 +1,119 @@
+User objective: a SEPARATE high-frequency design; enter every selected market
+window by rule, tolerating losses. Existing selective bot remains unchanged.
+Research only: no orders, activation, transfer, daemon, or production edits.
+
+USER SCOPE EXPANSION (before any new strategy outcomes): all Kalshi market
+families, not just NFL/NHL. Refresh complete public open-event/series census.
+In addition to sports segments, test fixed every-game pregame decisions across
+available leagues and fixed every-expiry decisions in financial/commodity
+markets. Weather recurring index and existing crypto every-window evidence
+must be evaluated for relevance; distinguish newly replayed data from older
+results. Long-horizon politics/economics/entertainment listings are inventory,
+not falsely labeled frequent independent windows. Perpetuals require actual
+cash P&L/entry-exit analysis; do not rebrand them binary settlement windows.
+Reject a low-participation winner as a solution to this user objective.
+
+Operational follow-up after first segment/recurring outputs: add explicit
+available_favorite/available_model comparisons for recurring contracts. Filter
+only contemporaneously known quote/spread/activity validity BEFORE selecting
+the contract/side. This allows a liquid neighboring strike to represent the
+window when the nearest strike is unavailable. No positive-edge threshold or
+future execution quote enters selection. Preserve original results as controls;
+this is a posthoc execution-selection variant, not an untouched holdout.
+
+After broad first-pass results, freeze two follow-ups before older extension:
+CS2 favorite: pre5min control, fixed5min-after-start comparator, and first
+valid quote from5min-before through10min-after scheduled start. This is one
+entry per match, not one per minute, with no price-probability/edge threshold.
+Extend unchanged to Aug15–Sep25 before the already-inspected Sep26–Oct9.
+NFL NO of the pregame favorite,5min before start: test prior Sep2025–Feb2026
+with regular/postseason separate from preseason. Current 104-game pooled
+NFL result includes preseason and is not a regular-season recommendation.
+Keep observed source/schedule-revision limitations explicit. These leads were
+chosen after current data; older extension is retrospective confirmation.
+
+Primary opportunity unit: each listed NFL quarter or NHL period. A scheduled
+clock checkpoint triggers one decision every segment, including tied scores.
+No z, favorite-price, or positive-edge threshold may silently skip windows.
+Only explicit data, liquidity, price-limit, bankroll and market-status failures
+can prevent entry; report all skips against the original window denominator.
+Windows are independent contracts, not fabricated profitable subwindows.
+
+NFL: all four quarters; decision with 10, 7.5 or 5 minutes remaining.
+NHL: all three periods; decision with 15, 10 or 5 minutes remaining.
+These are separate fixed profiles, not three entries in each segment.
+Strategies: market favorite, market underdog, period score leader (TIE when
+level), pregame game favorite, YES TIE, NO TIE, and a probability model choosing
+the best expected net value side WITHOUT an edge requirement. Models may only
+fit on earlier completed games, with all games from a calendar date held out
+together. Evaluate fixed hold-to-settlement first. No fitted loss exclusions.
+
+Expand winner catalogue and historical coverage from official endpoints before
+choosing a strategy. Distinguish absent historical listings from no signals.
+Reuse previous archive's exact game identity/score/clock repair, but preserve
+it unchanged. Public minute asks are execution proxies, not verified depth.
+NFL quarter tie rules must be read, never infer them from full-game rules.
+
+At each scheduled checkpoint attempt once the fresh state is known, allowing
+at most 120 seconds for an executable quote (never waiting for score to turn
+favorable). Freeze chosen outcome on each decision; execution may fail its
+limit. Source lag30s, max age120s, spread<=5c, prior10minvolume>=5, executable
+ask in [1c,99c]; limit signalask+2c capped99c. Entry next-minute open proxy at+3s,
+max(signalask,nextask), no favorable improvement. Source90s and next-minute
+close stress, +1c baseline/+2c cost. Actual fee multipliers, scalar payouts.
+
+Bankroll100; compare fixed1 and5contracts so capacity doesn't silently destroy
+frequency. Sharedmax25contracts/$25reserveddebit, daily realizedloss+openrisk20,
+cashfloor2. Report unconstrained signal economics separately from actual
+chronological constrained portfolio. Do not invent top-ups/restart bankroll
+daily. One entry per physical segment, all leagues share capital in joint runs.
+
+Primary ranking: positive chronological validation net after fees, high
+eligible-window participation and net per100, then frequency/drawdown. A
+negative high-frequency design is disclosed, never recommended as an edge.
+Do not select a 90%winning low-frequency filter to satisfy this task.
+NFL calendar schedule cannot provide seven-day-a-week frequency; NHL must
+supply that component. Report calendar-day AND game-day counts/zero days.
+
+Historical windows inherited: NFL Sep2025–Feb2026, split Dec1; NHL Jan–Mar2026,
+split Feb15; recent current-season games through frozen Oct10 snapshot.
+If segment listings have only recent history, split at fixed Oct1 for testing
+and disclose that small sample. Recent data was already examined, not a new
+prospective holdout. Keep all tested profiles/scenarios in the report appendix.
+
+Daily-family expansion before their replay: top eight currently active-volume
+AAA gasoline and eight daily-high-temperature series, plus all KXRAIN cities.
+One date/location window; fixed 12/16 ET temperature/rain and previous-day
+20/23 ET gas. Same favorite/opposite/rolling-calibration decisions and costs.
+No cherry-picking individual rain cities based on historical P&L.
+
+After initial outcomes, freeze three selected validation leads: US gas favorite
+23 ET previous day; NY daily-high most likely quoted YES bin at12 ET; WNBA
+28-day/shrink40 favorite calibration at30min before start. Extend unchanged
+rules backwards to May1,2026. This is selected historical validation, not a
+prospective holdout. Pool the two daily rules with one continuous $100 only
+after separate earlier-period and costs/delay checks. Preserve all failures.
+
+Spread/total breadth check: fixed5min before start, closest-to50c strike;
+YES, NO, favorite, opposite. Top8 full-game spread/total families by current
+volume, selected before these outcomes. Sep12-Oct9. Same cost/capital limits.
+Each game/market-type is a window; spread and total of same game are correlated,
+not independent proof. Individual player props/long-horizon events inventoried,
+not falsely claimed backtested. Do not expand a profitable fit after inspection.
+
+Report broad uniform basket controls as well as selected leads: identical
+pre5 favorite/opposite/calibrated and pre30 calibrated across all collected
+sports; identical noon favorite/opposite/calibrated across daily families;
+identical pre5 YES/NO/favorite/opposite across spreads/totals. One continuous
+$100; q1/q2/q5 and the same cost/delay constraints. Selected subsets must not
+hide broad-rule failures. These are descriptive controls added after outcomes.
+
+Final operational sensitivity after extended daily rules were approximately
+flat: passive-first US gas/NY temp, unchanged frozen entry side/time. Rest one
+cent below initial ask, whole-cent limit; ignore first minute after signal;
+require at least5 trades in a later minute AND trade price1c strictly through
+the limit (2c alternative). Cancel after5minutes, optionally same-side taker
+fallback capped originalask+2c/99c. Current makerfee0 hypothesis,1/2c friction.
+These are UNVERIFIED TRADE-THROUGH PROXY fills, not claimed executable P&L.
+No touched-quote or favorable future outcome is allowed to select the side.
+Do not assert profitability or deploy based on this optimistic proxy.

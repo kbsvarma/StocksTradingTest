@@ -1,0 +1,48 @@
+Latest seven losses: causal diagnosis and targeted exit research
+
+User authorizes research only. Preserve live bot, entry rules, price caps,
+quantities, risk limits, paused lanes, and all existing collectors unchanged.
+Read MEMORY.md and the stable baseline before evaluating.
+
+Retain the same frozen 461 actual entries through October 14 22:00 ET, including
+the seven losses in the later 111 trades (October 12-14). Identify every loss,
+entry z, holding time, path by time remaining, exact earlier-rule rejection,
+first higher-threshold crossing, modeled exit quote and cash recovery.
+
+Reuse existing full-history grid before expanding. Evaluate candidate rules
+on all 104 later winners AND all 334 earlier winners. Do not pick a different
+rule for each losing ticker. Show per-asset and pooled rules with zero, small
+and larger winner-cut budgets; include earlier-period damage and total net.
+The latest period is now explicitly used for exploration: it cannot remain
+a holdout. Leave-one-day-out/forward splits may expose instability but are
+not fresh validation after repeated historical inspection.
+
+Test late-expiry windows with finer boundaries and short confirmations, both
+absolute z and absolute z plus relative deterioration from entry. Test simple
+time-varying thresholds if justified by paths. Favor low-complexity rules and
+shared rules for sparse NATGAS/USD-CAD samples. Preserve all failed candidates.
+Inspect actual first-arrival/book coverage for these seven; do not invent
+second-level execution if only minute bid OHLC exists. Compare fee/friction
+and timing sensitivities and use targeted scalar/cash checks.
+
+Same source reconstruction, frozen entry sigma/reference, one-second checks
+and one-second exit latency as preceding research. Headline full-history
+results remain minute-bid-low scenarios, not depth-proven executable P&L.
+Actual historical quantities and entry fees; modeled exit fee and 1c/contract
+friction. No fill at/after close. Save full trade records, reports and hashes.
+No live changes, service restart, reactivation, orders, transfers or collectors.
+
+Research progression, explicitly after inspecting results:
+1. Diagnosed old cutoffs and sparse samples; reused3,723 old configurations.
+2. Added9,313 absolute, entry-distance, peak-distance and abrupt-z-drop rules.
+3. Added fixed sell limits0/50/60/70/80/85/90/95c at the first signal. Limits
+   affect modeled execution only; no future price is used as a signal input.
+4. Added2,592 late high-price cashout combinations, including z4/5/8 and a
+   time-only control. Full failures retained. Use round120s NATGAS candidate
+   rather than the finely optimized65s result; compare90s and other neighbors.
+5. Explicit original-only sensitivity keeps all63 premium winners in the cohort
+   at holding. This restriction was prompted by observed needless premium cuts
+   and is hindsight-informed, NOT fresh validation.
+6. Audit exact sell-limit ties in sensitivity calculations: round a ±5c change
+   to cents rather than comparing an85c quote with floating-point.8500000000000001.
+All models remain hypotheses. No production or collector changes.

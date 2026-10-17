@@ -1,0 +1,12 @@
+[Unit]
+Description=Kalshi execution diagnostics (GET-only; no trading)
+After=network-online.target
+[Service]
+WorkingDirectory=/home/varma/kalshi_execution_retry_2026_10_02
+ExecStart=/home/varma/kalshi/venv/bin/python -u observe_execution.py
+Restart=on-failure
+RestartSec=10
+UMask=0077
+NoNewPrivileges=yes
+[Install]
+WantedBy=default.target

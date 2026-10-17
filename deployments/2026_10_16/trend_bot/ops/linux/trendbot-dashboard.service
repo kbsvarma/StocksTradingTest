@@ -1,0 +1,12 @@
+[Unit]
+Description=Trend bot dashboard (streamlit :8503)
+After=network-online.target
+[Service]
+User=varmak
+EnvironmentFile=-/home/varmak/.trendbot_env
+WorkingDirectory=/home/varmak/trendbot/trend_bot
+ExecStart=/home/varmak/trendbot/trend_bot/.venv/bin/python -m streamlit run dashboard.py --server.port 8503 --server.headless true --server.address 0.0.0.0
+Restart=always
+RestartSec=10
+[Install]
+WantedBy=multi-user.target

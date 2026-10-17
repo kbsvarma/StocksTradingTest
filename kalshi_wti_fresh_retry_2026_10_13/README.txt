@@ -1,0 +1,15 @@
+WTI confirmed-zero fresh-minute retry — October 13, 2026
+
+User authorization: fix WTI lockout so a confirmed zero fill can retry on a fresh later signal; keep all price, five-contract and risk limits unchanged.
+
+Only engine.py, execution_retry.py and runner.py change in production. Original source and hashes are preserved here; the September 28 stable checkpoint is untouched.
+
+Behavior: after a canceled IOC with zero fills, WTI can requalify at a later completed minute of the same 15-minute market. The scanner computes a new signal, including the current quote, z, time remaining and source evidence. The same lane, side, expiry and exchange route must be retained. All existing gates, cash and risk checks, depth and price-limit calculation run again. A fresh signal has the existing 25-second execution deadline. The market retains a maximum of THREE TOTAL submissions across all minutes and process restarts. Partial fills, ambiguous submissions, unknown/resting orders, missing history and any nonzero costs/fees cannot qualify. All prior orders and fills are freshly checked at the exchange before each retry. Reservation is atomic and all attempts remain in the ledger.
+
+Unchanged: standard WTI z>=1.5, 85–<95c signal, 93.9c absolute execution cap; premium WTI z>=2.5, 95–<98c signal, 97.5c absolute execution cap; both 3–10 minutes. Effective buy limit remains min(new signal ask+1c, lane cap), conservatively tick-rounded. Five contracts per entry; shared25 contracts/$25 exposure/$20 daily budget including open risk. Premium25/$25/$25 remains subordinate to shared20 daily budget. Other assets retain existing retry behavior.
+
+Tests: current 191-test regression suite plus 17 new WTI tests = 208 passing on the server venv. New tests cover fresh-minute scheduler rollover, failed new z, later book recovery, both lanes/sides, price caps/full depth, authoritative proof for all attempts, ambiguous/partial states, account/risk/arms checks, elapsed deadlines, competing writers, restart durability and three-submission cap. Historical test_scaling.py targets the retired TWO-contract/eight-contract configuration and is not part of the current suite. Initial discovery also caught three decimal-string formatting assumptions in the new tests; assertions now compare numeric Decimal values.
+
+Deployment: deploy.py checks all source hashes, candidate manifest, baseline checkpoint, live settings and flags; requires flat exchange and ledger before and after acquiring the process lock; backs up source and a consistent SQLite snapshot for audit only. It atomically installs the three files and restarts trader/dashboard, verifies healthy LIVE status and unchanged settings/history, and leaves observer/tennis/weather services untouched. It cannot place orders or cancel orders: its authenticated client only permits GET. The existing bot resumes its authorized operation. Never restore the saved database over live trading.
+
+No retrospective fill or profit claim: the missed 21:15 ET market lacked fresh later signals in its records. Simulations establish the repaired control path, not proof that this historical trade would have filled.

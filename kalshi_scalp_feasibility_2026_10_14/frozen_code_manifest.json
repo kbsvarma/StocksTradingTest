@@ -1,0 +1,13 @@
+{
+  "recorded_utc": "2026-10-14T23:29:52.062129+00:00",
+  "files": {
+    "PLAN.txt": "273ef4b590dbb65d2da80f86e374321511644821fda8c58db3966e23cdcb1f78",
+    "extract.py": "2365fdc3ef13e1a8c32df8fe21c95142b621e310f66b8190a61bf8d9925610f3",
+    "replay.py": "536812c07969d60b7ef9cab7d8626620e9b00514aa76f29759884252d8ff2a1c",
+    "test_replay.py": "791a4dc00d78567b00699eab884a1fe778943f7c9f107f5b69f04c08aa4d065e",
+    "audit.py": "8a7041922e8203a8f65f9b87a4a19fa05842041a6fe1498c0ab6c76a662e2774",
+    "analyze.py": "d03d507ab8cdd839902e847e1f475a167686fa07bc9d3986959cf0ccf42e080a",
+    "RESEARCH_CHANGES.txt": "b6989cf7451b0cce0921cf0c11e98cea95c7a3d193c0bd600f15d7a2e6a6bab3"
+  },
+  "full_results_exist": false
+}

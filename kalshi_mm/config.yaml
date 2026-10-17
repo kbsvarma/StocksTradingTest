@@ -1,0 +1,30 @@
+# Kalshi market-making bot config.
+# Pilot posture: tiny live, prove LIP capture vs inventory bleed before scaling.
+
+environment: live            # live | demo
+base_url: https://api.elections.kalshi.com
+credentials_env: ~/.kalshi_env
+
+# --- SAFETY (these are hard limits, enforced in live.py before every order) ---
+# Sized for the current ~$54 account: a real-money pilot to prove the machinery
+# and capture real fill/share data. Scale up only after $1k funding.
+safety:
+  dry_run: true              # only the shadow path honors this; live.py is explicitly live
+  max_position_per_market: 40     # contracts, net, per market
+  max_total_exposure_usd: 45      # cap $ committed across all markets (account is ~$54)
+  max_daily_loss_usd: 12          # equity drawdown breach -> cancel all + stop
+  max_open_orders: 40
+  kill_switch_file: kalshi_mm/state/HALT   # touch this file to stop quoting immediately
+
+# --- QUOTING ---
+quoting:
+  quote_size: 20             # contracts per side — enough to be a real share in thin books
+  edge_cents: 1              # post this far from fair value on each side (tight = more fills/score)
+  min_spread_cents: 3        # don't quote if the market is tighter than this
+  requote_interval_sec: 5    # how often to refresh quotes
+  post_only: true            # makers only — never cross, never pay taker fees
+  inventory_skew_cents: 1    # per net contract held, shift quotes to shed inventory
+
+# --- TARGETS ---
+# Filled from scanner output. Start with 2-3 markets only.
+targets: []

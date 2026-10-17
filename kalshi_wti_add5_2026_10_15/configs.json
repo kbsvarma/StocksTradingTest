@@ -1,0 +1,5378 @@
+[
+  {
+    "id": "cap20_any_all",
+    "cap": 20,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap20_any_gt60",
+    "cap": 20,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap20_any_gt120",
+    "cap": 20,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap20_any_gt180",
+    "cap": 20,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap20_any_last60",
+    "cap": 20,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap20_any_60to180",
+    "cap": 20,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap20_any_180to300",
+    "cap": 20,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap20_any_300to900",
+    "cap": 20,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_-2_all",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_-2_gt60",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_-2_gt120",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_-2_gt180",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_-2_last60",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap20_z_ge_-2_60to180",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap20_z_ge_-2_180to300",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap20_z_ge_-2_300to900",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_-1_all",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_-1_gt60",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_-1_gt120",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_-1_gt180",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_-1_last60",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap20_z_ge_-1_60to180",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap20_z_ge_-1_180to300",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap20_z_ge_-1_300to900",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_-0.5_all",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_-0.5_gt60",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_-0.5_gt120",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_-0.5_gt180",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_-0.5_last60",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap20_z_ge_-0.5_60to180",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap20_z_ge_-0.5_180to300",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap20_z_ge_-0.5_300to900",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_0_all",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_0_gt60",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_0_gt120",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_0_gt180",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_0_last60",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap20_z_ge_0_60to180",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap20_z_ge_0_180to300",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap20_z_ge_0_300to900",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_0.5_all",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_0.5_gt60",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_0.5_gt120",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_0.5_gt180",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_0.5_last60",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap20_z_ge_0.5_60to180",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap20_z_ge_0.5_180to300",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap20_z_ge_0.5_300to900",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_1_all",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_1_gt60",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_1_gt120",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_1_gt180",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_1_last60",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap20_z_ge_1_60to180",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap20_z_ge_1_180to300",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap20_z_ge_1_300to900",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_1.5_all",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_1.5_gt60",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_1.5_gt120",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_1.5_gt180",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_1.5_last60",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap20_z_ge_1.5_60to180",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap20_z_ge_1.5_180to300",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap20_z_ge_1.5_300to900",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_2_all",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_2_gt60",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_2_gt120",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_2_gt180",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_ge_2_last60",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap20_z_ge_2_60to180",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap20_z_ge_2_180to300",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap20_z_ge_2_300to900",
+    "cap": 20,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_lt_0_all",
+    "cap": 20,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_lt_0_gt60",
+    "cap": 20,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_lt_0_gt120",
+    "cap": 20,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_lt_0_gt180",
+    "cap": 20,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_lt_0_last60",
+    "cap": 20,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap20_z_lt_0_60to180",
+    "cap": 20,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap20_z_lt_0_180to300",
+    "cap": 20,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap20_z_lt_0_300to900",
+    "cap": 20,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_0_to_1_all",
+    "cap": 20,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_0_to_1_gt60",
+    "cap": 20,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_0_to_1_gt120",
+    "cap": 20,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_0_to_1_gt180",
+    "cap": 20,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_0_to_1_last60",
+    "cap": 20,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap20_z_0_to_1_60to180",
+    "cap": 20,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap20_z_0_to_1_180to300",
+    "cap": 20,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap20_z_0_to_1_300to900",
+    "cap": 20,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_1_to_2_all",
+    "cap": 20,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_1_to_2_gt60",
+    "cap": 20,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_1_to_2_gt120",
+    "cap": 20,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_1_to_2_gt180",
+    "cap": 20,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap20_z_1_to_2_last60",
+    "cap": 20,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap20_z_1_to_2_60to180",
+    "cap": 20,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap20_z_1_to_2_180to300",
+    "cap": 20,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap20_z_1_to_2_300to900",
+    "cap": 20,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap30_any_all",
+    "cap": 30,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap30_any_gt60",
+    "cap": 30,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap30_any_gt120",
+    "cap": 30,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap30_any_gt180",
+    "cap": 30,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap30_any_last60",
+    "cap": 30,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap30_any_60to180",
+    "cap": 30,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap30_any_180to300",
+    "cap": 30,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap30_any_300to900",
+    "cap": 30,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_-2_all",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_-2_gt60",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_-2_gt120",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_-2_gt180",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_-2_last60",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap30_z_ge_-2_60to180",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap30_z_ge_-2_180to300",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap30_z_ge_-2_300to900",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_-1_all",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_-1_gt60",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_-1_gt120",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_-1_gt180",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_-1_last60",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap30_z_ge_-1_60to180",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap30_z_ge_-1_180to300",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap30_z_ge_-1_300to900",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_-0.5_all",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_-0.5_gt60",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_-0.5_gt120",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_-0.5_gt180",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_-0.5_last60",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap30_z_ge_-0.5_60to180",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap30_z_ge_-0.5_180to300",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap30_z_ge_-0.5_300to900",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_0_all",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_0_gt60",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_0_gt120",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_0_gt180",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_0_last60",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap30_z_ge_0_60to180",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap30_z_ge_0_180to300",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap30_z_ge_0_300to900",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_0.5_all",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_0.5_gt60",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_0.5_gt120",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_0.5_gt180",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_0.5_last60",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap30_z_ge_0.5_60to180",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap30_z_ge_0.5_180to300",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap30_z_ge_0.5_300to900",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_1_all",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_1_gt60",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_1_gt120",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_1_gt180",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_1_last60",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap30_z_ge_1_60to180",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap30_z_ge_1_180to300",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap30_z_ge_1_300to900",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_1.5_all",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_1.5_gt60",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_1.5_gt120",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_1.5_gt180",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_1.5_last60",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap30_z_ge_1.5_60to180",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap30_z_ge_1.5_180to300",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap30_z_ge_1.5_300to900",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_2_all",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_2_gt60",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_2_gt120",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_2_gt180",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_ge_2_last60",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap30_z_ge_2_60to180",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap30_z_ge_2_180to300",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap30_z_ge_2_300to900",
+    "cap": 30,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_lt_0_all",
+    "cap": 30,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_lt_0_gt60",
+    "cap": 30,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_lt_0_gt120",
+    "cap": 30,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_lt_0_gt180",
+    "cap": 30,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_lt_0_last60",
+    "cap": 30,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap30_z_lt_0_60to180",
+    "cap": 30,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap30_z_lt_0_180to300",
+    "cap": 30,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap30_z_lt_0_300to900",
+    "cap": 30,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_0_to_1_all",
+    "cap": 30,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_0_to_1_gt60",
+    "cap": 30,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_0_to_1_gt120",
+    "cap": 30,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_0_to_1_gt180",
+    "cap": 30,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_0_to_1_last60",
+    "cap": 30,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap30_z_0_to_1_60to180",
+    "cap": 30,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap30_z_0_to_1_180to300",
+    "cap": 30,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap30_z_0_to_1_300to900",
+    "cap": 30,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_1_to_2_all",
+    "cap": 30,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_1_to_2_gt60",
+    "cap": 30,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_1_to_2_gt120",
+    "cap": 30,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_1_to_2_gt180",
+    "cap": 30,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap30_z_1_to_2_last60",
+    "cap": 30,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap30_z_1_to_2_60to180",
+    "cap": 30,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap30_z_1_to_2_180to300",
+    "cap": 30,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap30_z_1_to_2_300to900",
+    "cap": 30,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap40_any_all",
+    "cap": 40,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap40_any_gt60",
+    "cap": 40,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap40_any_gt120",
+    "cap": 40,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap40_any_gt180",
+    "cap": 40,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap40_any_last60",
+    "cap": 40,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap40_any_60to180",
+    "cap": 40,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap40_any_180to300",
+    "cap": 40,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap40_any_300to900",
+    "cap": 40,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_-2_all",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_-2_gt60",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_-2_gt120",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_-2_gt180",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_-2_last60",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap40_z_ge_-2_60to180",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap40_z_ge_-2_180to300",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap40_z_ge_-2_300to900",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_-1_all",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_-1_gt60",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_-1_gt120",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_-1_gt180",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_-1_last60",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap40_z_ge_-1_60to180",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap40_z_ge_-1_180to300",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap40_z_ge_-1_300to900",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_-0.5_all",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_-0.5_gt60",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_-0.5_gt120",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_-0.5_gt180",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_-0.5_last60",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap40_z_ge_-0.5_60to180",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap40_z_ge_-0.5_180to300",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap40_z_ge_-0.5_300to900",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_0_all",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_0_gt60",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_0_gt120",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_0_gt180",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_0_last60",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap40_z_ge_0_60to180",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap40_z_ge_0_180to300",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap40_z_ge_0_300to900",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_0.5_all",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_0.5_gt60",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_0.5_gt120",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_0.5_gt180",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_0.5_last60",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap40_z_ge_0.5_60to180",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap40_z_ge_0.5_180to300",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap40_z_ge_0.5_300to900",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_1_all",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_1_gt60",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_1_gt120",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_1_gt180",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_1_last60",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap40_z_ge_1_60to180",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap40_z_ge_1_180to300",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap40_z_ge_1_300to900",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_1.5_all",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_1.5_gt60",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_1.5_gt120",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_1.5_gt180",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_1.5_last60",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap40_z_ge_1.5_60to180",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap40_z_ge_1.5_180to300",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap40_z_ge_1.5_300to900",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_2_all",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_2_gt60",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_2_gt120",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_2_gt180",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_ge_2_last60",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap40_z_ge_2_60to180",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap40_z_ge_2_180to300",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap40_z_ge_2_300to900",
+    "cap": 40,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_lt_0_all",
+    "cap": 40,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_lt_0_gt60",
+    "cap": 40,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_lt_0_gt120",
+    "cap": 40,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_lt_0_gt180",
+    "cap": 40,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_lt_0_last60",
+    "cap": 40,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap40_z_lt_0_60to180",
+    "cap": 40,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap40_z_lt_0_180to300",
+    "cap": 40,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap40_z_lt_0_300to900",
+    "cap": 40,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_0_to_1_all",
+    "cap": 40,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_0_to_1_gt60",
+    "cap": 40,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_0_to_1_gt120",
+    "cap": 40,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_0_to_1_gt180",
+    "cap": 40,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_0_to_1_last60",
+    "cap": 40,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap40_z_0_to_1_60to180",
+    "cap": 40,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap40_z_0_to_1_180to300",
+    "cap": 40,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap40_z_0_to_1_300to900",
+    "cap": 40,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_1_to_2_all",
+    "cap": 40,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_1_to_2_gt60",
+    "cap": 40,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_1_to_2_gt120",
+    "cap": 40,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_1_to_2_gt180",
+    "cap": 40,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap40_z_1_to_2_last60",
+    "cap": 40,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap40_z_1_to_2_60to180",
+    "cap": 40,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap40_z_1_to_2_180to300",
+    "cap": 40,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap40_z_1_to_2_300to900",
+    "cap": 40,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap50_any_all",
+    "cap": 50,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap50_any_gt60",
+    "cap": 50,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap50_any_gt120",
+    "cap": 50,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap50_any_gt180",
+    "cap": 50,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap50_any_last60",
+    "cap": 50,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap50_any_60to180",
+    "cap": 50,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap50_any_180to300",
+    "cap": 50,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap50_any_300to900",
+    "cap": 50,
+    "zfilter": [
+      "any",
+      null,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_-2_all",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_-2_gt60",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_-2_gt120",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_-2_gt180",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_-2_last60",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap50_z_ge_-2_60to180",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap50_z_ge_-2_180to300",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap50_z_ge_-2_300to900",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_-2",
+      -2,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_-1_all",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_-1_gt60",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_-1_gt120",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_-1_gt180",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_-1_last60",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap50_z_ge_-1_60to180",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap50_z_ge_-1_180to300",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap50_z_ge_-1_300to900",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_-1",
+      -1,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_-0.5_all",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_-0.5_gt60",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_-0.5_gt120",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_-0.5_gt180",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_-0.5_last60",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap50_z_ge_-0.5_60to180",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap50_z_ge_-0.5_180to300",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap50_z_ge_-0.5_300to900",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_-0.5",
+      -0.5,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_0_all",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_0_gt60",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_0_gt120",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_0_gt180",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_0_last60",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap50_z_ge_0_60to180",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap50_z_ge_0_180to300",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap50_z_ge_0_300to900",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_0",
+      0,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_0.5_all",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_0.5_gt60",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_0.5_gt120",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_0.5_gt180",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_0.5_last60",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap50_z_ge_0.5_60to180",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap50_z_ge_0.5_180to300",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap50_z_ge_0.5_300to900",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_0.5",
+      0.5,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_1_all",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_1_gt60",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_1_gt120",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_1_gt180",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_1_last60",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap50_z_ge_1_60to180",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap50_z_ge_1_180to300",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap50_z_ge_1_300to900",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_1",
+      1,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_1.5_all",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_1.5_gt60",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_1.5_gt120",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_1.5_gt180",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_1.5_last60",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap50_z_ge_1.5_60to180",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap50_z_ge_1.5_180to300",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap50_z_ge_1.5_300to900",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_1.5",
+      1.5,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_2_all",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_2_gt60",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_2_gt120",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_2_gt180",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_ge_2_last60",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap50_z_ge_2_60to180",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap50_z_ge_2_180to300",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap50_z_ge_2_300to900",
+    "cap": 50,
+    "zfilter": [
+      "z_ge_2",
+      2,
+      null
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_lt_0_all",
+    "cap": 50,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_lt_0_gt60",
+    "cap": 50,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_lt_0_gt120",
+    "cap": 50,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_lt_0_gt180",
+    "cap": 50,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_lt_0_last60",
+    "cap": 50,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap50_z_lt_0_60to180",
+    "cap": 50,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap50_z_lt_0_180to300",
+    "cap": 50,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap50_z_lt_0_300to900",
+    "cap": 50,
+    "zfilter": [
+      "z_lt_0",
+      null,
+      0
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_0_to_1_all",
+    "cap": 50,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_0_to_1_gt60",
+    "cap": 50,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_0_to_1_gt120",
+    "cap": 50,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_0_to_1_gt180",
+    "cap": 50,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_0_to_1_last60",
+    "cap": 50,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap50_z_0_to_1_60to180",
+    "cap": 50,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap50_z_0_to_1_180to300",
+    "cap": 50,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap50_z_0_to_1_300to900",
+    "cap": 50,
+    "zfilter": [
+      "z_0_to_1",
+      0,
+      1
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_1_to_2_all",
+    "cap": 50,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "all",
+      0,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_1_to_2_gt60",
+    "cap": 50,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "gt60",
+      60,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_1_to_2_gt120",
+    "cap": 50,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "gt120",
+      120,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_1_to_2_gt180",
+    "cap": 50,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "gt180",
+      180,
+      900
+    ]
+  },
+  {
+    "id": "cap50_z_1_to_2_last60",
+    "cap": 50,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "last60",
+      0,
+      60
+    ]
+  },
+  {
+    "id": "cap50_z_1_to_2_60to180",
+    "cap": 50,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "60to180",
+      60,
+      180
+    ]
+  },
+  {
+    "id": "cap50_z_1_to_2_180to300",
+    "cap": 50,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "180to300",
+      180,
+      300
+    ]
+  },
+  {
+    "id": "cap50_z_1_to_2_300to900",
+    "cap": 50,
+    "zfilter": [
+      "z_1_to_2",
+      1,
+      2
+    ],
+    "window": [
+      "300to900",
+      300,
+      900
+    ]
+  }
+]

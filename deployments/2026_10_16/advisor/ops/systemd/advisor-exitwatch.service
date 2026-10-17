@@ -1,0 +1,18 @@
+[Unit]
+Description=Advisor exit watcher (alert-only)
+After=advisor-quoted.service
+
+[Service]
+WorkingDirectory=%h/stockstest
+Environment=PYTHONPATH=%h/stockstest
+EnvironmentFile=-%h/.trendbot_env
+ExecStart=%h/stockstest/.venv/bin/python -m advisor.exit_watcher
+Restart=always
+RestartSec=30
+UMask=0077
+NoNewPrivileges=true
+StandardOutput=append:%h/stockstest/advisor/logs/exitwatch.log
+StandardError=append:%h/stockstest/advisor/logs/exitwatch.log
+
+[Install]
+WantedBy=default.target

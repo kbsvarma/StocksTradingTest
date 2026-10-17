@@ -1,0 +1,13 @@
+2026-10-15: isolated follow-up to add5 study; frozen111trade cohort and signed
+z/time rule unchanged. Expanded35whole-cent caps50--84; four latency scenarios.
+Fetched ALL111 markets rather than reusing the old50c candidate-only subset.
+Extended62s main capture with65--62s prefix to cover3sfeed signal arrivals at
+the start of the final minute; retained original receipts, all cursors exhausted.
+Four latest normalized market objects omit per-market multiplier: explicitly
+verified fresh WTI series quadratic/multiplier1 instead of silently assuming it.
+Added effective fee/cash rounding for arbitrary caps; nominal fee and cash debit
+recorded separately. All cap-priced results independently scalar/Decimal checked.
+Added conditional witness-price diagnostic after cap sweep to distinguish a
+maximum limit from actual payment; no new entry or z/time rules, and no claim
+the printed price was still available. Not a substitute for full order-book data.
+No production imports,financial orders,live edits,flag changes,or service restarts.

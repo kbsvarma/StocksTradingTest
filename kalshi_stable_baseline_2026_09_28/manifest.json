@@ -1,0 +1,19 @@
+{
+  "captured_utc": "2026-09-28T03:24:22.724544+00:00",
+  "server": "varma@192.168.3.136",
+  "source_dir": "/home/varma/kalshi_revalidation_2026_09_12/live_v1/",
+  "sha256": {
+    "dashboard_crypto.py": "6c4cd56fb9a27263a411113b1475932688f617ade5725d48a418cda5b358b261",
+    "dashboard_integrated.py": "5d0803e05d5e93f0c3bf7d60df69cad144470883a14153e7b118ff94d70c5a43",
+    "dashboard_panel.py": "6d19b862daf17bb28a0ad71c67908a99b99be4104b47dba27fb85507284c6f1c",
+    "engine.py": "f3fb4d70eefd9266b919b4ed04092999cb7db488b1c455cfc1707cd5862aae27",
+    "kalshi-crypto-z2-live.service": "9a273ecbf6d5311f00e8c6bb1285d61059db9fe5de2bd065f6939d66843d3a0a",
+    "kalshi_client.py": "0b75d08ec80d0c7e7ce7eb625d67eab5b15f908a4ac1198484ef77d7cd45fed4",
+    "market_data.py": "0ea108c34032f682142ce5feb444a206a56fbef88a27129ca528e90b93ce878f",
+    "runner.py": "f2590cc8869824917e5b04084d4c6ca14c2b625d96d7b78875dcf69b3420ae3b",
+    "sizing.py": "d0826da00031bb25f3ee9e97159d22e8f480c5efc02b6e961ac27b7e4223b18b",
+    "test_engine.py": "3b9d81af155131e8efd2cacb4ca0cc73387226aca0aebd20a82e2e2addc06ba6",
+    "test_scaling.py": "214221600801cf0b8d4543d326ef2dea83cb86ab4187fd433e5ade7b31c11302",
+    "test_signals.py": "65423671ae9849c2fcf21ed4196af179053a9c9fa41e235778cc14a218e4af71"
+  }
+}

@@ -1,0 +1,20 @@
+[Unit]
+Description=Webull ATM Bot Reconciliation Watchdog
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/StocksTradingTest
+Environment=PYTHONUNBUFFERED=1
+Environment=WEBULL_INSTANCE_NAME=ec2-atm
+Environment=WEBULL_CONFIG_PATH=webull_bot_atm/config_atm.yaml
+EnvironmentFile=/home/ubuntu/.webull_env
+ExecStart=/home/ubuntu/.venv/bin/python -m webull_bot_atm.reconcile_watchdog_v2
+StandardOutput=append:/home/ubuntu/StocksTradingTest/webull_bot_atm/logs/watchdog.out
+StandardError=append:/home/ubuntu/StocksTradingTest/webull_bot_atm/logs/watchdog.err
+SyslogIdentifier=webull-bot-atm-watchdog
+
+[Install]
+WantedBy=multi-user.target

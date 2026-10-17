@@ -1,0 +1,18 @@
+[Unit]
+Description=Trend bot execution daemon
+Wants=network-online.target trendbot-ibc.service
+After=network-online.target trendbot-ibc.service
+ConditionPathExists=/home/varmak/trendbot/trend_bot/.venv/bin/python
+[Service]
+User=varmak
+EnvironmentFile=-/home/varmak/.trendbot_env
+WorkingDirectory=/home/varmak/trendbot/trend_bot
+ExecStart=/home/varmak/trendbot/trend_bot/.venv/bin/python bot.py
+Restart=always
+RestartSec=30
+KillSignal=SIGINT
+TimeoutStopSec=45
+StandardOutput=append:/home/varmak/trendbot/trend_bot/state/bot.out.log
+StandardError=append:/home/varmak/trendbot/trend_bot/state/bot.err.log
+[Install]
+WantedBy=multi-user.target

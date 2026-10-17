@@ -1,0 +1,97 @@
+2026-10-14 initial experiment
+Created standalone PUBLIC GET-only service and read-only live signal/ledger
+follower. Frozen3c/1c discount,10seconds,5ct,unchanged live lane/risk parameters.
+32offline tests passed locally and on server, including simulated end-to-end
+partial/full resting fills and synchronous IOC, with duplicate-print protection.
+
+2026-10-14 startup plumbing correction, before any paper opportunity
+Initial series fee metadata responses were HTTP200 with normal CDN Age6–13s
+(Cache-Control public,max-age15), incorrectly rejected by the book's one-second
+cache-age rule. Retained all8original receipts/errors. Series/settlement metadata
+now allows up to60s cache age; executable books and trade prints remain<=1s.
+Incomplete metadata now appears in health and retries after30s, not6hours.
+No strategy, fill model, price, size, risk, or production file changed. Restarted
+only the new paper service. Original experiment start/cursor/records preserved.
+
+2026-10-14 pre-handover audit, before any paper opportunity
+Added an explicit queue-depth truncation check: if the target bid is outside the
+top100 visible levels, queue is unknown, never assumed empty. One additional
+offline boundary test passes (33total). This tightens data completeness only;
+the frozen strategy/configuration and every existing bot remain unchanged.
+2026-10-15 03:20 UTC — Isolated paper asset-pause guard repair
+The user's USD/CAD pause added HALT_USDCAD after this experiment launched.
+The whole-flag equality guard consequently blocked all assets. Ten qualifying
+markets had been recorded: four attempted, six skipped by this global block.
+Those six records remain incomplete coverage, not proven unfilled opportunities.
+No historical fill reconstruction or restart of the experiment clock/cutoff.
+
+Added reviewed_halt_flags.json containing only the exact observed HALT_USDCAD
+hash. This is an explicitly reviewed, risk-reducing operating restriction;
+frozen_config.json and frozen lane/price source remain byte-identical. USD/CAD
+cannot admit paper orders; unrelated assets can continue. Any removed/changed
+pause, extra ARM, unreviewed flag or production source drift still fails closed.
+Recheck asset pauses before/after admission and subsequent book requests; cancel
+pending IOC controls as well as resting lifetimes if health changes in flight.
+Preserve pre-cancel public print evidence; never fabricate continuous coverage.
+
+41 offline tests pass, including eight new flag-scope/admission/race regressions.
+Before-state code copies, full order-record hashes, receipt counts, production
+hashes and existing service PIDs saved under repairs/asset_pause_20261015T032012Z.
+Only this paper service is eligible for restart. No financial requests or live
+bot changes. Deployment verification is retained alongside the repair receipt.
+
+
+2026-10-15 — Authorized live WebSocket migration compatibility
+Reviewed exact transport-only hashes for engine, scanner, runner and new stream
+module; frozen strategy/configuration/source remain unchanged. Accept original
+revision for rollback or this exact new revision; reject mixed/unknown changes.
+Production order-book/fill transport changes at deployment receipt timestamp in
+/home/varma/kalshi_ws_migration_2026_10_15/receipts/deployment_receipt.json.
+Segment live execution comparator at this boundary. Paper uses its same public
+GET receipts, queue model, five contracts and fees. Restart during zero jobs;
+retain every receipt/order and original cutoff. 49 compatibility/model tests pass.
+
+2026-10-15 09:21 UTC — Read-only audit/reporting update
+Added audit_review_v2.py; the original first-repair audit remains intact. The new
+reporter verifies the exact already-authorized WebSocket source manifest rather
+than obsolete pre-migration source/PID equality. It still requires source and
+flags to match reviewed hashes and all service PIDs to remain unchanged across
+the audit. Adds fee receipt/admission-queue checks and pre/post-cutover segments.
+321receipt hashes,1231public trades, allfill replay/fees/outcomes validated.
+No collector, frozen configuration, model, ledger, strategy or live edits/restarts.
+First fully observed matched fills reported;20comparable milestone not reached.
+
+2026-10-15 07:34 ET — Live fill-receipt compatibility
+User-authorized live repair matches NO purchases by canonical outcome/book side
+instead of requiring legacy action=buy, and adds asynchronous WS receipt evidence.
+Only reviewed_live_source_hashes.json updated for engine.py, runner.py and
+stream_transport.py; previous scanner hash retained. Frozen configuration/source,
+queue/fee model and all66 paper order records preserved. Paper observer restarted
+with the trader during a flat quiet window; unrelated services unchanged.
+Receipt: /home/varma/kalshi_ws_fill_fix_2026_10_15/receipts/deployment_receipt.json.
+Actual verification is recorded separately; do not infer it merely from deployment.
+
+2026-10-15 15:22–15:29 UTC — Read-only audit null-price skip repair
+The receipt auditor failed on valid skipped candidates with an admission book
+but no resting price (discount below floor). Reporter now validates that these
+records remain skipped with zero fills/cost/fees/evidence, and only validates
+queue-at-price for admitted resting orders. Four regression tests pass; full
+545receipt/1588trade replay audit passes. No observer/model/config/ledger edits
+or service restarts. Backups/failure/verification in repairs/reporting_skip_20261015T1525Z.
+Legacy EURUSD10:30 skipped rows retain their overwritten floor-cancel reason;
+rate_and_cancel_audit.json explicitly identifies them, with zero-fill records
+preserved rather than rewriting history. No strategy or fill results changed.
+
+2026-10-15 14:22 ET — Authorized USD/CAD dashboard archival compatibility
+UI-only dashboard_panel.py revision accepted by exact reviewed hash. The
+source guard permits that one named additional file; all unknown revisions
+remain blocked. Existing paper tests plus positive/negative guard checks pass.
+Paper observer restarted with zero jobs; original receipts, ledger, cutoff,
+frozen configuration and strategy preserved. Backup: repairs/ui_usdcad_20261015T1822Z.
+Brief collection pause while integrity guard awaited the authorized UI hash.
+Live trader and tennis service unchanged. Receipt: /home/varma/kalshi_ui_hide_usdcad_2026_10_15/deployment.json
+
+2026-10-16T14:07:05.973547+00:00 — User canceled the resting-order paper test
+Stopped and disabled only kalshi-resting-paper.service; deleted its review automation.
+Ledger, receipts, frozen configuration and reports preserved. Other inspected service
+states/PIDs unchanged. Do not restart or schedule reviews without new user authorization.

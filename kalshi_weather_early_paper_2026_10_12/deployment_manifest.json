@@ -1,0 +1,9 @@
+{
+  "engine.py": "a3c72a9c1c0c34a3339b68ad62746f68476562b20bed6474ff9f66757db411a9",
+  "build_training.py": "92dc99bdd4220a3287a167041f4b4e250b6878e11afe2216e7b8b6547e55a5c2",
+  "test_paper.py": "69cbba0340d9d55abc61d8d16aba8567dcb7c261170ada1eed6f654b4055b26b",
+  "store.py": "4d6935682c8938b8fd6ec20fe060c931c0753a2eac5616e29f320d48ac0398ab",
+  "observer.py": "92cd4d2f89a73865774970776c8636caa57a91649a285c7755fb932be5ca8aa3",
+  "kalshi-weather-early-paper.service": "760b1351fbc0da360f6e84ef5d370dd9745a2ae108503de56a21674fa95d60ad",
+  "frozen_config.json": "07e9ca29aa475a9988c727e3ecad9f6541caf8c42dc67ae78e3385572b6d91b6"
+}

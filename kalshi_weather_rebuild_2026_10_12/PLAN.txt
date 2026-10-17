@@ -1,0 +1,47 @@
+WEATHER REBUILD — frozen before fitting these new models, 2026-10-12
+Research only. Do not edit, restart, fund or submit orders through any live bot.
+
+Question: Can all-city, market-anchored calibration repair the old persistence
+model's overconfidence and provide materially more trades per calendar day?
+Use every available archived NYC/Miami/Chicago/LA Coastal hourly expiry. The
+older three-city study and the original NYC archive remain immutable inputs.
+Keep evaluation windows explicit; newer Oct10-11 data, if collected, is a
+separate check after model design. Previously reviewed weeks are retrospective.
+
+Primary model: regularized logistic correction to the decision-time YES midpoint
+log-odds. Features: intercept, midpoint log-odds, city indicators, local hour
+sin/cos, horizon, index-minus-strike (two bounded scales), last15/60minute
+temperature change, recent temperature volatility, and gap interactions with
+horizon, volatility and city. All transforms fixed in source before fitting.
+Fit once weekly to preceding14days of already-settled expiries; weight each
+city/expiry equally rather than treating ten correlated strikes as ten events.
+Ridge penalty10, intercept penalty0.01. No search over coefficients, penalty,
+training span, entry threshold, price band or city exclusions.
+Require >=200 pooled and >=60 per-city training events with usable inputs.
+Benchmark: same market correction without physical temperature features.
+Historical comparator: already published persistence portfolio, with periods
+clearly separated. Do not select the best city and call the whole design proven.
+
+Source: canonical published index; 61 consecutive minutes with latest normal;
+primary fixed10minute observation age. Train/test lag6 and lag15 as predeclared
+sensitivity, not as competing winners. Historical arrival-time completeness and
+book depth are unproven, so all outcomes remain quote-proxy simulations.
+
+Entry: examine 30/15/5min before hourly expiry. Either YES or NO ask40-<95c,
+spread<=2c, previous10min volume>=5. Require estimated net edge>=3c after taker
+fee and1c friction. Choose highest decision-time edge before looking at later
+quotes. Five contracts; price cap min(signal ask+1c,95c). Hold to settlement.
+Base execution: next-minute opening quote proxy with decision+10s entry time.
+Challenges: next-minute close (60s), following-minute close (120s), full cap
+price; 2c and3c friction; modeled fees rounded upward to cents as extra stress.
+Portfolio: independent research $100 cash, max25contracts/$25risk/$20daily loss
+including open exposure, minimum$2cash, one pending position per city and one
+entry per expiry. Respect recorded settlement delays and reserved open risk.
+No combinations with existing live lanes in this study.
+
+Report all models/scenarios, city and week breakdowns, calendar-day frequency,
+drawdown, probability calibration, day-bootstrap uncertainty and missed quotes.
+Pass requires positive net across the primary and2c/60s challenges, broad city
+support rather than one-city rescue, and >=10 simulated trades/calendar day.
+This is a research screening bar, not permission to trade or statistical proof.
+Preserve code, fit parameters/training IDs, all attempted signals and ledgers.

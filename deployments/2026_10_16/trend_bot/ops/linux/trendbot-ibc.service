@@ -1,0 +1,14 @@
+[Unit]
+Description=IB Gateway (paper) via IBC — headless
+Wants=network-online.target trendbot-xvfb.service
+After=network-online.target trendbot-xvfb.service
+[Service]
+User=varmak
+WorkingDirectory=/home/varmak/trendbot
+ExecStart=/home/varmak/trendbot/start_gateway.sh
+Restart=always
+RestartSec=30
+StandardOutput=append:/home/varmak/trendbot/logs/ibc.log
+StandardError=append:/home/varmak/trendbot/logs/ibc.log
+[Install]
+WantedBy=multi-user.target

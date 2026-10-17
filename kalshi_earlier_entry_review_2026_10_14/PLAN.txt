@@ -1,0 +1,13 @@
+Read-only review: could recent actual trades enter earlier at a better price?
+
+Scope: all settled filled trades in currently active assets with an entry since October 8, 2026 00:00 ET, including winners and losers. Exclude retired Copper and distinguish older historical settings from today's settings. Preserve all live code, flags and services.
+
+Questions fixed before calculating results:
+1. Was an earlier cheaper quote on the eventual trade side available before the actual entry, and did it satisfy the rules in force then? Report disqualifying z/price/spread/time gates and missing evidence.
+2. Did contemporaneous earlier qualified signals have recorded subsequent five-contract depth inside the original buy cap? Separate recorded book support from final revised candle proxies, and compare the first eligible opportunity rather than choosing the cheapest price in hindsight.
+3. Within the actual entry minute, compare signal ask, preliminary/final execution books and actual average fill, measuring recorded timing and favorable/adverse price movement. Do not confuse a limit with the price actually paid.
+4. Check all actual losses as a control. Same-market retrospective savings are conditional on eventual entry and do not establish the performance of an earlier-entry strategy across all markets.
+
+Use recent archived full features where available and actual read-only event, order-attempt and observer receipts. Do not interpolate missing history or count missing book observations as unavailable liquidity. No reduction in z, price floor, or other trading rule is authorized. The parked WTI/EURUSD lower-z experiment remains parked.
+
+Save scripts, receipts, ledgers and findings in this directory. No new automation, orders, live edits or service restarts.

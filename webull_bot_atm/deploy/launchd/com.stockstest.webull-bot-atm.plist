@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.stockstest.webull-bot-atm</string>
+
+    <!-- ATM bot launches via webull_bot_atm.main (separate package from legacy webull_bot).
+         Sources .webull_env for credentials. WEBULL_INSTANCE_NAME=mac-atm to distinguish
+         from legacy in heartbeat tracking. NOTE: ALLOW_LIVE_TRADING is NOT SET by default
+         — bot will refuse to start in live mode unless explicitly enabled. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-c</string>
+        <string>source /Users/varmakammili/.webull_env &amp;&amp; cd /Users/varmakammili/Documents/GitHub/StocksTradingTest &amp;&amp; exec /opt/anaconda3/envs/llms/bin/python3 -m webull_bot_atm.main</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/varmakammili/Documents/GitHub/StocksTradingTest</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+        <key>WEBULL_INSTANCE_NAME</key>
+        <string>mac-atm</string>
+        <key>WEBULL_TRUST_LOCAL_ROLE</key>
+        <string>1</string>
+        <!-- Force paper mode by default (WEBULL_DRY_RUN=1) on Mac.
+             To go LIVE: replace this with ALLOW_LIVE_TRADING=1 -->
+        <key>WEBULL_DRY_RUN</key>
+        <string>1</string>
+        <key>WEBULL_CONFIG_PATH</key>
+        <string>webull_bot_atm/config_atm.yaml</string>
+        <key>WEBULL_EVENT_LOG_DIR</key>
+        <string>/Users/varmakammili/Documents/GitHub/StocksTradingTest/spx_spread_bot/data/webull_live/atm_bot/events</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/varmakammili/Documents/GitHub/StocksTradingTest/webull_bot_atm/logs/launchd.out</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/varmakammili/Documents/GitHub/StocksTradingTest/webull_bot_atm/logs/launchd.err</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+    <key>ProcessType</key>
+    <string>Interactive</string>
+</dict>
+</plist>

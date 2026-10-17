@@ -1,0 +1,51 @@
+--- original/runner.py
++++ staged/runner.py
+@@ -53,7 +53,7 @@
+     pending=any(r['status'] in ('intent','unknown','ack','accounting_pending') for r in rows)
+     return dict(ts=time.time(),mode=mode,stopped=stopped,
+         strategy='cushion_coinbase_z2',contracts=CONTRACTS,max_contracts=int(MAX_CONTRACTS),max_risk=str(MAX_RISK),
+-        daily_loss_budget=str(DAILY_LOSS_BUDGET),band='85–93¢',z_min=2,minutes='3–10',
++        daily_loss_budget=str(DAILY_LOSS_BUDGET),band='85–<95¢ signal; max 93.9¢ buy',signal_ask_ceiling_dollars='0.95',execution_cap_dollars='0.939',z_min=2,minutes='3–10',
+         execution='Capped IOC; one attempt per market; hold to settlement',
+         armed=(STATE/ARM_FILE).exists(),halted=engine.halt_reason() or ('Order reconciliation pending' if pending else ''),error=error,
+         account=engine.last_account,scans=[display_signal(r,mode) for r in scans.values()],
+@@ -91,7 +91,7 @@
+         stopping=True
+     signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
+     scans={};minute=None;done=set();cached={};checks={};last_reconcile=0.;last_status=0.;error=''
+-    LOG.info('Start mode=%s, %s contracts per market, max %s, $%s exposure, $%s daily budget', 'LIVE' if args.live else 'OBSERVE', CONTRACTS, MAX_CONTRACTS, MAX_RISK, DAILY_LOSS_BUDGET)
++    LOG.info('Start mode=%s, %s contracts per market, max %s, $%s exposure, $%s daily budget; signal ask <95c, execution cap 93.9c', 'LIVE' if args.live else 'OBSERVE', CONTRACTS, MAX_CONTRACTS, MAX_RISK, DAILY_LOSS_BUDGET)
+     try:
+         while not stopping:
+             now=time.time();T=int(now//60)*60
+--- original/dashboard_panel.py
++++ staged/dashboard_panel.py
+@@ -116,5 +116,5 @@
+                        'Net P&L':formatted(r.get('pnl'),'${:+.4f}')} for r in reversed(d['trades'])],width='stretch',hide_index=True)
+     else:st.info('No orders yet. The bot waits until all entry conditions qualify.')
+     with st.expander('Entry rules'):
+-        st.write('Favorite ask at least 85¢ and below 93¢ · cushion z ≥ 2 · 3–10 minutes remaining · spread ≤ 2¢. One capped immediate-or-cancel attempt per market; filled contracts held to settlement.')
++        st.write('Completed-minute favorite ask at least 85¢ and below 95¢ · cushion z ≥ 2 · 3–10 minutes remaining · spread ≤ 2¢. Maximum buy price 93.9¢, even when the signal quote is higher. One capped immediate-or-cancel attempt per market; filled contracts held to settlement.')
+     st.caption('P&L covers this crypto strategy only. Legacy history has been archived.')
+--- original/engine.py
++++ staged/engine.py
+@@ -159,7 +159,7 @@
+         if s.get('status')!='paper_fill':return 'No signal'
+         if not self.live:return 'Observation only'
+         if not crypto(s.get('ticker','')) or s['side'] not in ('yes','no'):raise ValueError('unsupported market/side')
+-        if not (D('.85')<=D(str(s['signal_ask']))<D('.93') and s['z']>=2 and 3<=s['remaining_minutes']<=10):raise ValueError('signal gates failed')
++        if not (D('.85')<=D(str(s['signal_ask']))<D('.95') and s['z']>=2 and 3<=s['remaining_minutes']<=10):raise ValueError('signal gates failed')
+         if D(str(s['signal_ask']))-D(str(s['signal_bid']))>D('.02000001'):raise ValueError('spread failed')
+         positions,resting,balance=self.account()
+         reason=self.entry_guard(s,positions,resting,balance)
+--- original/market_data.py
++++ staged/market_data.py
+@@ -52,7 +52,7 @@
+     bid,ask=(b,a) if side=='yes' else (1-a,1-b)
+     rec.update(side=side,signal_bid=bid,signal_ask=ask,
+                exchange_index=market.get('exchange_index',0),price_ranges=market.get('price_ranges'))
+-    if not .85-1e-8<=ask<.93-1e-8 or ask-bid>.02+1e-8:return dict(rec,status='price_gate')
++    if not .85-1e-8<=ask<.95-1e-8 or ask-bid>.02+1e-8:return dict(rec,status='price_gate')
+     q=urllib.parse.urlencode(dict(granularity=60,start=T-95*60,end=T))
+     raw=get(f'https://api.exchange.coinbase.com/products/{asset}-USD/candles?'+q)
+     bars={int(r[0]):float(r[4]) for r in raw if int(r[0])<=T-60}

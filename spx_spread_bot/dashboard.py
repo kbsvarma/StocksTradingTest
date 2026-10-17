@@ -435,7 +435,7 @@ def _webull_nvda_shares() -> str:
             app_secret=os.environ["WEBULL_APP_SECRET"],
             region_id="us",
         ))
-        resp = tc.account_v2.get_account_position("QJJGQCBGAN8M2JL2C1OA1J37KB")
+        resp = tc.account_v2.get_account_position(os.environ["WEBULL_ACCOUNT_ID"])
         body = json.loads(resp.text)
         positions = body if isinstance(body, list) else body.get("data", [])
         for pos in positions:

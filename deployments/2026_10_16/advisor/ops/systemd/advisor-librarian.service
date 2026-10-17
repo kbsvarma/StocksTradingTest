@@ -1,0 +1,17 @@
+[Unit]
+Description=Advisor librarian dossiers and post-mortems
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/stockstest
+Environment=PYTHONPATH=%h/stockstest
+Environment=ADVISOR_PYTHON=%h/stockstest/.venv/bin/python
+Environment=CLAUDE_BIN=%h/.nvm/versions/node/v24.20.0/bin/claude
+Environment=ADVISOR_ENV_FILE=%h/.trendbot_env
+ExecStart=/bin/bash %h/stockstest/advisor/run_librarian.sh
+TimeoutStartSec=5400
+UMask=0077
+NoNewPrivileges=true
+StandardOutput=append:%h/stockstest/advisor/logs/librarian_service.log
+StandardError=append:%h/stockstest/advisor/logs/librarian_service.log

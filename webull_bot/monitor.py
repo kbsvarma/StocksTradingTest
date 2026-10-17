@@ -418,10 +418,19 @@ class PositionMonitor:
                 # stream (no network I/O). On any fallback/poll/blind tick, slow
                 # to ~3s so we never hammer yfinance (which IP-rate-limits and
                 # blinds the backup) or spin a tight no-data loop.
-                if used_fresh_stream:
-                    time.sleep(0.1)
+                #
+                # 2026-06-16 FIX: when a stream is active, sleep VIA the stream
+                # (ib.sleep) so the ib_insync event loop is PUMPED during the
+                # wait — otherwise plain time.sleep() freezes the ticker cache
+                # and the SL evaluates a stale mark (proven frozen ~60s in vivo).
+                # Pumping keeps the feed genuinely real-time; the 3s branch still
+                # throttles the yfinance fallback while giving the stream loop
+                # time to recover.
+                _nap = 0.1 if used_fresh_stream else 3.0
+                if stream is not None:
+                    stream.sleep(_nap)
                 else:
-                    time.sleep(3.0)
+                    time.sleep(_nap)
         finally:
             if stream is not None:
                 try:

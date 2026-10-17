@@ -1,0 +1,14 @@
+[Unit]
+Description=Kalshi crypto z2 observer (no real orders)
+After=network-online.target
+
+[Service]
+WorkingDirectory=/home/varmak/kalshi_revalidation_2026_09_12/live_v1
+ExecStart=/home/varmak/kalshi/venv/bin/python -u runner.py
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=60
+UMask=0077
+
+[Install]
+WantedBy=default.target

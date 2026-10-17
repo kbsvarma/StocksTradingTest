@@ -473,6 +473,22 @@ class SpreadStream:
             "long":  extract(self._long_ticker),
         }
 
+    def sleep(self, seconds: float) -> None:
+        """Sleep `seconds` while PUMPING the ib_insync event loop so the cached
+        ticker bid/ask actually refresh.
+
+        CRITICAL (2026-06-16): a plain time.sleep() does NOT run the asyncio
+        loop, so reqMktData ticks never get processed — latest_mark() then reads
+        a FROZEN cache and the monitor evaluates the stop against a stale mark
+        (measured frozen for ~60s in vivo). ib.sleep() runs the loop, keeping the
+        stream genuinely real-time (sub-second). Falls back to a plain sleep only
+        if the IB handle is somehow unusable."""
+        try:
+            self._ib.sleep(seconds)
+        except Exception:
+            import time as _t
+            _t.sleep(seconds)
+
     def stop(self) -> None:
         """Cancel both subscriptions. Idempotent."""
         if not self._started:

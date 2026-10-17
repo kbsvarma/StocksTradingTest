@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.stockstest.webull-bot-atm-watchdog</string>
+
+    <!-- ATM bot watchdog: cron-style, runs every 30s. Reconciles broker positions
+         against ATM bot's state.json. Writes orphan/phantom events to the shared
+         event queue. Uses _atm-suffixed status/seen files for isolation. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-c</string>
+        <string>source /Users/varmakammili/.webull_env &amp;&amp; cd /Users/varmakammili/Documents/GitHub/StocksTradingTest &amp;&amp; exec /opt/anaconda3/envs/llms/bin/python3 -m webull_bot_atm.reconcile_watchdog_v2</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/varmakammili/Documents/GitHub/StocksTradingTest</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+        <key>WEBULL_TRUST_LOCAL_ROLE</key>
+        <string>1</string>
+        <key>WEBULL_INSTANCE_NAME</key>
+        <string>mac-atm</string>
+        <key>WEBULL_CONFIG_PATH</key>
+        <string>webull_bot_atm/config_atm.yaml</string>
+    </dict>
+
+    <key>StartInterval</key>
+    <integer>30</integer>
+
+    <key>StandardOutPath</key>
+    <string>/Users/varmakammili/Documents/GitHub/StocksTradingTest/webull_bot_atm/logs/watchdog.out</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/varmakammili/Documents/GitHub/StocksTradingTest/webull_bot_atm/logs/watchdog.err</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>

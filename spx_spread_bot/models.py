@@ -166,6 +166,8 @@ class RuntimeState:
     losses: int = 0
     skip_reason_today: str = ""
     updated_at: str = ""
+    paper_entries_today: int = 0           # paper mode only: entries placed today
+    paper_entries_date: str = ""           # date string for daily reset of paper_entries_today
 
 
 @dataclass(slots=True)

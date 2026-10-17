@@ -1,0 +1,23 @@
+[Unit]
+Description=Kalshi tennis90 prospective PAPER observer (public GET only, no orders)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/varma/kalshi_tennis_paper_2026_10_11
+ExecStart=/home/varma/kalshi/venv/bin/python /home/varma/kalshi_tennis_paper_2026_10_11/observer.py
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=true
+UMask=0077
+CPUQuota=35%
+MemoryMax=768M
+ProtectSystem=strict
+ReadWritePaths=/home/varma/kalshi_tennis_paper_2026_10_11
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=default.target

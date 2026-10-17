@@ -1,0 +1,21 @@
+[Unit]
+Description=Isolated NFL weekend verification and gated five-contract bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/varma/kalshi_nfl_live_2026_10_16
+ExecStart=/home/varma/kalshi/venv/bin/python -u /home/varma/kalshi_nfl_live_2026_10_16/observer.py
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=15
+UMask=0077
+NoNewPrivileges=true
+Nice=10
+CPUQuota=40%
+MemoryMax=768M
+Environment=PYTHONDONTWRITEBYTECODE=1
+
+[Install]
+WantedBy=default.target

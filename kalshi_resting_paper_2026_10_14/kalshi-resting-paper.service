@@ -1,0 +1,25 @@
+[Unit]
+Description=Kalshi resting bid PAPER experiment (public GET only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/varma/kalshi_resting_paper_2026_10_14
+ExecStart=/home/varma/kalshi/venv/bin/python /home/varma/kalshi_resting_paper_2026_10_14/observer.py
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=true
+UMask=0077
+CPUQuota=20%
+MemoryMax=384M
+ProtectSystem=strict
+ReadWritePaths=/home/varma/kalshi_resting_paper_2026_10_14
+InaccessiblePaths=-/home/varma/.ssh
+PrivateTmp=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=default.target

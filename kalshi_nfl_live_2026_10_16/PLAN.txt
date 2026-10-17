@@ -1,0 +1,26 @@
+User scope: prepare a separate five-contract NFL bot for the upcoming weekend;
+verify score-feed delay and execution before enabling; preserve existing bots.
+
+DONE: preserve existing source/service evidence; isolate code/ledger/service;
+freeze selected NFL rule and budget; map13 games/26 outcomes; implement causal
+source receipts, corrections, HTTP/cache diagnostics, unfinished-drive parsing;
+stream both outcomes across simultaneous games; simulate exact-cap depth;
+stage durable IOC/reconciliation/cash protections; test73 invariants; verify
+books, clock, read-only account access and reconnect; deploy standby observer.
+
+PENDING EXTERNAL EVENT: Sunday live NFL data, starting09:30 ET Oct18. Observe
+30 clean plays/20min per game; verify delay<=30s p95, poll gaps, current state,
+and live book latency/depth. Obtain a qualified simulated five-contract execution
+within the frozen cap and3s from the signal minute. Assess actual receipt data.
+
+PENDING CONDITIONAL ACTIVATION: only after the explicit verification passes.
+No arming token exists now; no order has been sent. Keep activation blocked if
+latency/depth/funding/clock/identity/reconciliation is unresolved. Do not widen
+the strategy or price caps to manufacture readiness. Preserve failed probes.
+
+FOLLOWING ACTIVATION: verify first real IOC acknowledgement, terminal order,
+WebSocket fill quantity/cost/fees and REST reconciliation; show partial/unfilled
+attempts as such. A paper depth fill is never represented as a real fill.
+
+END: Oct20 04:00 ET stop new entries, settle/reconcile own holdings and exit.
+No canceled experiment or notification automation should be restarted.

@@ -1,0 +1,44 @@
+New mechanisms, October 11 2026. Research only, no live changes or order access.
+
+Goal: multiple independent opportunities per day and positive returns after
+fees. Working frequency floor5 completed opportunities/calendar day for a new
+portfolio; report trading-day as well as calendar-day frequency. A basket counts
+once, not once per leg. $100 independent capital; no new funding assumptions.
+
+A. Contract relationships: sports complete NO baskets (at most one winner),
+financial and weather threshold monotonicity (YES low strike + NO high strike),
+and better-route sports entries (YES selected team vs NO opponent in a two-team
+market). No outcome-based league selection. Check structural assumptions and
+all payout exceptions. Scan archived minutes, executable-side prices, all fees,
+1c/leg friction, next-minute worse-price proxy, and60s delay. Require positive
+remaining basket floor after execution costs. Compare instantaneous and two-
+completed-minute persistence, with one basket per event. Paired fills unproven.
+Routing controls:favorite/underdog at30m and5m before game; same side chosen
+before comparing routes; never pick route with hindsight of eventual outcome.
+
+B. Weather observation bounds: daily maximum cannot be below an already
+observed temperature at the settlement station. Use original timestamped
+observations with10min publication lag and2F conservative buffer;30min lag
+and3F buffer stresses. Buy NO bins already below lower bound / YES exceeded
+threshold. No climate/forecast model or city selection by profit. Use matched
+station and market rules. Reject source mismatch; record corrections/inconsistent
+settlement. At most one position per city/day for main account; additional bins
+reported only as correlated sensitivity, not extra independent opportunities.
+Need coverage across cities, independent later dates, actual source availability.
+
+C. Lower-fee noncrypto perpetuals: GOLD,SILVER,PLATINUM,PALLADIUM,COPPER,ALUMINUM,
+US500,USTECH100 where data exist; never call insufficient history a losing test.
+New session-VWAP fade / VWAP trend-pullback rules, plus short-horizon reversal
+using completed15/30/60minute bars. Weekdays09:30–15:00ET entries,close15:55ET.
+No crypto-perp scalping (repeatedly failed). Integer contracts,2x leverage,
+maximum50% margin,20%cash reserve,1% intended risk/trade,6% daily cap; exact
+funding and current fees. Next-minute bid/ask execution and adverse intraminute
+stop checks;1bp baseline/5bp stress each way,extra60s delay. All discarded cells
+retained. Select on data beforeOct1,then freeze and evaluateOct1–9. New launches
+without at leastfive prior sessions cannot be selected. These dates have been
+searched previously; new positive cells remain exploratory.
+
+Do not recommend based only on aggregate profit or a handful of wins. Report
+selection/later periods,net,drawdown,frequency,extra costs,missing quotes and
+fill assumptions. Conditional extensions must be recorded before inspecting
+their outcome. Current stable crypto checkpoint and all running bots untouched.

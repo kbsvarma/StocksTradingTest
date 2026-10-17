@@ -1,0 +1,85 @@
+OTHER PERPETUALS / $100 TOTAL — frozen initial protocol October10,2026
+Research only. No live bot, funds, orders or service changes. Carry remains
+shelved. Fixed capital100dollars; all positions and idle reserve included.
+
+Inventory every current margin product and history coverage fromJune3 toOct10
+00UTC. Exclude datedWTI from perpetual ranking, inactive/no-history explicit.
+Retrieve current public risk and saved verified effective per-market fees.
+No public API volume figure treated as profit or historical executable depth.
+
+PhaseA: all available perpetuals hourly history, four broad mechanisms:
+channel12/6, channel48/24, EMA8/32 and reversal24(z2 entry, frozenmean exit,
+z4 adverse stop). Causal next-hour quotes; price/volatility/timestamp gaps are
+explicit. Trend stops2*hourreturn_sigma*sqrt12, min0.5%crypto/0.2%others,
+max5%; maxhold72h; directionalopposite/channel exit, nofavorablepricefills.
+Reversalstop is twicelevelstd/price, mincostfloor. Integer risk sizing.
+Oldrules reused on broaderlonger data, not proclaimed novel untouchedholdout.
+
+PhaseB BEFORE outcomes: minute quotes all noncrypto perps, plus four OTHER
+crypto perps with highest current24hnotional (liquidity choice, notPnLchoice).
+Also minute-retest up to3 PhaseA leads selected using EARLY results only:
+positive after5bpstress,>=10trades, netafterbest3>0; ranknet/DD. Subsequent
+period must be read only afterthisshortlist is saved. No outcome-based assets.
+
+Low-costminute rules: rollingmeanreversion60/240min: standardizedprice vs prior
+window mean/std>=2, fade; freeze mean/levelstd atentry, exitmean, adversez4 or
+2*lookbackminutes. Channelbreak60/240: breakpriorwindow, exitoppositehalfwindow,
+2sigma_hourstop, or12h. USopeningrange:09:30–10ET highlow, enterfirstbreakout
+10–12ET, stop1range, target2ranges, flat15:55ET, atmost1attempt/day.
+Allintradaynoncrypto entries only weekdays09:30–15:00ET; flat15:55ET.
+Crypto minutecomparisons use24h with the same rules (openingrangeweekdaysonly).
+No weekend metal zero-volatility, stale-book or closing-placeholder edge.
+Requirepositive current/recent reportedtradingvolume and entryspread<=10bp for
+noncrypto,20bpcrypto; validquotesfinitepositiveuncrossed<=0.5%spread.
+Priorlookback>=90%coverage and nooneperiodreturns across gaps. Minutecost1bp
+perside primary, stress5bp; decisionclose to nextminuteclose execution. Slow
+execution sensitivity additional60sec; no hypotheticalmakerqueueprofits.
+
+Separatepair branch: gold/silver and platinum/palladium48hour logratio z2,
+freezeentrymean/std, exitz0.5, adversez4,24h max; commonminutequotes, integer
+equalnotional units; total margin<=50cash, stop-budget2dollars and current
+isolatedmarginbuffer on EACHleg. Not an arbitrage or crossmargin offset.
+
+Alltests100dollars fresh start, intendedrisk<=min2,2%equity INCLUDINGroundtrip
+cost, margin<=50%equity, freecash>=20; daily markedloss+newrisk<=6. Position
+leverage2x baseline,1x/3x sensitivities onlyoncecandidatepassesinitial tests.
+Onepositiontotal forjointportfolios; neveradd independentlyfunded profits.
+Currentinitialmultiplier1.3/currentmaintenanceproxy; buffer .85. Fundingexact
+officialtimestampsentry<print<=exit; no interest, reserve transfers or deposits.
+Stopsare triggers, notguarantees. Simulate nextvalidexit through market gaps.
+
+Splitsfixed: cryptoJun4–Aug31 EARLY,Sep1–Oct9LATER. Noncryptoallavailable
+launch–Sep30 EARLY,Oct1–Oct9LATER; newOctober-only instruments cannotpass a
+two-period screen. Full continuous100replay onlyafterselection, notsumrestarts.
+Neverdescribe reusedearlierdata as untouchedprospectiveholdout.
+Reportallvariantresults,days,trades,winloss,netDD,worstloss,costs,funding,
+best3removed, early/later,stress,weeklyconsistency. Candidate mustbeprofitable
+bothperiods, survive5bp+delay, >=30trades total, >=10later and best3removed>0.
+These are research gates, notstatisticalproof/automaticliveauthorization.
+Ifnobodypasses, identifybestremainingtestablemechanismwith honest evidence,
+notmanufacturedreturnsor a claimthatallperpetualstrategiesareimpossible.
+
+Post-initial-screen exploratory extension (explicitly selected AFTER both
+hourly segments): nohourlyearlycandidate passedbest3removed gate. Both-period
+positive leads were DOGEchannel48, DOGEEMA8/32, LTCchannel48, SILVERreversal24.
+Minute-validate these exacthourlysignal definitions, withnext-minute execution
+andminute stopchecks, preserving indicatorlookbacks/cooldowns. This tests coarse
+execution assumptions; it is NOT an independent selection holdout. Testallfour
+at1/2/3positionleverage and1/5bp, extra60slatency. Do not relax original evidence
+gates or portray a near-miss as a passedgate. Original broadtables retained.
+
+Post-minute-screen extension, selected retrospectively October10:
+Compare Silver hourly24 reversal and Palladium minute240 reversal with fixed
+50/50 capital partitions, BOTH included inside one100dollar total bankroll.
+This explicitly replaces the original one-position joint restriction only for
+this separately labelled portfolio. Two positions maximum, no shared cash or
+cross-margin assumptions: each starts50, reserve10, riskcap1/2%equity, daily3,
+margin<=50%own equity. No asset weighting optimization or profit reinvestment
+between partitions. Test2x and3x, base1bp, stress5bp, extra60sec delay.
+Run early/later/full continuously; each segment separately starts100 total.
+Also preserve original entry and compare causal pre-entry revalidation:
+reject reversal orders already beyond their existingz4 stop or beyond frozen
+mean at execution. This addresses entering an already-exited signal; it is a
+new operational variant diagnosed after results, not an untouched holdout.
+The same frozen statistical evidence gates remain. Full standalone Palladium
+and Silver receive this same comparison; report all outcomes.

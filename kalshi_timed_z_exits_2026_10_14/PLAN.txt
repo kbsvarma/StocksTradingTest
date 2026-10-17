@@ -1,0 +1,58 @@
+Higher absolute z exits with time — scope fixed before results
+
+User wants more loss recovery without excessive damage to winners. No changes
+to any live/paper bot, entry rules, sizing, prices or risk limits. This is an
+offline exit counterfactual on actual entries, NOT a full-design entry replay.
+Read MEMORY.md and stable checkpoint BASELINE.md before evaluation.
+
+Retain preceding frozen cohort:461 actual trades,438 winners,23 losses, through
+Oct14 22:00 ET. Holding net+$28.5536, actual mixed historical contract sizes.
+All nine assets and both lanes, including paused Copper/USD-CAD. No new entries.
+
+Primary price/z model and cost conventions match the last study: one-second
+checks, entry sigma/reference/held side fixed, CF changes anchored to recorded
+Coinbase entry spot for crypto, direct Pyth financial prices. Historical source
+timestamps with assumed1second availability. One-second exit latency. Actual
+entry fees, modeled conservative0.07*q*p*(1-p) exit fee, plus1cent/contract
+friction; separately show fees-only. Never assume a fill at or after close.
+
+Screen absolute z levels -1,-0.5,0,0.25,0.5,0.75,1,1.25,1.5,1.75,2.
+Minimum holding times0,15,30,60,120seconds.
+Continuous breach confirmation0,2,5,10,20,30,60seconds.
+Exit windows:entireholding,beforelast60s,beforelast120s,last300s,last120s,
+first120safterentry,first300safterentry. Confirmation starts only when all
+eligibility conditions hold and resets on recovery or leaving the window.
+Also test simple time-varying threshold schedules:base0,0.5,1,1.5 plus/minus
+0.25 when2–5minutesremain and plus/minus0.5 inside2minutes, holding0/30/60s,
+confirmation0/5/10/30s. No threshold tuning by individual losing market.
+Include hold, previous asset-minimum levels, and prior entry-drop controls.
+
+Primary ranking uses the minute-bid-low stress scenario (a zero bid means no
+assumed sale). Minute highs are sensitivity only, not attainable return bounds.
+Historical quotes lack continuous depth outside the existing20trade BTC/ETH
+cohort. Actual executable full-cohort P&L stays UNKNOWN. Recheck selected simple
+rules on recorded first-arrival source and before/after depth for that subset.
+
+Separate exploration and chronological checks:
+- Development: throughOct11 ET. Later check:Oct12–14 ET (cutoff fixed now).
+- Select a common rule using development only under winner-cut budgets0/2%/5%.
+  Include hold as a candidate so an unfavorable fit need not force a stop.
+- Separately select per-asset rules from development, requiring at least10trades
+  and2losses; otherwise retain holding. Never choose a threshold from zero losses.
+- Apply choices unchanged to later trades. This history has already been
+  inspected; call this a chronological check, NOT a pristine unseen holdout.
+- Show full-sample hindsight frontier at0/4/8/16winner cuts as exploratory only.
+- Check nearby parameter stability,2cent exit friction and3second order latency
+  for shortlisted rules. Do not retune to the later period after failures.
+
+Report loss dollars saved, number of losses reduced, winner cuts and dollar
+damage, net after fees/friction versus hold, per-asset/period breakdown, explicit
+execution-data limits, and the exact candidate rules. Preserve every loss.
+No financial order calls, live changes, service restarts, or new collectors.
+
+Second-pass extension recorded after initial screen: include absolute2.25,2.5,
+2.75,3 and time-varying bases2,2.5, so high-entry-z premium trades are not limited
+by a maximum exit level of2. Same cohort, chronological cutoff and selection
+criteria. This remains exploratory parameter research, not an unseen validation.
+The old market-floor rule is a comparison only: exclude it from chronological
+selection because those floors were derived from winners in the full period.

@@ -1,0 +1,19 @@
+Read-only WTI / EURUSD lower-z replay, 2026-10-14
+
+Request: measure additional trades, losses, and net P&L after fees; leave the live bot unchanged.
+
+Predeclared comparisons (before calculating results):
+1. Current original thresholds: WTI 1.50; EURUSD 1.75 at five minutes.
+2. Reduce original threshold only by 0.10 or 0.25: WTI 1.40 / 1.25; EURUSD 1.65 / 1.50.
+3. Secondary sensitivity: reduce both original and premium thresholds by the same 0.10 / 0.25. Current premium WTI 2.50, EURUSD 2.75 at five minutes.
+No larger grid, no best-hour selection, no retrospective deletion of losses.
+
+Preserve price floors, ceilings, tick-rounded buy limits, timing, spread, five-contract size, one filled entry per market, original priority, settlement cash timing, shared 25-contract / $25 exposure / $20 daily loss limits and premium limits. EURUSD keeps max(0.5, base + 0.5*log2(minutes/5)); WTI keeps 3-10 minutes. Other assets retain current settings, including original BTC z3 and USD/CAD adaptive thresholds.
+
+Use complete archived decision features, including signals below current thresholds. Replay sequentially, allowing earlier entries to replace later ones. This is not filtering historical filled trades. Use archived official outcomes and contemporaneous input timestamps; future outcomes are labels only. Never fill missing source prices.
+
+Primary execution model: worse of signal ask and next minute opening ask; require both to satisfy unchanged cap/floor. Subtract modeled exchange fees plus 1 cent friction per contract ($0.05 per trade). Stress: 2 cents, execution at cap, and next minute closing quote (60-second delay). Historical candle quotes do not demonstrate five-contract depth or an actual fill; timing and IOC retry details cannot be established from minute candles.
+
+Report broad available history and the recent Oct 8-14 period separately. This is reused exploratory history, not an untouched holdout. Also replay recent combined eight-asset portfolio with $50 starting cash in each existing route, enforcing unchanged risk limits; report added, removed and retimed markets, rather than equating all extra signals with new trades.
+
+Validate baseline against existing research, source coverage, arithmetic, ownership, chronology, price limits, and risk/cash accounting. Save input hashes, scripts, results, full ledgers and report. Capture live code/flags/service fingerprints before and after; no production writes, restarts, account actions, or exchange order requests.

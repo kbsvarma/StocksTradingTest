@@ -1,0 +1,24 @@
+--- current/engine.py
++++ proposed/engine.py
+@@ -147,7 +147,7 @@
+         reserved={r['ticker']:max(D(r.get('filled','0')),requested_count(r)) for r in active}
+         for t,c in positions.items():reserved[t]=max(c,reserved.get(t,D('0')))
+         if any(asset(t)==asset(s['ticker']) for t in reserved):return 'Asset already has exposure'
+-        if sum(reserved.values())+CONTRACTS>MAX_CONTRACTS:return 'Eight-contract cap'
++        if sum(reserved.values())+CONTRACTS>MAX_CONTRACTS:return '20-contract cap'
+         # Reserve $0.95 per contract, including its maximal entry fee.
+         projected=(sum(reserved.values())+CONTRACTS)*D('.95')
+         if projected>MAX_RISK:return 'Exposure cap'
+--- current/sizing.py
++++ proposed/sizing.py
+@@ -1,8 +1,8 @@
+ """Five-contract sizing; signal thresholds are unchanged."""
+ from decimal import Decimal
+ CONTRACTS = 5
+-MAX_CONTRACTS = Decimal('8')
+-MAX_RISK = Decimal('7.60')
++MAX_CONTRACTS = Decimal('20')
++MAX_RISK = Decimal('19.00')
+ DAILY_LOSS_BUDGET = Decimal('10')
+ MIN_CASH = Decimal('5')
+ PREFLIGHT_CASH = Decimal('10')

@@ -1,0 +1,31 @@
+Source checkpoint security review — 2026-10-16
+
+The complete staged source tree was exported from Git's index and scanned
+with Gitleaks 8.30.1 plus a direct Databento-client rule and private-file /
+broker-account-literal checks. No detected secrets remained. An exact-value
+scan for the three removed provider credentials and one account identifier
+also found no remaining occurrences in the staged tree.
+
+Twelve historical data-download scripts now read DATABENTO_API_KEY. Three
+broker code references now read WEBULL_ACCOUNT_ID. Four account-bearing
+YAML configurations remain local and ignored, with clean examples published.
+Previously tracked generated backtest outputs were removed from tracking;
+the local files were retained. Raw research data, account ledgers, activation
+state, private memory, and credentials were not included in this checkpoint.
+
+The secret-check tool was verified against clean staged code and synthetic
+credential, private-environment-file, and broker-account cases. The original
+stable Kalshi checkpoint matches all 12 saved hashes. All 307 captured deployed
+files match the server byte-for-byte. Server source was rechecked before the
+commit; none changed. This work made no server changes or restarts.
+
+Python source syntax was checked with Python 3.12, matching the live Kalshi
+runtime. This source checkpoint does not claim that every historical research
+experiment passed functional tests or can run without its external inputs.
+Original whitespace in historical/source snapshots was retained for fidelity.
+
+Scope limitation: scanning is not a mathematical guarantee of no secret. This
+commit sanitizes the new tree; it does not rewrite previously published Git
+history. A broker account identifier existed in earlier commits. The existing
+158-commit branch history scan reported only the reviewed non-secret
+market-context field-name false positive, no detected API-key credentials.

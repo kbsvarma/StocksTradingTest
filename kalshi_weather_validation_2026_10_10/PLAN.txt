@@ -1,0 +1,51 @@
+Frozen testing plan, October 10 2026, before extended replay outcomes.
+
+Scope: Miami, Chicago and LA Coastal only. Research/public GET; no deployment,
+orders, funds movements or live-bot changes. Preserve existing frozen weather
+parameters and Sep28 crypto checkpoint.
+
+Extend history: Miami Aug15-Oct9; Chicago/LA Sep5-Oct9 where returned historical
+markets, source observations and quotes permit. Exhaust market pagination without
+a status filter; retain missing/nonbinary markets in coverage. Obtain canonical
+minute index history and verify official terminal values. Reuse earlier archives.
+
+Primary: original persistence probability design, unchanged signal gates,
+5 contracts, 10-minute source lag,61 consecutive points/latest normal, decision
+horizons30/15/5,ask60-<95c,spread<=2c,recent10minvolume>=5,estimated probability
+minus ask/fee/1c >=2c. Cap min(ask+1c,95c). Choose ticker/side at decision time
+before checking later execution; one city pending position and one entry/expiry.
+
+Chronological weekly replay: for each Saturday00:00ET evaluation week, estimate
+errors only from the preceding7days and from labels settled before that week's
+start; minimum60 errors for each city/horizon. Freeze within evaluation week.
+Weeks end Saturday00:00ET; last full test week Oct3-9. No use of a later-week
+calibration to replay earlier weeks. Periods lacking warm-up remain untradeable
+and are reported. Earlier weeks are retrospective validation on unseen-to-this-
+study outcomes, not a genuine prospective test: strategy was chosen after seeing
+the later Oct3-9 sample. Report earlier weeks separately from that selection week.
+
+Predetermined sensitivities, not a parameter search:
+- Extra cost per contract1c(primary),2c,3c,5c; same eligibility gate.
+- Execution next-minute opening proxy(primary),+60s closing quote,+120s closing
+  quote; same cap, no price chasing. A cap-price fill stress at eligible base
+  intents. Full portfolio replay and fixed-intent diagnostics kept separate.
+- Source lag6/10/15min; errors trained with the same lag. 10min remains primary.
+- Preceding14day error calibration versus7day, only when full date-span history
+  is requested; require120 errors and report matched evaluation periods. This
+  is a comparator, not an opportunity to choose each week's winning lookback.
+- Settlement release delayed15/60minutes, and remove the one-city-pending rule
+  only as a diagnostic while retaining shared exposure/cash/daily-loss limits.
+
+Accounting: chronological cash and settlement, standalone$100 normalization,
+max25contracts/$25reserved exposure/$20daily loss including open risk; primary
+portfolio continuous through all eligible weeks. Also report standalone cities,
+week/day attribution,drawdown,loss streaks,probability calibration,profit without
+best day and best3 trades,day-block uncertainty and source/quote coverage.
+Capacity is separate from the existing live bot; no claim all entries are additive.
+
+Readiness evidence: bounded fresh public source/book observations during this
+turn if useful, not an ongoing daemon. Test counts/outcomes under every listed
+scenario; retain losses and blocked paths. Fail closed on source mismatches,
+look-ahead,duplicate outcomes,missing quotes or nonbinary settlement. Do not
+invent execution liquidity from candle volume. Leave fresh-data publication
+latency,real fills and production integration as explicit limitations.

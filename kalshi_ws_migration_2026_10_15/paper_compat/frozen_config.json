@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "paper_only": true,
+  "contracts": 5,
+  "assets": [
+    "BTC",
+    "ETH",
+    "SOL",
+    "XRP",
+    "NATGAS",
+    "EURUSD",
+    "WTI",
+    "USDCAD"
+  ],
+  "variants": [
+    {
+      "name": "rest_3c_10s",
+      "discount": "0.03"
+    },
+    {
+      "name": "rest_1c_10s",
+      "discount": "0.01"
+    }
+  ],
+  "rest_seconds": 10,
+  "acceptance_delay_seconds": 0.25,
+  "cancel_latency_seconds": 0.25,
+  "max_public_requests_per_second": 2,
+  "max_book_gap_seconds": 4,
+  "max_event_delivery_seconds": 2,
+  "trade_publication_grace_seconds": 15,
+  "max_trade_pages": 5,
+  "entry_days": 14,
+  "shared_max_contracts": 25,
+  "shared_exposure": "25",
+  "shared_daily_loss": "20",
+  "paper_cash_by_route": {
+    "2": "61.5447",
+    "0": "112.3090"
+  },
+  "live_source_hashes": {
+    "engine.py": "8f86a7da2f311bab9ffc76325dc4def553b6fc57372a1f04416d0a751cd05d45",
+    "market_data.py": "3e8e80e793dbb880fe198ba49f22277cd084ab70ae284455adf3a682a1579cf4",
+    "fund_crypto_add20_2026_09_25.py": "9667b0a781b9121837063656e88571323e0b5bd35b6b94a9f09910835f6915ee",
+    "operational_audit.json": "03861b7c6bb4345e91fbebe01ac77bb83b7f67ed147cea05b12171943a6e7abf",
+    "dashboard_quotes.py": "5d5ae3effe3c79e250c25569b805562541b9a30a5870b63aa2120ef1b1f40abf",
+    "execution_retry.py": "ffeec8bd6f5a2b28b3d37b39ff5d5935e37cc7565c23a175985006f08cf6fb7b",
+    "io_budget.py": "291473acb233f0878f63f2b2136607c6a182e0b0516bccf34fab9ca4b7889223",
+    "runner.py": "39dbf6179017d6df3c7eaede3952809dbe58dcce93e4c03e9025514a86caee94",
+    "operations_view.py": "44500cb0ebb5e8da9b7ce7e8e23c1e60d5577db042d033d32d777f30b8dcfa92",
+    "lanes.py": "f253571b5eb5c2f8e89926c896821b195dca717de520621de3fa994bef9057ce",
+    "dashboard.rollback.py": "24d28b4edbe3256c028befd51923e8acaab4891525242b75f18168990bc5a3da",
+    "fund_crypto_once.py": "e8a27e6678d58cc2fd835e47e419800dc109bcec35a245b2343448d6758728e4",
+    "deployment_receipt.json": "db91db0e2e025cb6cf63d4b7c83d8766c71cb576ab76766bd7ae13302ee42446",
+    "pyth_data.py": "23a74c45ef69f7e1ba6e3a5fd72358aaf115721e1a74187dd68716b79e532ffb",
+    "dashboard_integrated.py": "5d0803e05d5e93f0c3bf7d60df69cad144470883a14153e7b118ff94d70c5a43",
+    "account_reads.py": "9d253c74e74ef7c0a7b075e2db1eb56905a3ae1efaf2c7e24ccb63fc42e1e00c",
+    "dashboard_crypto.py": "6c4cd56fb9a27263a411113b1475932688f617ade5725d48a418cda5b358b261",
+    "dashboard_panel.py": "2532520cfaea2dc45041119d3ad001b7b234f8de399660f19f47aa2f857d4139",
+    "test_engine.py": "3b9d81af155131e8efd2cacb4ca0cc73387226aca0aebd20a82e2e2addc06ba6",
+    "sizing.py": "610660b354411a008d130d32659032fd830537ec2e3165fc7653d6ee1e88d573",
+    "test_signals.py": "65423671ae9849c2fcf21ed4196af179053a9c9fa41e235778cc14a218e4af71",
+    "price_rules.py": "393cea18ad46ce305093a86e3376d501bf8b584761c9b6d455c96700629ef76b",
+    "replay_gap_audit.py": "b8601ca8d91f26f87e70c34f91c5bf22334cd9bc29150c50c52c2a08f40fa4c1",
+    "kalshi_client.py": "cd7e672235876ade2f5db9f3ff668cea02fe825cfd6a429f115d974cec227dad",
+    "dashboard.css": "f8926d16ab1ce851a4ca0978317cf85b7d2fadeaebee690769b7e8f0d66c7fe2",
+    "test_scaling.py": "214221600801cf0b8d4543d326ef2dea83cb86ab4187fd433e5ade7b31c11302",
+    "observe_execution.py": "df10fc49c66150c6706d8fbeabe3f3e22bf7781b94e27a494175dd1269575959"
+  },
+  "live_flags": {
+    "ARM_USDCAD_5CT": "f0b5c2c2211c8d67ed15e75e656c7862d086e9245420892a7de62cd9ec582a06",
+    "ARM_WTI_5CT": "f0b5c2c2211c8d67ed15e75e656c7862d086e9245420892a7de62cd9ec582a06",
+    "ARM_2CT": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+    "ARM_5CT": "f0b5c2c2211c8d67ed15e75e656c7862d086e9245420892a7de62cd9ec582a06",
+    "ARM_NONCRYPTO_5CT": "c578be5c9ef9c3c1f696e7a623f9ad8a3f438b4231bd2ada1ca3a621d5bcc3c7",
+    "ARM_Z3_5CT": "f0b5c2c2211c8d67ed15e75e656c7862d086e9245420892a7de62cd9ec582a06",
+    "HALT_COPPER": "d55b928a93f378d68516ae0e87e4846045cdf5333da6a272808765b7e286b48c"
+  },
+  "frozen_source_hashes": {
+    "lanes.py": "f253571b5eb5c2f8e89926c896821b195dca717de520621de3fa994bef9057ce",
+    "price_rules.py": "393cea18ad46ce305093a86e3376d501bf8b584761c9b6d455c96700629ef76b"
+  },
+  "comparison": "first qualifying observed signal per market, two resting variants and synchronous one-shot paper IOC; actual live ledger separate",
+  "no_automatic_live_promotion": true
+}

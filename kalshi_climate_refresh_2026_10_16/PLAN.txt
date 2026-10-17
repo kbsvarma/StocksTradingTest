@@ -1,0 +1,40 @@
+Climate refresh, 2026-10-16. Research only; no orders, bot edits, service starts or automation.
+
+Reconcile prior work with current active Climate and Weather events. Series catalog
+includes dormant products and must not be reported as a count of active markets.
+
+New precipitation test specified before reading its results:
+Use cached Aug15-Oct9 city-day rain markets and 12:00/16:00 Eastern quote snapshots.
+Match each contract's CLI station to the Weather Company station metadata, not just
+the city name. Primary signal: a routine METAR reporting at least .02 inch p01i,
+from the same local date and after 02:00 local, with a modeled 30-minute publication
+lag. A positive hourly reading is evidence, not an official settlement guarantee.
+Sensitivity thresholds .01/.05 inch; lags 15/60 minutes. Buy YES only at <=97c,
+spread <=5c, prior10min volume >=5; require next minute quote and original cap
+min(97c, signal ask+1c). Five contracts, modeled taker fee, 1c/contract friction;
+also 2c friction and 60-second delayed quote. One entry per city-day.
+Report unconstrained opportunities and separate $100/25contract/$25exposure/$20
+daily-loss-with-reserved-risk simulation. All cities, including losing results.
+No claim of actual depth/fills or source first arrivals from candles/IEM archive.
+Report all quote/source gaps and independent station-day agreement with settlement.
+
+Current-book check: daily Saturday rain YES implies weekend rain YES only where
+station, precipitation threshold and period rules agree. Weekend YES + Saturday NO
+has minimum $1 payoff; compare five-contract executable cost + both taker fees +
+1c/contract/leg friction against $5. Require five-contract depth on both sides.
+This is a snapshot screen, not proof two non-atomic legs can be executed together.
+
+Do not tune these rules after viewing outcomes. Additional ideas remain explicitly
+untested and must not be recommended as proven edges.
+
+Extension declared after fixed-hour results, before collecting intraday quotes:
+The .02/30min primary had zero entries but 229/284 observation-qualified
+checkpoints had no usable cached quote. Do not classify those as proven missed
+opportunities or market efficiency. Fetch full rain-day quote histories for all
+markets with a same-day qualifying .01/.02/.05 observation. Evaluate the FIRST
+eligible minute within 30 minutes after first report plus modeled publication lag.
+Primary stays .02 inch and30min lag; sensitivities .01/.05 and5/15/60min lags.
+Use ceil-minute decision timestamps, subsequent minute book open/close proxies,
+same 97c price cap,5c spread,5-contract prior volume and risk/fee/friction rules.
+Missing quotes remain missing; do not forward-fill them into claimed executions.
+This extension is exploratory, with no untouched prospective source-arrival data.

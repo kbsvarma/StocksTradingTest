@@ -1,0 +1,20 @@
+2026-10-14 initial experiment
+Created standalone PUBLIC GET-only service and read-only live signal/ledger
+follower. Frozen3c/1c discount,10seconds,5ct,unchanged live lane/risk parameters.
+32offline tests passed locally and on server, including simulated end-to-end
+partial/full resting fills and synchronous IOC, with duplicate-print protection.
+
+2026-10-14 startup plumbing correction, before any paper opportunity
+Initial series fee metadata responses were HTTP200 with normal CDN Age6–13s
+(Cache-Control public,max-age15), incorrectly rejected by the book's one-second
+cache-age rule. Retained all8original receipts/errors. Series/settlement metadata
+now allows up to60s cache age; executable books and trade prints remain<=1s.
+Incomplete metadata now appears in health and retries after30s, not6hours.
+No strategy, fill model, price, size, risk, or production file changed. Restarted
+only the new paper service. Original experiment start/cursor/records preserved.
+
+2026-10-14 pre-handover audit, before any paper opportunity
+Added an explicit queue-depth truncation check: if the target bid is outside the
+top100 visible levels, queue is unknown, never assumed empty. One additional
+offline boundary test passes (33total). This tightens data completeness only;
+the frozen strategy/configuration and every existing bot remain unchanged.

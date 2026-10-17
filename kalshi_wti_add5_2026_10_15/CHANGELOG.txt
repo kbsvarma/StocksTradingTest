@@ -1,0 +1,9 @@
+2026-10-15 research implementation notes:
+- Before replay corrected plan's counting typo: the explicitly enumerated z
+  filters total12, not13, giving384combinations. No filter was added or removed.
+- Adapted timestamp parsing for Python3.9 variable-length fractional seconds.
+- Before final report repaired zero-delay diagnostic to use source available
+  at the print, not at print+1s. Primary delayed scenario unchanged.
+- Development selection with no>=5-add eligible rule now reports null instead
+  of labeling unfiltered fallback as selected. Primary full-grid results unchanged.
+- Added whole-WTI concurrent contracts to risk accounting. No live changes.

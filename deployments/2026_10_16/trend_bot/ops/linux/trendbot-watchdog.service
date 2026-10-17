@@ -1,0 +1,7 @@
+[Unit]
+Description=Trend bot heartbeat watchdog
+[Service]
+Type=oneshot
+User=varmak
+WorkingDirectory=/home/varmak/trendbot/trend_bot
+ExecStart=/home/varmak/trendbot/trend_bot/.venv/bin/python ops/watchdog.py

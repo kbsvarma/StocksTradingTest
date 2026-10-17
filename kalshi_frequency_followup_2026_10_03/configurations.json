@@ -1,0 +1,5762 @@
+[
+  {
+    "id": 0,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 1,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 2,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 3,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 4,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 5,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 6,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 7,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 8,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 9,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 10,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 11,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 12,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 13,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 14,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 15,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 16,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 17,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 18,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 19,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 20,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 21,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 22,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 23,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 24,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 25,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 26,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 27,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 28,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 29,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 30,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 31,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 32,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 33,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 34,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 35,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 36,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 37,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 38,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 39,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 40,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 41,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 42,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 43,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 44,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 45,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 46,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 47,
+    "cap": 0.91,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 48,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 49,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 50,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 51,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 52,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 53,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 54,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 55,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 56,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 57,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 58,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 59,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 60,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 61,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 62,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 63,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 64,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 65,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 66,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 67,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 68,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 69,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 70,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 71,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 72,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 73,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 74,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 75,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 76,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 77,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 78,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 79,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 80,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 81,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 82,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 83,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 84,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 85,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 86,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 87,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 88,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 89,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 90,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 91,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 92,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 93,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 94,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 95,
+    "cap": 0.91,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 96,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 97,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 98,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 99,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 100,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 101,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 102,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 103,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 104,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 105,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 106,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 107,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 108,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 109,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 110,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 111,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 112,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 113,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 114,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 115,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 116,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 117,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 118,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 119,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 120,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 121,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 122,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 123,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 124,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 125,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 126,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 127,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 128,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 129,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 130,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 131,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 132,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 133,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 134,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 135,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 136,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 137,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 138,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 139,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 140,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 141,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 142,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 143,
+    "cap": 0.91,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 144,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 145,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 146,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 147,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 148,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 149,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 150,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 151,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 152,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 153,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 154,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 155,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 156,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 157,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 158,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 159,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 160,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 161,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 162,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 163,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 164,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 165,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 166,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 167,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 168,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 169,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 170,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 171,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 172,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 173,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 174,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 175,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 176,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 177,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 178,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 179,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 180,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 181,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 182,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 183,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 184,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 185,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 186,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 187,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 188,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 189,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 190,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 191,
+    "cap": 0.92,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 192,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 193,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 194,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 195,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 196,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 197,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 198,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 199,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 200,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 201,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 202,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 203,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 204,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 205,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 206,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 207,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 208,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 209,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 210,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 211,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 212,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 213,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 214,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 215,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 216,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 217,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 218,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 219,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 220,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 221,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 222,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 223,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 224,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 225,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 226,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 227,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 228,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 229,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 230,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 231,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 232,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 233,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 234,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 235,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 236,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 237,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 238,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 239,
+    "cap": 0.92,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 240,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 241,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 242,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 243,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 244,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 245,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 246,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 247,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 248,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 249,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 250,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 251,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 252,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 253,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 254,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 255,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 256,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 257,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 258,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 259,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 260,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 261,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 262,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 263,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 264,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 265,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 266,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 267,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 268,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 269,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 270,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 271,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 272,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 273,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 274,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 275,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 276,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 277,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 278,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 279,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 280,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 281,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 282,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 283,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 284,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 285,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 286,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 287,
+    "cap": 0.92,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 288,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 289,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 290,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 291,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 292,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 293,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 294,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 295,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 296,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 297,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 298,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 299,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 300,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 301,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 302,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 303,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 304,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 305,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 306,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 307,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 308,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 309,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 310,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 311,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 312,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 313,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 314,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 315,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 316,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 317,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 318,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 319,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 320,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 321,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 322,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 323,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 324,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 325,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 326,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 327,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 328,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 329,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 330,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 331,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 332,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 333,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 334,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 335,
+    "cap": 0.93,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 336,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 337,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 338,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 339,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 340,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 341,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 342,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 343,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 344,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 345,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 346,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 347,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 348,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 349,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 350,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 351,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 352,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 353,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 354,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 355,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 356,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 357,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 358,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 359,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 360,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 361,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 362,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 363,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 364,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 365,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 366,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 367,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 368,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 369,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 370,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 371,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 372,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 373,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 374,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 375,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 376,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 377,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 378,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 379,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 380,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 381,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 382,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 383,
+    "cap": 0.93,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 384,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 385,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 386,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 387,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 388,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 389,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 390,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 391,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 392,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 393,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 394,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 395,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 396,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 397,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 398,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 399,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 400,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 401,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 402,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 403,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 404,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 405,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 406,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 407,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 408,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 409,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 410,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 411,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 412,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 413,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 414,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 415,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 416,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 417,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 418,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 419,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 420,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 421,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 422,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 423,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 424,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 425,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 426,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 427,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 428,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 429,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 430,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 431,
+    "cap": 0.93,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 432,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 433,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 434,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 435,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 436,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 437,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 438,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 439,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 0.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 440,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 441,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 442,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 443,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 444,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 445,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 446,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 447,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 448,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 449,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 450,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 451,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 452,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 453,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 454,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 455,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.25,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 456,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 457,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 458,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 459,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 460,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 461,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 462,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 463,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.5,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 464,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 465,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 466,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 467,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 468,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 469,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 470,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 471,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 1.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 472,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 473,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 474,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 475,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 476,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 477,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 478,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 479,
+    "cap": 0.939,
+    "assets": "BTC",
+    "mask": 1,
+    "z": 2.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 480,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 481,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 482,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 483,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 484,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 485,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 486,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 487,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 0.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 488,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 489,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 490,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 491,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 492,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 493,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 494,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 495,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 496,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 497,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 498,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 499,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 500,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 501,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 502,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 503,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.25,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 504,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 505,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 506,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 507,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 508,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 509,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 510,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 511,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.5,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 512,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 513,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 514,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 515,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 516,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 517,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 518,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 519,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 1.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 520,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 521,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 522,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 523,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 524,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 525,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 526,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 527,
+    "cap": 0.939,
+    "assets": "ETH",
+    "mask": 2,
+    "z": 2.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 528,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 529,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 530,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 531,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 532,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 533,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 534,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 535,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 0.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 536,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 537,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 538,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 539,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 540,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 541,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 542,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 543,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 544,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 545,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 546,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 547,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 548,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 549,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 550,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 551,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.25,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 552,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 553,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 554,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 555,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 556,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 557,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 558,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 559,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.5,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 560,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 561,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 562,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 563,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 564,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 565,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 566,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 567,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 1.75,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 568,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 0
+  },
+  {
+    "id": 569,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 3,
+    "hi": 10,
+    "buffer": 5
+  },
+  {
+    "id": 570,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 0
+  },
+  {
+    "id": 571,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 4,
+    "hi": 8,
+    "buffer": 5
+  },
+  {
+    "id": 572,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 573,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 5,
+    "hi": 7,
+    "buffer": 5
+  },
+  {
+    "id": 574,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 0
+  },
+  {
+    "id": 575,
+    "cap": 0.939,
+    "assets": "BTC_ETH",
+    "mask": 3,
+    "z": 2.0,
+    "lo": 6,
+    "hi": 7,
+    "buffer": 5
+  }
+]

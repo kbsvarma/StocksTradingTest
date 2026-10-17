@@ -1,0 +1,104 @@
+# trend_bot — 60m Donchian trend system
+# Spec: README.md (full design) + docs/REPRODUCTION_SPEC.md
+# NO credentials or account IDs in this file — env only (~/.webull_env etc.)
+
+executor:
+  venue: ibkr_paper           # ibkr_paper | ibkr_live (webull_live refused)
+  live_confirmed: false       # LIVE INTERLOCK 1/3: must be edited to true
+                              # 2/3: env TRENDBOT_LIVE=YES
+                              # 3/3: env TRENDBOT_LIVE_ACCOUNT matches venue acct
+                              # switch protocol: README §"Venue switch"
+
+ibkr:
+  host: 127.0.0.1
+  data_port: 4002             # PAPER gateway serves data via IBKR live-subscription
+                              # sharing (verified realtime all 4 instruments
+                              # 2026-07-21; the IBC-managed leg self-heals, no 2FA).
+                              # Caveat: a live-username session at another IP
+                              # (phone app) pauses shared data for that wake —
+                              # soft, self-recovering. 4001 retired from the
+                              # critical path (was: manual live gateway, read-only).
+  paper_port: 4002          # paper Gateway instance (sturdier than TWS; TWS retired from daily duty 2026-07-06)
+  live_port: 4001             # live orders (ibkr_live venue only)
+  data_client_id: 41
+  trade_client_id: 42
+
+webull: {}                    # reserved; executor factory currently refuses it
+
+strategy:
+  donchian_n: 20
+  atr_n: 20
+  k_trail: 2.0
+  vol_gate_q: 0.95
+  vol_gate_window_bars: 8760      # 24*365 hourly bars (~1.45 trading-years)
+  vol_gate_min_bars: 1440         # 24*60
+  session_block_et: [2, 6]        # no entries when signal-bar ET start-hour in [2,6)
+  bar_minutes: 60
+
+rotation:
+  lookback_days: 35               # trailing trading-day return window.
+                                  # 2026-07-05: 21 -> 35 after the dense 21-42
+                                  # scan showed a robust plateau (docs/
+                                  # ROTATION_GRID.md addendum 3): every L>=30
+                                  # beat every L<=29; 35 = center of the best
+                                  # worst-year cluster (33-36). Expectations
+                                  # set at plateau average, not the cell max.
+  shadow_lookbacks: [14, 21, 42]  # logged side-by-side at each rebalance
+                                  # (observation only) — forward record for
+                                  # judging the band on unseen data
+  unsure_spread_pp: 1.0           # leader-vs-second spread below this => 1-1-1
+  total_core_contracts: 3
+  mode: aggressive                # defensive (1-1-1) | default (2-1-0) | aggressive (3-0-0)
+                                  # toggle: python bot.py --mode ... (logged)
+
+core_instruments:
+  NQ: {trade_symbol: MNQ, exchange: CME,   mult: 2.0,  tick: 0.25}
+  ES: {trade_symbol: MES, exchange: CME,   mult: 5.0,  tick: 0.25}
+  YM: {trade_symbol: MYM, exchange: CBOT,  mult: 0.5,  tick: 1.0}
+
+sleeve_instruments:               # separate ledger line, fixed qty, outside rotation
+  # min_days_to_expiry: MGC is PHYSICALLY DELIVERED — IBKR rejects opening
+  # orders ahead of first notice day (error 201), which on 2026-07-29 killed
+  # an MGCQ6 entry 29 days before its 08-27 expiry and latched a global entry
+  # halt. 40d clears that window with margin (MGC months are ~61d apart, so
+  # one contract still covers the whole gap). Index futures deliberately omit
+  # this key: they are cash-settled and their roll timing is pinned to
+  # ContFuture by docs/ROLL_SPLICE_SPEC.md.
+  GC: {trade_symbol: MGC, exchange: COMEX, mult: 10.0, tick: 0.1, qty: 1,
+       min_days_to_expiry: 40}
+
+# Breadth satellite v2 (FROZEN 2026-08-04, sub-hourly exhaustion survivor
+# PREREG_SUBHOURLY_EXHAUST — no parameter tunable without a new prereg):
+# 1 lot on a BENCHED core instrument when its RTH session (from 09:00 ET)
+# breaks out by 0.25 x HOURLY ATR on 15-MINUTE bars after >=2 completed
+# bars, entries allowed until 15:00 ET, core lane must hold, stop/trail
+# 2 x HOURLY ATR (never native 15m ATR), flat by 16:00 ET. Evaluated from
+# the hourly wake AND the 5-min subpoll. Distinct _S symbol keys ride the
+# existing per-symbol FSM (stops, recovery, reconcile, kill-switch).
+# Backtest of record (CORRECTED, Codex audit 2026-08-03 — the original
+# +$10,397/10.09 had two event-time leaks: incomplete-hour hourly-ATR
+# forward-fill + same-hour core-exit ordering): production-cadence sat
+# +$8,722 2011-25, ratio 9.82, $7RT +$5,187, RT break-even ~$12.14.
+# ~90% of profit is 2022-24; 2026 YTD -$944. PAPER-ONLY until the three
+# parity fixes (stale-bar, roll-session, early-close — now in bot.py)
+# have a clean fill record. Full audit:
+# satellite_lane_2026_08/CODEX_SUBHOURLY_REVIEW_2026_08_03.md
+satellite_instruments:
+  NQ_S: {trade_symbol: MNQ, exchange: CME,  mult: 2.0,  tick: 0.25, parent: NQ}
+  ES_S: {trade_symbol: MES, exchange: CME,  mult: 5.0,  tick: 0.25, parent: ES}
+  YM_S: {trade_symbol: MYM, exchange: CBOT, mult: 0.5,  tick: 1.0,  parent: YM}
+satellite:
+  enabled: true
+  qty: 1
+  buffer_atr: 0.25
+  session_start_et: 9
+  entry_cutoff_et: 15
+  flat_et: 16
+  min_prior_bars: 2
+  bar_minutes: 15
+
+ops:
+  wake_second: 25                 # wake at HH:00:25 — bar closed, next bar just open
+  stale_feed_hours: 2.5           # no fresh bar while market open => block entries + alert
+  stop_arm_timeout_s: 2.0         # SL-armed-within-2s invariant
+  state_dir: state

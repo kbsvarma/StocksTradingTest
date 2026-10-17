@@ -1,0 +1,33 @@
+2026-10-15 07:34 ET — Live fill-confirmation repair deployed
+Changed stream_transport.py, engine.py and runner.py only. Canonical outcome and
+book-side validation replaces the legacy action=buy-only check. Added bounded,
+asynchronous raw fill/verification receipts and immutable initial transport
+provenance. Strategy, price, size, risk, retry, pause flags and the saved stable
+checkpoint remain unchanged. All 330 regression tests passed. See the deployment
+receipt for exact hashes, configuration, preserved records and service PIDs.
+
+2026-10-15 07:40 ET — First actual post-repair WS fills
+NATGAS YES 5 at 97c and WTI YES 5 at 93.9c independently matched against a second
+receive-only listener and fresh authenticated GET-only order/fill records.
+Quantities, cost and fees match exactly. The NO-specific live witness is pending;
+historical REST replay is explicitly not a substitute for that witness.
+
+2026-10-15 08:06 ET — Verification helper robustness
+verify_actual.py now retains a compact status receipt when its health assertion
+would fail during a polling interval. It waits within the existing 55-second
+review deadline for a healthy snapshot, and raises with full details if health
+does not recover. It does not accept fills while the status is unhealthy and does
+not modify the live trader. This follows a transient assertion during the 08:05
+NATGAS entry; the trader remained running and confirmed that fill. The exact
+earlier transient status was not retained, so its cause is not asserted.
+
+2026-10-15 08:13:54 ET — Actual NO verification complete
+EURUSD KXEURUSD15M-26OCT150815-30: five NO at 91c, cost $4.550000, fee $0.028700.
+Original WS message action=sell, outcome_side=no and book_side=ask. Exact payload
+matched independent listener; IDs, quantity, cost and fees matched exchange GETs
+and ledger. The same unchanged actual message FAILS the old guard and PASSES the
+repair. All four post-repair actual fills initially confirmed from WebSockets.
+Final source/config/flag/prior-record checks passed; unrelated services unchanged;
+resting-paper healthy. Temporary witness stopped. Evidence is preserved in
+receipts/actual_verification.json, actual_before_after_replay.json and
+final_verification.json. REPORT.txt is generated from those successful proofs.

@@ -1,0 +1,1 @@
+LIVE operational repair; final deployment October14,2026. See REPORT.txt for all five rounds, live versus simulated timings, preserved settings and limitations. Do not rerun deployment scripts. Server package /home/varma/kalshi_ops_five_rounds_2026_10_14. All strategy/price/size/risk settings unchanged.

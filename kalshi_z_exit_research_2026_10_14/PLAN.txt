@@ -1,0 +1,55 @@
+Frozen exit-only experiment — October14,2026
+User: test different deteriorating-z thresholds and delays to avoid losses without
+cutting too many winners; all live/paper bots and USD/CAD pause remain unchanged.
+
+Primary cohort: actual settled entries Oct8 00ET through Oct14 20ET inclusive,
+BTC/ETH/SOL/XRP/NATGAS/EURUSD/WTI. Historical entry parameters were different at
+some times (notably BTC z2); this is an exit counterfactual on actual entries,
+not a replay claiming today's full entry design. USD/CAD loss separately, paused.
+All entry quantities/prices/fees/outcomes fixed. No new entries or reentries;
+no credit for capital freed early. Winners and losers both retained.
+Secondary: existing full current-entry BTC-z3 seven-asset replay Oct8–14 noon,
+same fixed modeled entries and their original modeled fees/friction.
+
+Signed z is always for the HELD side, never the current favorite. Recompute
+from 61 completed minute endpoints / 60 log returns and remaining time to
+expiry. Keep the entry reference fixed. Never use future prices for triggers.
+Do not let z increase merely by changing a measured threshold after entry.
+
+Frozen grid:
+- drop below entry z minus {0.25,0.5,0.75,1,1.5,2};
+- drop below the entry's required z minus {0,0.25,0.5,1};
+- absolute held-side z below {0,0.5,1,1.5}.
+Minimum holding delays {0,60,120,180} seconds, measured from actual fill receipt
+when available (otherwise durable intent); checks only at completed minute
+boundaries. Persistence {1,2} consecutive completed-minute observations.
+Boundary: strict below; persistence resets if recovered or data missing.
+These are 112 predeclared rules. No asset-specific fitting in the primary grid.
+Default volatility recomputed rolling. Selected rule sensitivity freezes entry
+sigma and uses a one-minute delayed sell; both reported, no new optimization.
+
+Execution: sell to held-side bid, not ask/mid; fee on exit in addition to actual
+entry fee. Use min(decision close bid, subsequent minute opening bid) as a
+conservative quote proxy, minus 1c/contract slippage. Stress 2c and 5c, plus
+one-minute execution delay. Round sale price down to market tick. No displayed
+depth proof is implied. Zero/missing bid means no fill, retry on a later complete
+trigger; no sale at or after expiry. Missing source/quotes remain explicit.
+Fees follow 0.07*multiplier*q*p*(1-p), six-decimal ceiling and cash precision
+floor on sale proceeds. Do not substitute OHLC highs/lows for executed exits.
+
+Report total and per-asset: hold net, exit net/delta, settlement losers exited,
+losers improved/dollars saved, losses fully avoided (nonnegative exit net),
+eventual winners exited, winners turned into losses, winner profit sacrificed,
+costs, drawdown, missing/late/unexecutable exits. Show individual losing paths.
+
+Selection: Oct8–11 early slice; Oct12–14 later diagnostic slice. Choose one
+rule on early net improvement after costs (ties favor fewer winner exits,
+fewer exits, simpler thresholds). Freeze before inspecting later ranking.
+Retain complete grid. Data has been used in earlier research, so the later
+slice is a chronological diagnostic, not untouched prospective validation.
+Pair by calendar day for uncertainty; preserve losers and failed variants.
+Where possible validate a selected rule on older BTC data or raw book depth.
+Never advertise minute-quote exits as guaranteed fills or 30-second evidence.
+
+Artifacts/code/data references local and server; production hashes/flags/PIDs
+captured before and after. No financial orders, service restart, or new monitor.

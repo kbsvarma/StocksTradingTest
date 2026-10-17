@@ -322,8 +322,8 @@ def _port_listening(port: int) -> bool:
 
 
 @st.cache_data(ttl=60)
-def _yf_quote(symbol: str) -> tuple[float, float]:
-    """Return (current_price, pct_change_from_prev_close). 60s cache."""
+def _yf_quote(symbol: str) -> tuple[float, float, float]:
+    """Return (current_price, abs_change_from_prev_close, pct_change). 60s cache."""
     try:
         tk = yf.Ticker(symbol)
         fi = tk.fast_info
@@ -335,11 +335,14 @@ def _yf_quote(symbol: str) -> tuple[float, float]:
                 cur = float(hist["Close"].iloc[-1])
                 prev = float(hist["Close"].iloc[-2])
         if cur and prev:
-            pct = (cur - prev) / prev * 100
-            return cur, pct
+            abs_chg = cur - prev
+            pct = abs_chg / prev * 100
+            return cur, abs_chg, pct
+        if cur:
+            return cur, 0.0, 0.0
     except Exception:
         pass
-    return 0.0, 0.0
+    return 0.0, 0.0, 0.0
 
 
 def _aws_metadata(path: str) -> str:
@@ -369,6 +372,70 @@ bot_active, _ = _systemctl_active("webull-bot.service")
 hb_age = _seconds_since_iso(heartbeat.get("ts", ""))
 dry_run = os.environ.get("WEBULL_DRY_RUN", "0") == "1"
 
+# ── T2.5: reconcile-watchdog cross-check (read-only) ─────────────────────────
+# Watchdog writes /tmp/reconcile_watchdog_status.json every cycle. If file
+# missing OR stale (>5min) OR status != "ok", show a banner. Dashboard does
+# NOT call the broker directly — that's the watchdog's job.
+_RECON_STATUS_PATH = Path("/tmp/reconcile_watchdog_status.json")
+recon_status = _read_json(_RECON_STATUS_PATH) if _RECON_STATUS_PATH.exists() else {}
+recon_age = _seconds_since_iso(recon_status.get("ts", "")) if recon_status else float("inf")
+
+# ── 2026-05-22: Telegram service + event queue health ─────────────────────
+_TG_SENT_LOG = Path("/tmp/telegram_sent.log")
+_TG_SERVICE_LOG = Path("/tmp/webull-telegram-service.log")
+_EVENT_QUEUE = Path("/tmp/event_queue.jsonl")
+
+
+def _tg_service_health() -> dict:
+    """Read telegram service freshness from its log + sent.log files."""
+    health = {"service_alive": False, "last_send_age_s": float("inf"),
+              "last_send_status": "?", "queue_depth": 0}
+    # service-log mtime → process alive heuristic
+    try:
+        if _TG_SERVICE_LOG.exists():
+            age = (datetime.now(ET).timestamp() -
+                   _TG_SERVICE_LOG.stat().st_mtime)
+            health["service_alive"] = age < 30  # written within last 30s = alive
+            health["service_log_age_s"] = age
+    except Exception:
+        pass
+    # last send entry
+    try:
+        if _TG_SENT_LOG.exists():
+            lines = _TG_SENT_LOG.read_text().splitlines()
+            if lines:
+                import json as _j
+                last = _j.loads(lines[-1])
+                health["last_send_age_s"] = _seconds_since_iso(last.get("ts", ""))
+                health["last_send_status"] = str(last.get("http_status", "?"))
+    except Exception:
+        pass
+    # queue depth (events not yet sent)
+    try:
+        if _EVENT_QUEUE.exists():
+            qlines = _EVENT_QUEUE.read_text().splitlines()
+            sent_ids = set()
+            if _TG_SENT_LOG.exists():
+                import json as _j
+                for sl in _TG_SENT_LOG.read_text().splitlines():
+                    try: sent_ids.add(_j.loads(sl).get("id"))
+                    except: pass
+            import json as _j
+            unsent = 0
+            for ql in qlines:
+                try:
+                    e = _j.loads(ql)
+                    if e.get("id") not in sent_ids:
+                        unsent += 1
+                except: pass
+            health["queue_depth"] = unsent
+    except Exception:
+        pass
+    return health
+
+
+tg_health = _tg_service_health()
+
 today_str = datetime.now(ET).strftime("%Y-%m-%d")
 df_events = _read_events(today_str)
 op = state.get("open_position")
@@ -397,6 +464,95 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 
+# ── CHAIN SOURCE PILL (added 2026-05-20 night) ───────────────────────────────
+# Chain quote provider drives the LIMIT price → most consequential for fill
+# quality. SPX/VIX values are shown below in their own cells so we don't
+# re-display their sources here.
+_chain_src = (heartbeat.get("chain_source") or "unknown").lower()
+if _chain_src == "ibkr":
+    _cs_bg, _cs_fg, _cs_txt = "#dafbe1", "#1a7f37", "IBKR"
+elif _chain_src == "yfinance":
+    _cs_bg, _cs_fg, _cs_txt = "#fff8c5", "#9a6700", "yfinance · ~15min stale"
+else:
+    _cs_bg, _cs_fg, _cs_txt = "#eaeef2", "#656d76", "—"
+st.markdown(
+    f'<div style="margin:6px 0 10px 0;font-family:Inter,sans-serif;">'
+    f'<span style="font-size:10px;color:#656d76;font-weight:600;'
+    f'text-transform:uppercase;letter-spacing:.4px;margin-right:8px;">data feed</span>'
+    f'<span style="display:inline-flex;align-items:center;background:{_cs_bg};'
+    f'color:{_cs_fg};padding:3px 10px;border-radius:12px;font-size:11px;'
+    f'font-weight:600;">Chain: {_cs_txt}</span>'
+    f'</div>',
+    unsafe_allow_html=True,
+)
+
+
+# ── TELEGRAM SERVICE HEALTH BANNER (2026-05-22) ────────────────────────────
+# Surfaces telegram-service liveness + queue depth + last-send-status.
+if not tg_health.get("service_alive"):
+    st.markdown(
+        '<div style="background:#3d0000;border:1px solid #a00000;color:#ffb3b3;'
+        'padding:8px 12px;border-radius:6px;margin:6px 0;font-size:13px;font-weight:bold;">'
+        '🚨 TELEGRAM SERVICE OFFLINE — alerts not being delivered. '
+        '<code>launchctl list | grep telegram-service</code> and check '
+        '<code>/tmp/webull-telegram-service.log</code>'
+        '</div>', unsafe_allow_html=True)
+elif tg_health.get("queue_depth", 0) > 5:
+    st.markdown(
+        f'<div style="background:#3a2e00;border:1px solid #806b00;color:#ffd866;'
+        f'padding:8px 12px;border-radius:6px;margin:6px 0;font-size:13px;">'
+        f'⚠️ Telegram queue backed up: {tg_health["queue_depth"]} unsent events. '
+        f'Last send status: HTTP {tg_health["last_send_status"]}'
+        f'</div>', unsafe_allow_html=True)
+elif tg_health.get("last_send_age_s", float("inf")) > 3600 and tg_health.get("queue_depth", 0) == 0:
+    # No sends in >1hr AND queue empty = nothing to send (normal off-hours)
+    pass
+elif tg_health.get("last_send_status") != "200" and tg_health.get("last_send_status") != "?":
+    st.markdown(
+        f'<div style="background:#3a2e00;border:1px solid #806b00;color:#ffd866;'
+        f'padding:8px 12px;border-radius:6px;margin:6px 0;font-size:13px;">'
+        f'⚠️ Last Telegram send returned HTTP {tg_health["last_send_status"]} '
+        f'({int(tg_health["last_send_age_s"])}s ago). Check service log.'
+        f'</div>', unsafe_allow_html=True)
+
+# ── RECONCILE BANNER (T2.5) ─────────────────────────────────────────────────
+# Surfaces orphan / phantom mismatches from the watchdog. Read-only, no API call.
+_recon_st = (recon_status or {}).get("status")
+if not recon_status:
+    st.markdown(
+        '<div style="background:#3a2e00;border:1px solid #806b00;color:#ffd866;'
+        'padding:8px 12px;border-radius:6px;margin:6px 0;font-size:13px;">'
+        '⚠️ reconcile-watchdog status file missing — orphan detection OFFLINE. '
+        'Start it: <code>python -m webull_bot.reconcile_watchdog</code>'
+        '</div>', unsafe_allow_html=True)
+elif recon_age > 300:
+    st.markdown(
+        f'<div style="background:#3a2e00;border:1px solid #806b00;color:#ffd866;'
+        f'padding:8px 12px;border-radius:6px;margin:6px 0;font-size:13px;">'
+        f'⚠️ reconcile-watchdog stale ({int(recon_age)}s since last cycle, >5min). '
+        f'Check process.'
+        f'</div>', unsafe_allow_html=True)
+elif _recon_st == "orphan":
+    orphans = recon_status.get("orphans", [])
+    detail = ", ".join(f"{o.get('symbol','?')} {o.get('side','?')} qty={o.get('qty','?')}"
+                       for o in orphans) or "?"
+    st.markdown(
+        f'<div style="background:#3d0000;border:1px solid #a00000;color:#ffb3b3;'
+        f'padding:10px 14px;border-radius:6px;margin:6px 0;font-weight:bold;">'
+        f'🚨 ORPHAN POSITION at broker (NOT in state.json) — SL monitor NOT '
+        f'watching: {detail}. Manual close required.'
+        f'</div>', unsafe_allow_html=True)
+elif _recon_st == "phantom":
+    phantoms = recon_status.get("phantoms", [])
+    st.markdown(
+        f'<div style="background:#3a2e00;border:1px solid #806b00;color:#ffd866;'
+        f'padding:8px 12px;border-radius:6px;margin:6px 0;">'
+        f'⚠️ PHANTOM POSITION in state.json (NOT at broker): {len(phantoms)} iid(s). '
+        f'Likely closed externally; state may be stale.'
+        f'</div>', unsafe_allow_html=True)
+# status == "ok" → no banner, keeps dashboard clean
+
+
 # ── STATUS STRIP (6 cells like Lightsail) ────────────────────────────────────
 hb_str = (
     f"{int(hb_age)}s ago" if hb_age < 60 else
@@ -417,23 +573,34 @@ pos_sub = (
     if op else "no position"
 )
 
-spx_price, spx_pct = _yf_quote("^GSPC")
-vix_price, vix_pct = _yf_quote("^VIX")
+# Prefer LIVE IBKR values from heartbeat for the prices; keep pct from yfinance
+# (% change vs previous close isn't in heartbeat, and yfinance is cached anyway).
+spx_yf_price, spx_abs, spx_pct = _yf_quote("^GSPC")
+vix_yf_price, vix_abs, vix_pct = _yf_quote("^VIX")
+_live_spx = heartbeat.get("live_spx")
+_live_vix = heartbeat.get("live_vix")
+spx_price = float(_live_spx) if _live_spx else spx_yf_price
+vix_price = float(_live_vix) if _live_vix else vix_yf_price
 
-def _pct_html(pct: float) -> str:
-    """Up arrow if positive (green), down arrow if negative (red), neutral if zero."""
-    if pct > 0:
-        return f'<span class="sv-pct" style="color:var(--grn);">▲ {abs(pct):.2f}%</span>'
-    if pct < 0:
-        return f'<span class="sv-pct" style="color:var(--red);">▼ {abs(pct):.2f}%</span>'
-    return f'<span class="sv-pct" style="color:var(--t3);">0.00%</span>'
+def _delta_html(abs_chg: float, pct: float) -> str:
+    """'+12.75 (0.17%) ▲ today' style — green up / red down / muted flat."""
+    if abs_chg == 0 and pct == 0:
+        return '<div class="sv-delta" style="color:var(--t3);font-size:12px">— flat</div>'
+    up = abs_chg > 0
+    color = "var(--grn)" if up else "var(--red)"
+    arrow = "▲" if up else "▼"
+    sign = "+" if up else "−"
+    return (
+        f'<div class="sv-delta" style="color:{color};font-weight:600;font-size:12px">'
+        f'{sign}{abs(abs_chg):.2f} ({abs(pct):.2f}%) {arrow} today</div>'
+    )
 
 spx_value_html = (
-    f'<span class="sv-big">{spx_price:,.2f}</span>{_pct_html(spx_pct)}'
+    f'<span class="sv-big">{spx_price:,.2f}</span>{_delta_html(spx_abs, spx_pct)}'
     if spx_price else '<span class="sv-big">—</span>'
 )
 vix_value_html = (
-    f'<span class="sv-big">{vix_price:.2f}</span>{_pct_html(vix_pct)}'
+    f'<span class="sv-big">{vix_price:.2f}</span>{_delta_html(vix_abs, vix_pct)}'
     if vix_price else '<span class="sv-big">—</span>'
 )
 

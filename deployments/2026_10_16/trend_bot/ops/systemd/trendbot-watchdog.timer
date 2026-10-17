@@ -1,0 +1,11 @@
+[Unit]
+Description=Run trend bot watchdog every five minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+AccuracySec=15s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

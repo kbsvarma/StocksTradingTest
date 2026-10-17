@@ -1,0 +1,37 @@
+--- orchestrator.py.before
++++ orchestrator.py.after
+@@ -76,7 +76,7 @@
+     },
+     "synthesis": {
+         "prompt": "advisor/prompts/synthesis.md",
+-        "max_turns": 40,
++        "max_turns": 60,
+         "timeout_s": 1800,
+         "tools": READ_TOOLS + ["WebSearch", "WebFetch",
+                                "Edit(advisor/data/context/{date}/views_draft.json)"]
+--- synthesis.md.before
++++ synthesis.md.after
+@@ -15,6 +15,23 @@
+ Loop D is now only your PRELIMINARY kill-test: ideas you kill yourself go in
+ `rejected` (that still counts as product), ideas you keep must survive a
+ hostile second reader.
++
++## Execution budget and tool discipline
++
++This stage has 60 turns. Reserve the last 15 turns for writing the draft and
++running brief_check. Triage the full slate from the supplied snapshots, then
++investigate at most 3 strongest candidates in depth. A smaller well-supported
++set, including zero qualifying views, is valid; never invent evidence or waive
++any mandatory checks to fill a quota. Record why remaining candidates are not
++advanced. Complete and validate views_draft.json by turn 50 and finish.
++
++Use Read, Glob and Grep for file discovery and inspection. For Python, use only
++the exact ADVISOR_PYTHON executable and the allowed advisor module commands.
++Do not use python -c, jq, awk, shell loops, or compound shell commands. Use the
++allowed journal --list and proposals --list tools instead of parsing their
++files with shell scripts. If a tool is denied, do not retry or substitute an
++unapproved shell command; record the limitation, retain fail-closed behavior,
++and finish with only evidence the permitted tools can verify.
+ 
+ ## Step 1 — Ground truth (already fetched)
+ 

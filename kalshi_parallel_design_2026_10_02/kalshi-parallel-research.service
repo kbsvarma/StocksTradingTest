@@ -1,0 +1,12 @@
+[Unit]
+Description=Kalshi parallel strategy research (public GET-only paper simulation)
+After=network-online.target
+[Service]
+WorkingDirectory=/home/varma/kalshi_parallel_design_2026_10_02
+ExecStart=/usr/bin/python3 -u paper_bot.py
+Restart=on-failure
+RestartSec=10
+UMask=0077
+NoNewPrivileges=yes
+[Install]
+WantedBy=default.target

@@ -1,0 +1,15 @@
+[Unit]
+Description=Kalshi crypto z2 LIVE (1 contract; user activation required)
+After=network-online.target
+Conflicts=kalshi-crypto-z2-observe.service
+
+[Service]
+WorkingDirectory=/home/varmak/kalshi_revalidation_2026_09_12/live_v1
+ExecStart=/home/varmak/kalshi/venv/bin/python -u runner.py --live
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=60
+UMask=0077
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,22 @@
+2026-10-16 — isolated initial preparation, not activation
+Copied the known stream/client/bounded-read implementation into this directory;
+changed only its NFL allowlist and simultaneous-market retention. Preserved
+original hashes in vendor_provenance.json. Added independent signal/receipt/
+intent accounting, verifier, staged executor, read-only review and gated arming.
+
+First canary found synchronized13-game/26-book REST probes and a shared sleeping
+rate-limit lock. The latter could also delay ESPN scheduling. Moved sleeps
+outside the lock and book audits to one background worker; settlement checks
+also run independently. Preserved all initial slow probes. p95 5.921s -> .509s.
+
+Added ESPN drives.current parsing after confirming completed archival summaries
+had only drives.previous, not top-level plays. Live unfinished drives must not
+wait for drive completion. Conflicting duplicate play states fail closed.
+
+Separated simulated and live result totals; required a real qualifying paper
+execution before readiness. Deadline measured from the completed signal minute,
+not from delayed processing. No strategy optimization or retrospective retuning.
+
+Controlled stream reconnect recovered26 snapshots in .838s. Existing source
+hashes and tracked service PIDs unchanged. Only the new NFL service was enabled.
+No financial orders, internal transfer or new notification automation created.

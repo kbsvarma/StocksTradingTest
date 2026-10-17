@@ -4,6 +4,7 @@ Run:
     cd /path/to/StocksTradingTest
     WEBULL_APP_KEY=... WEBULL_APP_SECRET=... python -m webull_bot.test_preview [YYYY-MM-DD]
 """
+import os
 import sys
 import time
 
@@ -13,7 +14,7 @@ from webull_bot.client import build_trade_client
 from webull_bot.execution import ExecutionEngine
 from webull_bot.market_data import find_best_spread, get_spx_price, get_vix_price
 
-ACCOUNT_ID = "QJJGQCBGAN8M2JL2C1OA1J37KB"
+ACCOUNT_ID = os.environ["WEBULL_ACCOUNT_ID"]
 
 print("=== Webull Bot — Preview Test ===")
 

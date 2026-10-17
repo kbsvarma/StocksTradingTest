@@ -1,0 +1,47 @@
+Frozen before replay results, 2026-10-15. Research only; no live changes.
+
+Question: Can intraminute underlying-price updates yield more five-contract crypto
+entries inside the existing caps, after fees? Assets BTC/ETH/SOL/XRP.
+
+Fixed chronological samples, chosen for data coverage, not outcomes:
+1. All four assets, market opens 2026-09-04 00:00 through Sep11 00:00 UTC (7 days).
+   Existing 33-second book snapshots; fetch all CF hours, not only traded hours.
+2. All accepted complete BTC/ETH October2-4 continuous captures, independent
+   confirmation sample; compact reconstructed book samples approximately100ms.
+
+Control: completed-minute inputs, current original BTC z3, others z2; premium z3.
+Candidates: refresh z every30,10,1 seconds. No threshold optimization.
+Keep last completed minute's market quote, Coinbase reference and 60-return
+population sigma; refresh remaining time and underlying return inside the minute.
+Historical source limitation: no complete subminute Coinbase history. Use CF
+relative returns anchored to the Coinbase last completed minute close. This is a
+proxy feed test, not proof of an exact Coinbase intraminute strategy. At a minute
+boundary use unchanged Coinbase value. Never use future CF values or future bars.
+Historical CF publication assumed available after1s; sensitivity3s. Dense capture
+uses actual first receipt times, no assumed early access.
+
+Rules unchanged: original85-<95c, cap93.9c; premium93-<98c, cap97.5c; effective cap
+min(signal ask+1c, lane cap), market ladder rounding. Spread<=2c. Time3-10minutes.
+5contracts, one position per market/asset, original priority, hold to settlement.
+Shared25contracts/$25reserved exposure/$20daily risk, $2minimum free cash; premium
+25contracts/$25risk/$25daily subordinate shared20. Freeze current crypto cash
+at start; no transfers. Portfolio simulation is four crypto assets only and
+does not claim unused capacity on the actual mixed-asset account.
+
+Entry proof: a subsequent recorded book at least1s after a qualifying signal,
+inside25s retry deadline, at most24 book rechecks. The signal must occur within
+3-10minutes; execution can extend25seconds after it as in the existing runner.
+Full five
+contracts at/under effective cap, no interpolation of book depth. Candidate z
+must still qualify at the fill observation. A market may requalify after an
+unfilled attempt in a later minute, reflecting deployed fresh retry behavior.
+No more than3 simulated IOC submissions; no book implies no claimed fill.
+Sparse observed execution waits are reported separately from dense latency.
+Stress:3s transport delay; extra1c/contract cost charged as friction sensitivity,
+not an order above the cap. Standard7% taker formula, fixed-point cash rounding;
+zero maker rebates. Fetch/verify fee metadata read-only when available.
+
+Report per asset and aggregate: qualifiers, fills, W/L, net after fees, fees,
+extra/missed/matched trades, price changes, drawdown, chronological split,
+risk rejections, source/book coverage and actual observed waits. Do not promote
+live based on historical positives. Source hashes/service PIDs/flags before/after.

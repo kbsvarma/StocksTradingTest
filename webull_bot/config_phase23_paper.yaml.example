@@ -1,0 +1,63 @@
+# Copy to config_phase23_paper.yaml locally and set account_id. This private file is ignored by Git.
+# Webull Bull Put Spread Bot — Phase 2.3 PAPER VALIDATION config (EC2 only)
+# Strategy: 0DTE SPX bull put spread, 0.75% OTM, 10pt wide, **5 contracts**
+# Goal: collect paper-trading data on the Phase 2.3 candidate config
+# while the live Mac bot validates Phase 1 with current 1× 50pt × 1.0%.
+#
+# Backtest expectation (narrow_width_sweep_2026_05_21):
+#   ~$34K/yr P&L, 94.4% win rate, worst event -$2,965, max DD -$1.9K
+#
+# This config is loaded ONLY when WEBULL_CONFIG_PATH env var points here.
+# Mac live continues to use the default config.yaml unchanged.
+
+# ── Instrument ────────────────────────────────────────────────────────────────
+symbol: "SPXW"
+yf_price_symbol: "^GSPC"
+yf_options_symbol: "^SPX"
+spread_width: 10                # CHANGED: 50 → 10 (Phase 2.3)
+
+# ── Entry criteria ────────────────────────────────────────────────────────────
+otm_pct: 0.0075                 # CHANGED: 0.010 → 0.0075 (Phase 2.3)
+min_credit: 0.40                # CHANGED: 1.20 → 0.40 (narrower spread = smaller credit; floor at ~30% of width)
+target_credit: 1.30             # CHANGED: 2.00 → 1.30 (avg per backtest)
+vix_min: 12.0
+vix_max: 25.0
+vix_max_daily_rise: 3.0
+direction_filter_enabled: true
+
+# ── Timing (America/New_York) ─────────────────────────────────────────────────
+entry_start: "10:30"
+entry_end: "14:30"
+eod_close_time: "15:45"
+timezone: "America/New_York"
+scan_interval_seconds: 30
+monitor_interval_seconds: 2
+
+# ── Sizing ────────────────────────────────────────────────────────────────────
+quantity: 5                     # CHANGED: 1 → 5 (Phase 2.3 — five identical spreads)
+trade_once_per_day: true
+
+# ── Exit / risk ───────────────────────────────────────────────────────────────
+stop_multiplier: 2.0
+disable_profit_target: true
+
+# ── Order execution ───────────────────────────────────────────────────────────
+limit_price_offset: 0.10
+max_retries: 3
+retry_price_step: 0.10
+retry_wait_seconds: 60
+fill_timeout_seconds: 300
+entry_market_fallback: false
+
+# ── Account ───────────────────────────────────────────────────────────────────
+# Same Webull account — EC2 runs WEBULL_DRY_RUN=1 so no real orders placed
+account_id: ""
+
+# ── Files (ISOLATED paths so live data isn't contaminated) ────────────────────
+# vH = next config version after vG (live).  w10_otm075_x5 = width/otm/qty.
+data_dir:   "spx_spread_bot/data/webull_paper/vH_spx_w10_otm075_x5_vix25"
+logs_dir:   "spx_spread_bot/logs/webull_paper/vH_spx_w10_otm075_x5_vix25"
+state_file: "spx_spread_bot/data/webull_paper/vH_spx_w10_otm075_x5_vix25/state.json"
+trade_csv:  "spx_spread_bot/data/webull_paper/vH_spx_w10_otm075_x5_vix25/trades.csv"
+
+run_days: [0, 1, 2, 3, 4]

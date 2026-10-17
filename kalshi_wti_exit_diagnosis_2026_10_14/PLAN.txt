@@ -1,0 +1,24 @@
+WTI-only diagnosis of the five actual losses, 14 October 2026 ET.
+
+User asks why the proposed exit rescued only one WTI loss, given106wins/5losses.
+Reconcile the current read-only live ledger count; retain the same five losing
+entries, historical source paths and quote assumptions as the previous research.
+
+Exact rule: original lane only; signed absolute z<1.75; eligibility in the last
+300seconds;60continuous seconds of eligibility/breach; checks every1second,
+one-second assumed source availability and exit latency; one modeled attempt
+at the first confirmed signal, with a minimum sell price90c. No fallback rule
+included in this isolated diagnosis. Freeze original entry sigma/reference.
+
+For each loss show first breach, confirmation resets, successful breach-run
+start, first trigger, contemporaneous minute quote low/high, failed gate and
+modeled cash if applicable. Removing only the time window or confirmation is
+a diagnostic attribution, not a new selected/recommended strategy. No grid.
+Save full one-second trace and minute quote inputs; independently reproduce
+first trigger and cash arithmetic. Preserve all failed cases. These are quote
+scenarios, not verified five-contract sell depth. Do not claim current111trade
+exit PnL from the previous109trade snapshot; the two new winners are only count
+reconciliation and are outside this loss-only replay.
+
+Keep live code, flags, entry rules, quantities, price/risk limits, all services
+and saved stable checkpoint unchanged. No order requests, restarts or new bots.

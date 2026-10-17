@@ -1,0 +1,24 @@
+import json,datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+P=Path(__file__).resolve().parent;r=json.loads((P/'results.json').read_text());raw=json.loads((P/'data/recorded.json').read_text());ET=ZoneInfo('America/New_York');fmt=lambda t:datetime.datetime.fromtimestamp(t,ET).isoformat(timespec='seconds')
+errors=[]
+for period,modes in r.items():
+ for mode,variants in modes.items():
+  for v in variants:
+   rows=v['rows']
+   if len({x['ticker'] for x in rows})!=len(rows):errors.append('duplicate')
+   if v['wins']+v['losses']!=v['trades']:errors.append('counts')
+   if abs(sum(x['pnl'] for x in rows)-v['pnl'])>1e-9:errors.append('sum')
+   for x in rows:
+    if x['settled_ts']<x['entry_ts'] or x['z']<v['threshold']:errors.append('chronology/gate')
+    if abs(x['pnl']-(2*(int(x['win'])-x['price'])-x['fee']))>1e-9:errors.append('pnl')
+assert not errors,errors
+lines=['# Recorded-signal cushion tuning replay','','Historical question: what would the existing crypto15m design have produced at z>=2.0,1.9,1.8? Only the cushion threshold changes. Two contracts throughout all scenarios for comparison; current price/spread/time gates, tick ladder, per-asset exposure, max8contracts/$7.60 reserved risk, and$10daily loss budget remain. Actual original trading used one contract for much of this period, so do not compare normalized scenario P&L directly with actual mixed-size P&L.','',f"Recorded event coverage begins {fmt(raw['first_event'])}; snapshot {fmt(raw['export_ts'])}. Outcomes are actual Kalshi market settlements. For235 candidate markets the public one-minute candles and settlement metadata are retained.",'','## Execution assumptions','','**Cap-cost scenario:** assume entry at the worst tick-valid price the bot permits (signal ask+1c capped at93.9c). Respect recorded failed book checks, pending reconciliation and actual unfilled attempts. For newly eligible lower-cushion signals, fills are assumed at the permitted cap, not proven. This is a deliberately expensive price assumption but optimistic availability for those extra signals. **Next-minute scenario:** use the worse of signal ask and next-minute closing ask, only if within the tick-valid limit; otherwise wait for a later recorded qualifying signal. Historical rejected signals have no saved book depth, so neither scenario is an exact executable backtest. Both include rounded taker fees and2contracts. No additional stress is added above the permitted cap.','','For both scenarios entry candidates are chronological, deduplicated by market, and settlement cash/loss recognition uses actual settlement timestamp. A lower threshold can change timing/side on existing markets as well as add markets. The scenario difference therefore need not equal the P&L on extra markets.','']
+for period,modes in r.items():
+ lines += ['## '+period,'','| Execution model | Cushion | Trades | Wins | Losses | Net P&L | Difference vs2.0 | Extra-market trades | Extra-market P&L |','|---|---:|---:|---:|---:|---:|---:|---:|---:|']
+ for mode,variants in modes.items():
+  for v in variants:
+   e=v['extra_markets'];lines.append(f"| {mode} | {v['threshold']:.1f} | {v['trades']} | {v['wins']} | {v['losses']} | ${v['pnl']:+.4f} | ${v['delta_pnl']:+.4f} | {e['trades']} ({e['wins']}W/{e['losses']}L) | ${e['pnl']:+.4f} |")
+actual=[x for x in raw['orders'] if x.get('status')=='settled'];lines+=['','## Actual ledger reference','',f"{len(actual)} settled actual trades: {sum(float(x.get('pnl') or 0)>0 for x in actual)} positive, {sum(float(x.get('pnl') or 0)<0 for x in actual)} negative, net ${sum(float(x.get('pnl') or 0) for x in actual):.4f}. This includes historical one-contract and newer two-contract trades. The replay is uniformly two contracts and does not reproduce actual fills.",'','## Evidence boundaries','','This is a replay of stored qualifying-price observations, not a complete reconstruction of every historical second. The running bot stops computing signals after it attempts a market; alternative future paths may therefore be missing. Book-depth checks occurred only for original z>=2 signals; lower-threshold fills are unverified. Historical network gaps, exchange halts, IOC ambiguity, cash-route constraints and loss-budget interactions beyond retained signals cannot be fully reconstructed. Cap-cost fills may overstate trade availability; next-minute filtering can miss faster legitimate fills. Threshold comparisons share the same data and are exploratory, not independent validation. Daily budget uses ET and reserved worst-case open risk. No live config was changed.','','Validation: no duplicate trades, threshold violations, inverted entry/settlement timestamps or P&L accounting errors. Scripts, raw signals, actual order ledger,235 market/candle responses and all scenario trades are retained.']
+(P/'REPORT.md').write_text('\n'.join(lines)+'\n');(P/'validation.json').write_text(json.dumps({'errors':errors}));print('\n'.join(lines))

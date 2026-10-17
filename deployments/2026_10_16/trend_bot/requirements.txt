@@ -1,0 +1,13 @@
+# trend_bot pinned dependencies — frozen for the validation soak.
+# Upgrades are RELEASES: change a pin -> revalidate (see docs/IBC_SETUP.md
+# + review 2026-07-17).
+#
+# ib-insync upstream was archived 2024-03; pinned deliberately. Migration
+# target is the community fork `ib_async`, to be validated as its own
+# release AFTER the soak — not silently at the live flip.
+ib-insync==0.9.86
+pandas==2.2.3
+PyYAML==6.0.2
+streamlit==1.45.1
+databento==0.75.0
+requests==2.32.3

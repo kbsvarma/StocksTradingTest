@@ -1,0 +1,10 @@
+from pathlib import Path
+import pandas as pd,numpy as np
+P=Path(__file__).resolve().parent;h=pd.read_parquet(P/'long_higher_risk_ranked.parquet').head(100);l=pd.read_csv(P/'long_period_checks.csv');e=pd.read_csv(P/'execution_results.csv');p=pd.read_csv(P/'pair_price_verification.csv');r=pd.read_csv(P/'pool_long_rolling.csv');ex=set(pd.read_csv(P/'ai_exclusions_final.csv').symbol)
+for cost in [10,25]:
+ z=l[(l.period=='longest')&(l.cost_bps==cost)].drop(columns=['period','cost_bps']);h=h.merge(z.rename(columns={k:f'long_{cost}_'+k for k in z if k not in ['a','b']}),on=['a','b'],how='left')
+for period in ['vendor_full','discovery','confirmation']:
+ z=e[(e.period==period)&(e.extra_bps==10)&(e.dividend_lag_days==30)].drop(columns=['period','extra_bps','dividend_lag_days']);h=h.merge(z.rename(columns={k:'exec_'+period+'_'+k for k in z if k not in ['a','b']}),on=['a','b'],how='left')
+z=r[r.horizon_years==2].drop(columns='horizon_years');h=h.merge(z.rename(columns={k:'roll_2_'+k for k in z if k not in ['a','b']}),on=['a','b'],how='left');z=p[p.period=='discovery'].drop(columns='period');h=h.merge(z.rename(columns={k:'price_'+k for k in z if k not in ['a','b']}),on=['a','b'],how='left')
+h['outside_excluded_universe']=~h.a.isin(ex)&~h.b.isin(ex);h['long_edge_after_25bps']=h.long_25_annual_log_advantage>0;h['costed_discovery_edge']=(h.exec_discovery_annual_log_advantage>0)&h.exec_discovery_status.fillna('').str.startswith('pass');h['full_vendor_execution_complete']=h.exec_vendor_full_status.fillna('').str.startswith('pass');h['assessment']=np.where(h.long_edge_after_25bps&h.costed_discovery_edge,'Historical rebalancing benefit; very high drawdown risk','Does not pass full-history/costed-edge checks');h.to_csv(P/'HIGHER_VALIDATION_ALL.csv',index=False)
+h.head(10).to_csv(P/'AUDITED_HIGHER_TOP10_ALL.csv',index=False);h[h.outside_excluded_universe].head(10).to_csv(P/'AUDITED_HIGHER_TOP10_NON_AI.csv',index=False);print(h.head(10)[['a','b','long_10_cagr','long_10_hold_cagr','long_10_maxdd','roll_2_beat_hold_fraction','exec_discovery_cagr','exec_discovery_hold_cagr','assessment']].to_string(index=False))

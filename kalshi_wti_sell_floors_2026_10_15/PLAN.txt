@@ -1,0 +1,36 @@
+WTI sell-floor comparison, frozen before replay on 2026-10-15.
+
+Use exactly the prior 111 settled WTI trades (106 winners, 5 losses), not a
+moving cohort. Snapshot is kalshi_wti_exit_diagnosis_2026_10_14/live_wti_snapshot.json.
+Actual quantities, entry costs and entry fees remain fixed. Baseline $15.3050.
+Original lane:89W/5L. Premium lane:17W/0L.
+
+Keep signed absolute z<1.75, last300 seconds, continuous60-second confirmation,
+one-second checking, frozen entry reference/sigma, one-second assumed source
+availability, one-second assumed exit latency, and first confirmed attempt only.
+If its quote fails the floor, hold; no later retries or fallback exits.
+Primary isolates lowering the original-lane rule's sell floor. Include all111
+trades in total PnL, holding17premium trades unchanged. Also explicitly compute
+application to BOTH WTI lanes to answer the all-winners question without silently
+changing lane scope. No other asset, entry or timing variants.
+
+Sweep every whole-cent floor from90c to0c. Present coarse90/85/80/75/70/65/60/50/
+40/30/20/10/0 controls and all result-change boundaries. Threshold selection is
+retrospective; these same losses/winners already informed prior research.
+
+Execution remains a minute-bid-LOW scenario, not verified second-level depth.
+YES uses yes_bid low; NO uses1-yes_ask high. Never credit minute-high fills.
+Retain all missed attempts. Fetch public historical receipts only for two added
+winners, preserve cached history. No financial endpoints or live imports.
+Net retains actual entry fees, modeled 0.07*q*p*(1-p) taker exit fees with six-
+decimal ceiling and four-decimal cash rounding. Present fee-only and fee+1c per
+exited-contract friction separately. Stress3-second order latency and2c friction.
+Report saved cash on losses, winners cut, winner profit foregone plus exit losses,
+winners turned negative, total net vs holding, per-trade/day and lane details.
+No claim of guaranteed fills, out-of-sample validation, or future profitability.
+
+Validate every trade's ledger cash, scalar/vector trigger agreement, independently
+reconstructed z, fee/cash arithmetic, all111 retained, monotonic exit counts as
+floor falls, old five-loss triggers reproduced, production hashes/flags/PIDs
+unchanged. Save reproducible script, inputs, receipt hashes and report locally
+and remotely. No changes/restarts/orders for any live or paper bots.

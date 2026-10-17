@@ -1,0 +1,18 @@
+Repair scope: canonical outcome/book-side fill validation and receipt telemetry.
+Unchanged: entry signals, price limits, five contracts, all risk/retry/ownership
+rules, underlying sources, paid-channel exclusion, existing lane pauses.
+
+1. Capture independent actual WS fill frames with receive-only witness.
+2. Fix exact-order confirmation using canonical outcome/book sides; retain
+   terminal REST, zero-fill proof, quantity/cost/fee/identity/route checks.
+3. Add asynchronous raw receipt and verification reason journal plus immutable
+   initial confirmation provenance. No disk work on the execution path.
+4. Run full isolated regressions and source/config preservation checks.
+5. Deploy only stream_transport.py, engine.py and runner.py in a quiet, flat
+   window. Refresh resting-paper's exact reviewed source manifest; preserve its
+   frozen strategy/ledger. Back up code/state but NEVER roll back financial DB.
+6. Verify naturally occurring fills in production against both raw WS receipt
+   sets and authenticated GET-only terminal orders/fills, count/cost/fees and
+   source/notification/confirmation timings. Never force a verification trade.
+7. Stop temporary witness after verification; preserve audit artifacts locally
+   and on server. Record any residual unverified claim explicitly.

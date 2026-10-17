@@ -1,0 +1,42 @@
+--- reference/market_data.py
++++ ceiling95/market_data.py
+@@ -52,7 +52,7 @@
+     bid,ask=(b,a) if side=='yes' else (1-a,1-b)
+     rec.update(side=side,signal_bid=bid,signal_ask=ask,
+                exchange_index=market.get('exchange_index',0),price_ranges=market.get('price_ranges'))
+-    if not .85-1e-8<=ask<.93-1e-8 or ask-bid>.02+1e-8:return dict(rec,status='price_gate')
++    if not .85-1e-8<=ask<.95-1e-8 or ask-bid>.02+1e-8:return dict(rec,status='price_gate')
+     q=urllib.parse.urlencode(dict(granularity=60,start=T-95*60,end=T))
+     raw=get(f'https://api.exchange.coinbase.com/products/{asset}-USD/candles?'+q)
+     bars={int(r[0]):float(r[4]) for r in raw if int(r[0])<=T-60}
+--- reference/engine.py
++++ ceiling95/engine.py
+@@ -42,7 +42,7 @@
+ 
+ def limit_price(signal):
+     """Round toward less spending on the market's YES-perspective tick ladder."""
+-    cap=min(D(str(signal['signal_ask']))+D('.01'),D('.939'))
++    cap=min(D(str(signal['signal_ask']))+D('.01'),D('.95'))
+     yes=cap if signal['side']=='yes' else 1-cap
+     ranges=signal.get('price_ranges')
+     if not ranges:raise ValueError('market tick ladder unavailable')
+@@ -148,8 +148,8 @@
+         for t,c in positions.items():reserved[t]=max(c,reserved.get(t,D('0')))
+         if any(asset(t)==asset(s['ticker']) for t in reserved):return 'Asset already has exposure'
+         if sum(reserved.values())+CONTRACTS>MAX_CONTRACTS:return 'Eight-contract cap'
+-        # Reserve $0.95 per contract, including its maximal entry fee.
+-        projected=(sum(reserved.values())+CONTRACTS)*D('.95')
++        # Reserve $0.96 per contract, including its maximal entry fee.
++        projected=(sum(reserved.values())+CONTRACTS)*D('.96')
+         if projected>MAX_RISK:return 'Exposure cap'
+         realized=sum(D(r['pnl']) for r in self.store.all() if r.get('settled_day')==today() and r.get('pnl') is not None)
+         if realized-projected < -DAILY_LOSS_BUDGET:return 'Daily loss budget including open risk'
+@@ -159,7 +159,7 @@
+         if s.get('status')!='paper_fill':return 'No signal'
+         if not self.live:return 'Observation only'
+         if not crypto(s.get('ticker','')) or s['side'] not in ('yes','no'):raise ValueError('unsupported market/side')
+-        if not (D('.85')<=D(str(s['signal_ask']))<D('.93') and s['z']>=2 and 3<=s['remaining_minutes']<=10):raise ValueError('signal gates failed')
++        if not (D('.85')<=D(str(s['signal_ask']))<D('.95') and s['z']>=2 and 3<=s['remaining_minutes']<=10):raise ValueError('signal gates failed')
+         if D(str(s['signal_ask']))-D(str(s['signal_bid']))>D('.02000001'):raise ValueError('spread failed')
+         positions,resting,balance=self.account()
+         reason=self.entry_guard(s,positions,resting,balance)

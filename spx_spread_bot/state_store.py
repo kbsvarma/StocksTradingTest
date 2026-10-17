@@ -56,6 +56,8 @@ class RuntimeStateStore:
             losses=int(payload.get("losses", 0)),
             skip_reason_today=str(payload.get("skip_reason_today", "")),
             updated_at=str(payload.get("updated_at", "")),
+            paper_entries_today=int(payload.get("paper_entries_today", 0)),
+            paper_entries_date=str(payload.get("paper_entries_date", "")),
         )
 
     def _parse_open_position(self, payload: dict[str, Any]) -> OpenPosition:

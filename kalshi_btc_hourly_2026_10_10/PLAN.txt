@@ -1,0 +1,44 @@
+HOURLY BTC TRANSFER — frozen 2026-10-10 before new replay outputs
+Research only; no live code, settings, activation, orders, funding or restarts.
+
+Primary: BTC above/below KXBTCD and BTC range KXBTC, Sep12 04:00UTC through
+Oct10 04:00UTC exclusive (28 ET days). Secondary ETH above/below KXETHD,
+Oct1 04:00UTC through Oct10 04:00UTC. Reconstruct current BTC15m on same BTC
+period. Separately test shared-portfolio integration over available matched
+Sep23–Oct2 history, using all candidate opportunities, not accepted-ledger pruning.
+
+Settlement: final60whole-second CFBenchmark average. Use61consecutive completed
+CF minute terminal values for60logreturn population sigma; spot last completed
+terminal value. No filling gaps. Compare strike to spot, rather than pre-open
+reference. BTC15m control keeps current Coinbase reference/source as deployed.
+Range YES uses the smaller inside-edge cushion; range NO uses distance to
+nearest range boundary only when spot is outside. One ownership key per asset
+and hourly expiry, including competing strikes; do not count correlated bets.
+
+Predeclared profiles for BTC directional:
+  late: 3–10min z2/z3
+  extended20: 3–20min z2/z3
+  extended30: 3–30min z2/z3
+  stronger20: 3–20min z2.5/z3.5
+  average20: 3–20min z2/z3 with sqrt(T-2/3+1/60) averaging horizon
+  time20: 3–20min z2/z3 + .5log2(T/5), minimum original threshold (no easing)
+BTC ranges and ETH use late and extended20 only. No optimization beyond these
+ten profiles. Primary time distance sqrt(T) is conservative versus final-minute
+averaging; average20 is a Brownian approximation, not a calibrated win probability.
+
+Originalask85–<95c/cap93.9c;premium93–<98c/cap97.5c;spread<=2c. Fivecontracts,
+one position per asset;25contracts/$25risk/$20daily including open;premium25/25/25
+subordinate;simulated$50cash. Positive traded quantity>=5 BY decision time in
+fetched final32minutes required. Deterministic selection: earliest minute,
+original beforepremium,lowestask,highestz,ticker; no outcome-based selection.
+Execution signal+1c limit and actual tick ladder; next-minute opening quote
+proxy, actual official result, modeled fees+1c; sensitivity2c,fullcap+1c and
+next-minuteclose+1c (60s exceeds real35s freshness, diagnostic only).
+
+Chronological slices Sep12–25 /Sep26–Oct2 /Oct3–9, with recent ETH matched dates.
+Report all profiles, drawdown, loss clusters, weekday/weekend and cost stress;
+day-block bootstrap includes no-trade days; no all-win statistical guarantee.
+Verify exact CF final-minute averages against settlement, quote/source coverage,
+one trade per expiry, arithmetic, fresh depth and current live preservation.
+Combined portfolio conservatively shares BTC asset exclusivity across15m/hourly;
+show displacement and net incremental performance under unchanged risk limits.

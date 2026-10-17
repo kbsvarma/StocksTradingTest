@@ -1,0 +1,47 @@
+NEW-MARKET SCREEN — frozen before refreshed replay results, 2026-10-09
+Research only; no live orders, funds, service or strategy changes.
+
+Inventory: current full series catalog, all34fifteen-minute definitions, all62
+hourly Financials/Crypto/Commodities definitions and selected stock-index series.
+Check actual open/recent settled markets, settlement source, fees and volume.
+Catalog existence and aggregate turnover do not establish tradable depth.
+
+Primary extension: USDJPY,GBPUSD,AUDUSD,USDCAD,SILVER,PLATINUM,PALLADIUM,GOLD.
+Already-enabled assets and pausedCopper excluded from new-market ranking.
+Reuse frozen Sep11–Oct7 raw quotes/underlying where available, extend through
+Oct9 15:00UTC exclusive. Report old period and the new Oct8–Oct9 15:00 slice
+separately; listing dates differ. Keep actual settled outcomes, no filled-ledger
+pruning, consecutive61completed bars, exact preopen reference, no gap filling.
+
+Primary rule: both existing standardz2 and premiumz3, existingpricebands/caps,
+3–10min, spread<=2c,5contracts, originalpriority, oneentrypermarket/asset.
+Current standalone portfolio caps25contracts/$25risk/$20dailyINCLUDINGopenrisk;
+premium25/$25/$25subordinate; initialsimulatedcash$50. Standalone results cannot
+be summed and are not a full integration replay against current sevenassets.
+
+One predeclared alternative for four FX pairs ONLY: transfer currentlyaccepted
+EURUSD rule, z=1.75+.5log2(minutes/5) standard and2.75+.5log2(minutes/5) premium,
+floorz.5,1–10minutes. Everythingelse unchanged. No neighbor-grid optimization.
+
+Report primary fees+1c/contract, then2c, fullcap+1c, delayednext-minuteclose+1c.
+Delay60s is a sensitivity diagnostic outside the live35s freshness constraint.
+Historicalopeningquotes are proxies; cannot establish historicalfivecontractfills.
+Prefer positive old/new partitions and cost resilience; expose samplecounts/losses
+and peaksettleddowndraw. Rank research suitability separately from live-readiness.
+Read-only live books/source checks for finalists; no activation from this screen.
+
+Additional crypto screen frozen before refreshed results: DOGE/HYPE/NEAR/ZEC/BNB,
+Oct1–Oct9 15:00UTC, same primaryz2/z3 and current five-contract caps. Coinbase
+consecutive61bar inputs; report missing data. No thresholds optimized per coin.
+
+Hourly index adaptation frozen before fetching replay inputs: INXU/NASDAQ100U/DJI,
+Sep28–Oct9 15:00UTC. Exact same price/z/time gates, but use official contract
+strike instead of market-opening spot reference. Hourly markets are already
+listed; market-open-to-close duration is not their signal horizon. Require61
+consecutive minute observations strictly before decision time; no overnightfill.
+At least5 recorded contracts traded within the fetched final12minutes by decision
+time. One entry per index expiry: earliest minute; z2beforez3; lowestaskthenhighestz
+then ticker for deterministic strike choice. No post-outcome strike selection.
+Separate Sep28–Oct2 /Oct3–7 /Oct8–9 results and all cost sensitivities. Checkchart
+terminal values against official expiration values. This is an adapted design,
+not an unchanged15min port; no live-readiness claim without source/latency checks.

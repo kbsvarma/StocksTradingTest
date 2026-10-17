@@ -70,8 +70,11 @@ def states_for(row, fmt_sets_to_win=2):
         gi, gj = games[i][cur], games[j][cur]
         lead = gi - gj
         one_set_from_match = sets[i] == fmt_sets_to_win - 1
-        serving_for = (one_set_from_match and gi >= 5 and lead >= 1
-                       and srv == i + 1)
+        # Before the game, serving for the set/match can only be 5-x (x<=4)
+        # or 6-5. Scores such as 6-0/7-5 are terminal rows observed before the
+        # feed increments the set count and must never become entry signals.
+        serving_for_score = (gi == 5 and gj <= 4) or (gi == 6 and gj == 5)
+        serving_for = one_set_from_match and serving_for_score and srv == i + 1
         mp = one_set_from_match and set_point(games, cur, i, pts, tb)
         # --- Hypothesis A (point-level) ---
         if mp:

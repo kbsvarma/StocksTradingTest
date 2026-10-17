@@ -1,0 +1,48 @@
+Subminute z deterioration exits — frozen before computing exit results
+
+Research only. Do not alter any live or paper collector, orders, settings or services.
+Same historical entries on every variant; include winners and losers. All entries
+must have accepted capture coverage from decision through expiry and fresh source
+at decision. Use actual paid cost and fees. No re-entry or freed-capital credit.
+
+Primary coverage: Oct2–4 BTC/ETH actual fills matched to sequence-validated archived
+WebSocket order books and first-arrival CF Benchmarks data. This is a historical
+entry cohort, not a replay of today's BTC z3 entry rules. Report this explicitly.
+
+Poll intervals: 1,10,30,60 seconds, clock-aligned and strictly after entry.
+Entry-z drops: .5,1,1.5,2. Minimum holding grace:0,30,60,120 seconds.
+Observed breach persistence:0,10,30,60 seconds, measured by elapsed time between
+consecutive below-threshold checks, not a fixed number of checks. Reset on recovery
+or missing/stale source. This gives256 configurations. Report predeclared contrasts
+drop1/grace0/persistence0; drop2/grace0/persistence0; drop2/grace120/persistence60.
+The grid is exploratory; do not promote its best cell as independently validated.
+
+Crypto live inputs are completed Coinbase minutes, not subsecond CF Benchmarks.
+Fast proxy: anchor CF at the last received value at the entry decision timestamp,
+then multiply original Coinbase signal spot by subsequent CF price/anchor price.
+Keep original Coinbase pre-open reference and entry minute sigma. Use remaining
+fractional minutes for the z denominator; never recompute minute sigma from second
+returns. This is an explicitly experimental feed proxy, NOT the unchanged live z.
+Primary uses first-arrival5Hz CF observations with source age <=1.5s. Test direct
+CF price (basis sensitivity), entry-anchored1Hz CF, and rolling completed-minute
+Coinbase sigma. Also show unchanged completed-minute z at faster polling.
+
+Execution: full actual quantity required in recorded held-side bids; first sampled
+book after decision plus1s, maximum additional observation gap500ms. Check depth
+in both last pre-trigger and subsequent book, use minimum gross proceeds across
+the two. Model taker fee by each level and downward cash rounding, and debit1c per
+sold contract as additional friction. Book rows were causally reconstructed from
+snapshots/deltas before each raw frame. Never sell at a past or interpolated quote.
+If insufficient depth, try at next valid below-threshold check. No partial fills
+or sale at/after expiry, no claim of guaranteed executable historical fills.
+Stress delays .25s,3s and friction2c/5c; print all results including losing variants.
+
+Additional recent noncrypto one-second source charts can audit trigger times,
+including the paused CAD loss. They lack historical first-arrival provenance and
+subminute books: report only observed trigger timing, no invented exit PnL.
+
+Metrics: matched hold net; losers reduced and fully avoided; dollars recovered;
+winners exited/turned into losses and dollars sacrificed; net after entry/exit
+fees and friction; delay, data/depth misses and per-trade receipts. Separate old
+BTC trades below today's z3 gate; do not label filtering those entries a full replay.
+Record production hashes/flags/PIDs before/after, preserve stable checkpoint.

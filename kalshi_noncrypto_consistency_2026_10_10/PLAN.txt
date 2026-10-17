@@ -1,0 +1,45 @@
+Non-crypto consistency study — frozen October 10, 2026 before new outcomes
+
+User wants a more consistent non-crypto edge with backtest numbers BEFORE a recommendation. Weather is shelved. Research only; no service, trade, funding, or activation changes.
+
+Financial universe: all catalogued hourly indices, FX and metals/energy with Pyth or index-chart sources. Request Aug1–Oct9 ET, preserving zero-history families. Reproduce the existing z2/z3 rule, and test two predeclared new threshold-market designs: fixed z>=2 at 15–30 minutes, and a probability-price comparison using Normal(z) with conservative 1.25x volatility, checking 30/15/10/5 minutes. Require ask60–<95c, spread<=2c, five contracts of prior ten-minute volume, at least 61 consecutive source observations, source timestamp strictly before decision. Probability minus ask, taker fee and1c allowance >=3c. Select highest modeled edge BEFORE inspecting later execution quotes; one entry per asset/expiry, one pending asset position. Probability model uses actual contract strike, completed source prices and realized volatility, no future source values. All variants reported, not only a best threshold. Late rule asks85–<95/z2 and93–<98/z3,3–10min, existing caps93.9/97.5. Earlier fixed z uses85–<95c/cap93.9,15–30min.
+
+Sports universe: MLB, NFL, NCAAF, NBA, WNBA, NHL. Request Aug15–Oct9 ET (eight weeks). Reproduce pregame favorite70–<90c and high-price persistence95–<98c for5min,97–<99c for10min. Add pregame broad favorite55–<80c and pregame momentum: favorite55–<90c at30min before start, midpoint higher than30min earlier by>=3c. One team/event; no mirrored double counting. Market selection uses decision prices only. No entry at or after recorded game-end timestamp. Explicitly flag if game-end feed time is unavailable. Fees+1c,fees+2c,60s delayed fills and cap-cost stress. Also test a pooled weekly pregame market-calibration model: prior28days, only already-settled outcomes, four fixed price bands, shrink20 pseudo-observations toward mean implied midpoint, minimum100 observations pooled and20 per represented league. Primary does not pick a best league based on evaluation results. Probability-price edge>=3c after fees+1c; same eligibility, earliest30min pregame and5ct. Model is exploratory; all profiles and losing league results retained.
+
+Historical five-contract entries use next-minute OPEN quote proxy, capped at decision ask+1c (and profile ceiling); max(signal ask, execution ask) avoids claiming favorable-price improvements. Baseline +1c additional cost,2c stress; delay uses minute+1 CLOSE and cap stress assumes execution at cap only where executable quote exists. This is not historical depth or actual fill proof. No quotes after contract close. Missing data excluded and counted, not filled. Exact official outcomes and settlement timestamps.
+
+Each standalone portfolio: $100 normalization,5ct/entry,max25ct/$25 reserved/$20daily including open risk,$2 cash floor. Shared cross-market simulation also required for any recommendation; do not sum incompatible standalone P&L. Report weekly and first/second-half results, win/loss, net, drawdown, cost/delay stress, excluding best day/trades, block uncertainty, source coverage and failures. Look for evidence across weeks AND underlying markets/leagues; one winning row is insufficient. Historical selection and all model comparisons must be disclosed. Minimum meaningful shortlist: positive net in both halves, positive>=75% active weeks, survives2c/delay/cap, >=100 entries and no reliance on one instrument. These are research screens, not proof or automatic activation.
+
+Scope amendment BEFORE any new replay results: exhaustive hourly-definition and
+market-history inventory is retained. Full-input replays prioritize all hours
+of S&P500/Nasdaq/Dow and the 16:00 America/New_York expiry of hourly Gold, Silver,
+WTI and Palladium. This creates a fixed U.S. closing-session comparison across
+four assets without choosing the best expiry hour from outcomes. It is a sampled
+hourly-commodity test, not a replay of every commodity hour. Nikkei and Treasury
+sources are checked; unavailable charts/insufficient history are reported, not
+reconstructed from an unrelated underlying. Broad FX hourlies returning no
+markets cannot be tested. No outcome-based changes to rules or success criteria.
+
+Additional independent mechanism, declared before obtaining new wallet outcomes:
+retest the eight sports traders selected by the saved August3 MONTH study, with
+names/addresses frozen from its qualified_teachers field. Evaluation Aug15–Oct9,
+MLB/WNBA only (exact existing name aliases + game-date match; reject ambiguous
+doubleheaders). Use public BUY activity; no refreshing today's leaderboard.
+Two causal rules: second distinct teacher agrees with existing unopposed signal,
+second BUY >=$500 and Kalshi ask40–60c; or first cumulative $100 /4:1 directional
+BUY imbalance. All decisions use ONLY past activity. The old research excluded
+wallet/game pairs when they traded both sides later; do NOT carry that future
+information filter into this replay. Delays60/120/300sec from public transaction
+timestamp to decision; then next completed-quote execution, fee+1/2c/cap stress.
+Five contracts and same shared limits. One event owner. No buying after game end.
+Record unsupported or incomplete activity and matching exclusions. This is
+out-of-period testing of a previously chosen universe, not a validated copy bot.
+
+Second-stage robustness extension (after the eight-week sports results): MLB and
+WNBA pregame70 are positive individual rows; they are selected candidates, not
+independent discoveries. Extend the SAME rule and pregame55 negative comparator
+back to July1–Aug14 using official market metadata/milestones and archived quotes.
+Then replay the two-league combined portfolio continuously July1–Oct9. Keep the
+original six-league results and identify this as selected retrospective
+confirmation, not a fresh holdout. No threshold changes, league additions based
+on the added outcomes, or automatic activation.

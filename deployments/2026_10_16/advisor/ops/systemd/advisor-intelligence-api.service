@@ -1,0 +1,31 @@
+[Unit]
+Description=Advisor tenant-scoped read-only intelligence API
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=%h/.advisor_api_policy.json
+
+[Service]
+WorkingDirectory=%h/stockstest
+Environment=PYTHONPATH=%h/stockstest
+ExecStart=%h/stockstest/.venv/bin/python -m advisor.intelligence.api --policy %h/.advisor_api_policy.json --host 127.0.0.1 --port 8517
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectControlGroups=true
+ProtectKernelTunables=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadOnlyPaths=%h/stockstest/advisor/data
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+SystemCallArchitectures=native
+StandardOutput=append:%h/stockstest/advisor/logs/intelligence_api.log
+StandardError=append:%h/stockstest/advisor/logs/intelligence_api.log
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,19 @@
+2026-10-14 loss review. Analysis only; no production edits or orders.
+Capture point: 2026-10-14 15:45 UTC approximately. Freeze analysis at captured ledger.
+Primary question: can fewer reversals be achieved without discarding more profit than losses?
+Compare BOTH lanes with replacement entries, fees and shared portfolio constraints.
+Retired Copper excluded from current-design replays, retained in actual accounts.
+Predefined sensitivity grid: baseline; original-lane BTC/all-crypto z2.25,2.5,3;
+BTC/all-crypto latest entry 7 or 5 minutes; BTC z2.5 plus max7;
+BTC original ask floor90c; BTC original signal ceiling93c (old baseline);
+BTC original late-time z=max(2,2+.5*log2(remaining/5));
+WTI original z1.75,2,2.5; NATGAS original z2.25,2.5;
+same-side same-expiry crypto caps1,2. All other gates/risk/size unchanged.
+First diagnose actual ledger pruning (not a full replay). Then replay all available
+candidate minutes chronologically including later signals and lane switches.
+Old historical data already reused in earlier research, not untouched holdout.
+Recent losses motivated this analysis, so recent replay is exploratory too.
+Stress quotes with fees+1c, fees+2c, execution at limit+1c and delayed quotes.
+Never imply historical quotes guarantee five-contract execution. Audit later live
+ownership-censored data explicitly; do not mistake no captured signal for no signal.
+Avoid claiming higher z removes losses without checking replacement entries.

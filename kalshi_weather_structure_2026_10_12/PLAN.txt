@@ -1,0 +1,44 @@
+Weather structure research — frozen before this pass's results, October12 2026
+
+Research only. No orders, credentials, live-bot edits or new ongoing services.
+This reuses previously inspected historical outcomes and is exploratory, not a
+fresh holdout. Newer dates, if collected, must be separately labeled.
+
+1. Inventory all current hourly weather series and daily high/low/rain families.
+   Distinguish configured indices from actually listed tradable contracts.
+2. Structural two-leg test: same-city/expiry YES lower threshold plus NO upper
+   threshold, guaranteed minimum combined payout1. Choose greatest minimum
+   surplus, including fees+1c EACH leg. Require >=1c/contract-pair net surplus,
+   both bid-ask widths<=5c, both recent10minute volume>=5, prices10–95c,
+   and subsequent quotes still satisfy the minimum surplus. One pair per expiry.
+   Separate quote opportunities from actual simultaneous-book fill evidence.
+3. Daily high observation lock: after observed station maximum exceeds a finite
+   bracket ceiling by2F, buy NO at10–97c. Use30minute observation availability
+   lag, only matching actual market station and definition; inspect15/30/60minute
+   source delays and1F/2F/3F rounding margins as labeled sensitivities. Candidate
+   times10:00–22:00 local everyhour. Before testing, audit settlement-source
+   mapping; do not assume METAR extremes equal official daily climate reports.
+4. Conditional hourly temperature forecast: forecast the distribution of final
+   index, not independent binary labels. Trailing14days, fit weekly using only
+   settled prior events. Inputs lag10minutes: present index,15/60minute changes,
+   recent variability, time-of-day and forecast horizon. Fixed ridge regularity;
+   residual distribution from time-ordered earlier training predictions.
+   Also compare fixed slope-extrapolation and persistence controls. Horizons
+   30/15/5minutes, one entry per event, best modeled surplus across strikes/sides.
+   Prices40–95c,spread<=2c,volume10m>=5,net modeled surplus>=3c.
+   Conservative market blend50%; pure physical model is a diagnostic.
+   No picking city/horizon/parameter because its final PnL was positive.
+
+All portfolio tables use five contracts, separate100USD portfolios,25contracts,
+25USD cost/exposure,20USD daily loss including open maximum loss,2USD floor.
+One city position until settlement for directional trades. Structural pairs
+reserve gross paid cost and count BOTH legs. Real settled timestamps release cash.
+Subsequent-minute opening quotes are quote proxies, not proven delayed fills.
+Also test next-minute closing quotes/60s delay,2c friction, and original-cap fills.
+Quotes after market close never count. Retain all losses and source exceptions.
+Counts include zero-trade calendar days. Report daily/city breakdowns, drawdown,
+cost sensitivity and day-block uncertainty; not minute rows as independent samples.
+
+If any mechanism looks promising, take a bounded current public-feed/book sample
+to check availability. Historical volume is not execution depth. No ongoing paper
+test or trading deployment is implied by this research pass.

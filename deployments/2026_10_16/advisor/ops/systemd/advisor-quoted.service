@@ -1,0 +1,21 @@
+[Unit]
+Description=Advisor quote daemon (read-only IBKR market data)
+After=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+WorkingDirectory=%h/stockstest
+Environment=PYTHONPATH=%h/stockstest
+Environment=ADVISOR_IB_PORT=4002
+Environment=ADVISOR_IB_CLIENT_ID=95
+ExecStart=%h/stockstest/.venv/bin/python -m advisor.quoted
+Restart=always
+RestartSec=20
+UMask=0077
+NoNewPrivileges=true
+StandardOutput=append:%h/stockstest/advisor/logs/quoted.log
+StandardError=append:%h/stockstest/advisor/logs/quoted.log
+
+[Install]
+WantedBy=default.target

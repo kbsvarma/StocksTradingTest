@@ -1,0 +1,61 @@
+FREQUENCY EXPANSION — frozen 2026-10-12 before new strategy results
+User request: significantly more daily trades with positive expectancy after
+fees; existing live bot unchanged. Working frequency target >=10 complete
+trade cycles per elapsed calendar day (20 preferred), not orders or legs.
+Research only. No financial orders, funding, service or strategy changes.
+
+A. SPORTS INTRAMATCH PRICE RESPONSE
+New mechanism compared with previous hold-to-settlement/pre-game studies:
+follow versus fade a >=10c midpoint move over 5 or 15 completed minutes.
+Twelve fixed designs: 2 lookbacks x 2 directions x 3 exits (5min,15min,
+8c target/8c stop/max15min). No optimizing league choice by final profit.
+Existing full-game tapes, selected by data availability from a previously
+volume-selected game universe. Canonical contract is lexicographically first
+of exactly two outcome contracts; both YES/NO allowed. Mechanical entry:
+10-90c ask, spread<=3c, completed prior10m volume>=5, complete lookback.
+Decision from completed bars; buy worse of signal and subsequent opening ask,
+capped at signal+2c. Exit at worse of signal bid and next opening bid, after
+an exit condition is observed; never fill at an unobserved stop/target price.
+Missing exit quotes keep holding until next executable quote or settlement.
+One active position per physical game, cooldown5min, at most4 cycles/game.
+Cash, fees, positions and outcomes follow chronological order. Charge fees
+and 1c PER TRANSACTION; 2c and +60s execution are separate stresses.
+Shared hypothetical $100, one contract, max25 contracts/$25 open debit,
+$20 daily realized-minus-open-debit budget. No exchange margin assumption.
+Development Aug15-Sep11 (unequal archive coverage), selection Sep12-Sep30,
+evaluation Oct1-Oct9. Finalists must earn positive net at1c and2c AND
+>=10/day in selection. Rank worst-cost selection net/day. Later data is
+evaluated only after selection receipt is frozen. If none passes, report
+failure, not a least-bad rule as an edge. Existing history has been examined
+for other strategies; this is new retrospective research, not pristine holdout.
+
+B. RECURRING NONCRYPTO EMPIRICAL PROBABILITY TRANSFER
+Apply the prior five-minute empirical model without searching new time/z
+parameters. Every eligible 15min window in available WTI/NATGAS/EURUSD/
+GBPUSD/USDJPY/PLATINUM/PALLADIUM history. Recently listed AUD/CAD lack training
+and are reported separately. Gold/Silver/Copper included only as controls;
+the user shelved metals and Copper remains retired.
+Per-asset past-settled-only weekly expanding standardized terminal-return
+distribution; >=250 training observations at same5min horizon; Beta(1,1),
+80% empirical +20% contemporaneous quote midpoint. Choose side by fee-adjusted
+surplus; require>=2c after fees+1c, ask50-<95c, spread<=2c; cap93.9c and
+signal+1c; no smoothing missing bars. One market entry, hold settlement.
+Five-contract and one-contract shared$100 portfolios, not sums of independent
+asset portfolios. Fees+1c/2c/3c, cap-price and +60s quote stress. Also count
+all qualified markets at caps to expose execution-selection bias.
+Use precise official outcomes/reference convention; audit labels are only
+available to the following training week. Early/later splits, asset splits,
+calendar frequency and losses disclosed. No retrospective asset cherry-pick
+presented as independently tested. This is exploratory transfer research.
+
+C. UNTESTED HIGH-VOLUME FAMILIES
+Refresh series metadata and inspect player-stat/mention/ladder opportunities.
+Only claim a backtest where outcomes, comparable contracts, contemporaneous
+quotes and required inputs are available. Inventory count is not backtesting.
+Do not buy data or manufacture fill/depth/first-arrival evidence.
+
+Record full ledgers, cost arithmetic, drawdowns, daily counts including zero
+days and uncertainty. Candle executions are proxies; historical depth and
+actual source arrival unverified. Keep all adverse scenarios/results.
+Preserve stable checkpoint, production source/flags/service identities and
+existing paper bots. No new service or observer is authorized by this study.

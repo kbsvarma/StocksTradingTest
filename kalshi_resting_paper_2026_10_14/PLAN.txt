@@ -1,0 +1,90 @@
+Prospective resting-order experiment — frozen before collection, October14,2026
+
+Question: after the SAME z/time/price/spread signal qualifies, can a short-lived
+resting bid buy more cheaply without losing the savings to missed winners and
+adverse selection? This is a separate paper experiment, not a live release.
+
+Primary: signal ask minus3c, rounded toward less spending on the actual tick
+ladder. Secondary: minus1c. Both request5contracts, post-only,10seconds, truncated
+at the existing decision+25s deadline. Never lower a lane's execution floor or
+exceed its original cap. If the discount falls below the floor, record a skip;
+do not clamp it to an invented target. Thus effective improvement may exceed
+the requested discount on markets with1c ticks. One opportunity per market,
+using the first qualifying event actually delivered by the live runner.
+No later-minute re-entry, repricing, or IOC fallback in these two variants.
+This is intentional bid-only execution. The production bot's existing retries
+remain unchanged and are reported separately as the actual comparison.
+
+Both variants independently reserve the whole resting order against unchanged
+5perentry/shared25contracts/$25exposure/$20daily loss including open risk, one
+asset position, plus a$2cash cushion. Paper route cash is copied from a fresh
+read-only live status at preparation; no money is moved. These are separate
+counterfactual portfolios, not combined exposure or simultaneous financial bets.
+Current lane z/price/time rules are copied, hashed and frozen. BTC originalz3;
+WTI1.5/2.5; EUR/CAD adaptive1.75/2.75; otheroriginal2/premium3.
+
+Fill modeling, fixed in advance:
+1. Read a fresh public book after receiving the qualifying production event.
+   Paper acceptance follows receipt by250ms. Capture all visible quantity at
+   the bid as queue ahead; no cancellation credit. A marketable post-only bid
+   is rejected rather than assigned a favorable instant fill.
+2. Only subsequent non-block PUBLIC trade prints can fill a resting order.
+   Opposite-outcome aggressive buys sell our outcome. At our bid, first consume
+   the entire captured queue; below our bid, credit only printed quantity.
+   Wrong direction, above-bid, pre-acceptance and expired prints never fill.
+   Deduplicate trade IDs. Keep fractional partial fills; at most5in total.
+   No unfilled remainder top-up. Quote touch alone is NOT a fill.
+3. A later book below the lane floor requests cancellation with250ms latency;
+   retain valid prints in that cancel race. Complete-minute z stays frozen,
+   as in production, for the10s lifetime. There is no newly invented intraminute
+   z calculation. Health/source drift cancels paper lifetimes and marks coverage
+   unknown. Restarts do not reconstruct continuous orders from hindsight.
+4. Query public prints through the expiration plus15s publication grace;
+   only exchange timestamps inside the original lifetime are eligible.
+   Pagination limited to5x1000per request cycle; truncation/errors/large book
+   gaps are retained as incomplete coverage, never silently marked a proven miss.
+5. Match a separate one-shot paper IOC on its first subsequent book after the
+   same acceptance time, requiring all5contracts within the existing cap. This
+   comparator separates some collection delay from price-discount effects.
+   It is NOT a replay of the production IOC's complete multi-attempt path.
+
+The receipt follower sees live signals only after the runner publishes them
+(sometimes after live submission/reconciliation). The collector yields seconds
+0–2 of each minute, caps its TOTAL public request rate at2/sec, and yields60s on
+its own or observed liveHTTP429. Report source-to-paper-acceptance delays. This
+can miss faster opportunities; absence of a modeled fill is not proof a timely
+real resting bid could not fill. Visible queues exclude hidden liquidity and
+counterfactual market response. Even modeled fills are not proven exchange fills.
+
+Fees: capture live series fee_type and multiplier, refresh every6h. Quadratic
+maker rate0, quadratic_with_maker_fees rate0.0175; taker0.07, multiplied by series
+factor. Aggregate trade fee rounds up6dp and total buy cash to4dp. Fixed-price
+partial fills use cumulative order-level fee rounding. Report maker model,
+taker-fee stress and additional1c/contract friction. Hold all fills to official
+settlement; losing and failed records never removed.
+
+Outputs: per variant/asset/lane, qualified opportunities, attempted/skipped,
+full/partial/unfilled/unknown, matched live prices, quantity-weighted improvement,
+live winners missed and their lost PnL, avoided losses, paper-only fills, fees,
+net and drawdown, actual-live and synchronous-IOC comparisons. Include every
+live entry since start, even when its qualifying event was not captured.
+
+Horizon:14calendar days from service start, then stop NEW opportunities and
+finish settlements. First fills and first settlements are preliminary execution
+evidence. Give a preliminary report at20settled comparable market opportunities.
+Assess the design only with at least14days and100settled comparable opportunities;
+also inspect the number of actual modeled resting fills. If inadequate at cutoff,
+report insufficient evidence. Bootstrap by calendar day when sample supports it;
+do not treat profitable fill-only subsets as the answer. No automatic live launch.
+
+Isolation: public GET allowlist only; no keys, authenticated client, order endpoint
+or financial POST/DELETE. Live DB uses mode=ro/query_only. Dedicated user service
+may write only this experiment directory. Hashes and existing service PIDs must
+match before/after startup. Preserve the stable September28 checkpoint.
+
+Primary documentation checked October14,2026:
+https://docs.kalshi.com/api-reference/orders/create-order-v2
+https://docs.kalshi.com/api-reference/market/get-trades
+https://docs.kalshi.com/api-reference/market/get-market-orderbook
+https://docs.kalshi.com/getting_started/fee_rounding
+https://kalshi.com/docs/kalshi-fee-schedule.pdf

@@ -1,0 +1,122 @@
+PERPETUALS EDGE AND LEVERAGE RESEARCH — October 10, 2026
+Research only. Preserve all live services, funds and stable crypto checkpoint.
+
+Check the supplied ETH funding gap on fully aligned complete8h periods. Never
+substitute zero for missing offshore funding. Compare matched windows and note
+partial-week boundaries. Separate funding yield/notional from return/all capital.
+
+New first-priority mechanism: long Kalshi ETH, short US Coinbase Derivatives ETH
+perpetual-style contract with exactly equal ETH units. Investigate official US
+funding histories and quote history; never substitute Coinbase International.
+If unavailable report the missing input rather than invent a backtest. Also
+check US Cboe continuous futures for the same matched-underlying mechanism.
+Interest is a collateral benefit, not trading alpha. Use0% in primary returns,
+reported3.25% only as a separate scenario. Broker access/fees remain unverified.
+
+Kalshi-only alternative: causal BTC/ETH relative value using low ETH funding
+and positive BTC funding. This is a risky statistical pair, NOT a hedge of the
+same asset. Fixed specifications: hourly data; rolling14-day beta from hourly
+log returns clipped0.5..2; residual cumulative spread compared with past7-day
+mean/stdev. Entry longETH/shortBTC when residual z<=-2 and trailing7-day funding
+carry>0; exit at z>=0 or7days, stop residual at-4. Mirror both-direction z2 rule
+as control, and unconditional equal-dollar ETHlong/BTCshort as carry control.
+Beta frozen at entry. Lagged decision then next-minute executable-side close;
+no reusing future prices for selection. All four definitions retained.
+Leverage1x/1.5x/2x/3x gross notional/equity; isolated per-leg collateral halves,
+current public risk parameters where available and clearly labeled historical
+margin stress if configs are not archived. Do not zero all collateral on stop.
+Actual funding at stated mark and heldunits; fees12bp/side plus1bp/side stress,
+5bp stress alternative. Jun throughAug development; Sep1–Oct9 later check.
+These periods are reused research data, not pristine holdout.
+
+Directional alternative: frozen July daily trend ensemble (donchian120,
+donchian180, majority60/120/252momentum;2of3). BTC/ETH individually plus equal
+weighted jointly. No new optimized indicator grid. Compare1x,1.5x,2x and3x,
+plus30%annualvol target capped1.5x using prior30daily log returns. Next-day
+00:05UTC executable quotes, exact funding since venue launch, all entry/exit
+costs. Test July28–Oct9 after dated design; cash and buyhold controls. Long-run
+spot proxies are not claimed as actual Kalshi backtests; any such extension
+must use explicit hypothetical funding-cost regimes, never backfill one short
+measured regime as known history. Report signal state, trades, net, drawdown,
+funding, fees, stress and concentration. No claim that leverage creates edge.
+
+Audit past leverage study: assumed maintenance margin, future-hour spot price
+sanity filter and zeroing margin upon liquidation. Produce genuine current
+parameter evidence and separate observed price path from hypothetical liquidation.
+Recommend only after numbers. If a branch fails pursue remaining mechanisms,
+not endless parameter mining. No live deployment inferred from research request.
+
+Margin clarification BEFORE results: official public risk_parameters is available.
+Current liquidation ratio1.0, queue0.91, initial margin=1.3*maintenance. Public
+leverage_estimates describe1/liquidation margin rate, not a validated historical
+initial-leverage cap. Replay uses side-specific1000-dollar notional estimates
+as CURRENT-parameter stress only. Close all legs when maintenance/equity>=0.85
+on any isolated leg, at next available quote; do not pretend this was the actual
+historical exchange liquidation engine. Retain margin balance after exit and
+apply fees. No transfers of winning-leg equity into the losing leg during a
+position. Integer contracts for$1000 modelcapital; remainingcash kept idle.
+The volatility-sized directional comparator sets leverage at each entry from
+prior30days (target30% annualvol, max1.5x) and holds contract units unchanged
+until signal exit. It is entry-vol sizing, not a continuously rebalanced
+constant-vol portfolio. Also report the frozen entry-rules plain buyhold control.
+
+Additional mechanism BEFORE obtaining its historical outcomes: US dated futures
+basis carry. Long Kalshi ETH/BTC perp, short exactly unit-matched Coinbase CDE
+monthly future. Current products disclose contractsize and expiry. Fetch official
+historical products/candles. Freeze entries at28/56/84calendar days to expiry,
+exit1day before expiry (avoids pretending different benchmarks cash-settle to the
+same price). No after-the-fact entry threshold; report each expiry/tenor, forward
+premium captured, residual basis, actual Kalshi funding, both-venue taker fee
+scenarios and mark-to-market risk. Only common timestamps after Kalshi launch.
+CDE hourly closes are last-trade proxies, not bid/ask. Primary extra2bp/side
+CDE quote friction, stress5bp; Kalshi actual minute bid/ask plus1bp/side. CDE fees
+0.15/0.30/0.50 dollars per contract per side pending broker-specific verification.
+First prices selected on fixed calendar, never on the realized winning expiry.
+Input repair before any valid pair outcomes: regular exchange gaps mean no14-day
+window contains336 consecutive hourly returns. Require>=320 valid paired returns
+within the trailing336calendar hours and>=160 paired levels in168hours; do not
+fill missing bars or compute a one-hour return across a multi-hour gap. Initial
+all-zero pair output was an input rejection, not an economic result.
+
+Additional cost-mechanism branch before its outcomes: short Kalshi BTC perp and
+long IBIT ETF during US stock trading hours. This replaces high spot-exchange
+transaction costs with a long ETF (no short-stock borrow), preserving spot/perp
+carry but introducing ETF tracking/premium, trading-hours and unit-rounding risk.
+Test fixed units from Jun4 common16ET close through Oct9, plus independent
+Sep1 start. IBIT adjusted public daily close is a proxy, not executable quote;
+Kalshi same-minute bid/ask. Fees12bp perp/side+1bp stress, ETF0commission plus
+2bp/side quote cost and0.01dollar/share SEC/TAF stress at sale;5bp quote stress.
+Broker-specific availability/fee tier not assumed verified. ETF expense is
+already reflected in traded prices, do not subtract it again. Initially match
+BTC-dollar exposure using ETF price (tracking hedge, not exact BTC/share proof),
+whole ETF shares and Kalshi contracts; report residual mismatch. Perp posted
+margin N/L; totalcapitalETFcost+perpmargin+fees, L1/1.5/2/3. Exact observed
+funding, current side-specific maintenance ratio as stress, close BOTH legs at
+next available joint ETFclose after margin-buffer breach; quantify additional
+short-leg minimum equity while awaiting ETF session. Also report no-margin-exit
+hedge economics separately; do not mark a proxy as guaranteed riskless capture.
+Compare earlier/later and month returns, actual fee drag and collateral interest
+separately. Leverage chosen from conservative capital buffers, not maximum API.
+ETF margin-exit implementation clarification before results: close the at-risk
+perp at the NEXT available minute after the0.85buffer signal, then unwind IBIT
+at the next regular-session close with a saved price. Report the intervening
+unhedged hours; do not assume an ETF fill while its exchange is closed. Daily
+combined DD is marked only at common regular closes. Perp collateral is checked
+minute by minute. Capital normalization$10,000 allows whole-share/contract sizing
+with small residual mismatch. Interest sensitivity uses mean positive marked
+perp collateral, approximation to actual settled-cash accrual, excluded primary.
+Raw-input correction: initial ETF run hit launch-era placeholder asks near10^24
+and wide books. Those are not index liquidation marks. Common quote validity now
+requires finite positive uncrossed prices, ask<1e8 per contract and spread<=0.5%.
+This is the same predeclared entry spread gate, now applied consistently to marks
+and exits. Count omitted minutes; no interpolation. Rerun all branches. These
+are price-proxy margin stress tests, not reconstructions of historical liquidations.
+
+Accounting audit correction: accrue official funding even if that minute has no
+usable quote, and reconcile entry<funding_time<=exit at every close. Rerun all
+results. Add independent July1/Aug1 calendar ETF entries at fixed1.5x and5bp,
+alongside Jun4/Sep1, to test dependence on start date; no date selection. These
+overlapping tests are robustness checks, not independent out-of-sample trials.
+July1 entry at1.5x crossed the margin buffer. Expand the SAME fixed calendar
+restarts to every already-tested leverage1/1.5/2/3 to expose sensitivity. Do not
+select the best start or present these overlapping runs as independent evidence.

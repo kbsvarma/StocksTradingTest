@@ -1,0 +1,4 @@
+# Gold perpetual focused audit
+
+Research only. No orders, account transfers or production edits.
+Keep the selected six-hour reversal rule fixed. Test all six UTC hourly offsets rather than optimize a new entry time. Test 1/5/15 minute delays on both legs, and 1/3/5/10 basis points additional cost on each leg. Maximum $50 notional, whole contracts, current metals taker fee 0.72bp per leg. Include observed funding. Compare long/short contributions, best-day/trade dependence, weekdays/weekends, always-long/always-short controls. Compute equity drawdown marked to executable minute closes. Invalid/missing quotes are counted; never replace them with favorable fills. Reused September data is not a holdout. Newly downloaded later dates are a small temporal extension, not statistically decisive independent validation. Report every variant, do not select the best.

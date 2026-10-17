@@ -1,0 +1,58 @@
+Broad Kalshi review — October 10, 2026
+
+Purpose: identify additions that materially increase useful trading activity,
+including independent strategies outside the crypto cushion model. Research only.
+The hourly BTC expansion is shelved at the user's request. Preserve production.
+
+1. Refresh every catalog series and exhaust the standard open-event cursor.
+   Category liquidity, short-horizon opportunities, new families and structural
+   payoff inequalities. Catalog quotes require fresh order-book confirmation.
+   Dynamic combos are a separate sampled universe, not an exhaustive census.
+2. Revisit prior research and distinguish forward observations from retested data.
+   Read the actual SOL perpetual paper ledger; never substitute old backtests.
+3. Fresh sports pricing: existing odds API access, bounded budget <=50 existing
+   credits, no subscription purchase. Same game/outcome/rules and pregame times;
+   at least three distinct books, remove vig, record quote ages and disagreement,
+   compare both YES and NO after fees and 1c/contract cost. Recheck positive
+   discrepancies with five-contract depth. Prices are opinions, not true odds.
+4. Fixed historical replication window Sep 26 04:00 UTC–Oct 10 04:00 UTC.
+   Hourly weather four previously researched cities: original weather85
+   (85–93c, spread <=2c, same favorite for five completed minutes, 15–45 min
+   remaining), plus fixed 93–98c/5-minute persistence comparator in same window.
+   One entry per city/expiry. Daily gas and published-source candidates use
+   predeclared high-favorite persistence comparisons, not claimed source forecasts.
+5. Sports: frozen WTA serving-for-match hypothesis, 95–96c, spread <=2c, before
+   match point, exclude completed-set/boundary rows, best-of-three. Fresh point
+   logs and quotes; one game owner, exact competitor IDs, delayed quote joins.
+   Mirror markets never double evidence. Source timestamps do not prove arrival.
+6. Existing AUDUSD/USDCAD time-adjusted cushion shortlist: extend available
+   history and check incremental portfolio capacity if data permits. Fixed
+   parameters only; no z-grid fit to the new observations.
+
+Five contracts per prediction entry; actual per-series fee multiplier and tick
+ladder; entry at next recorded quote, fees plus 1c and 2c cost scenarios and
+delayed quote challenge. Both raw candidate opportunity and capital-constrained
+results must be clearly labeled. No assumed maker fills, rebates or depth.
+Report coverage, failures, sample sizes, chronology, profit concentration,
+frequency and limitations. No claim to have backtested every possible strategy.
+
+Before any new replay results, sports comparisons are fixed as follows:
+- At 30 minutes before the milestone's scheduled start, buy a 70–90c favorite,
+  or separately a 10–30c underdog. Spread <=2c, at least five contracts traded
+  in the preceding ten minutes. One game owner, cheapest equivalent YES/NO.
+- In-game price persistence comparators: 95–<98c for five consecutive minutes,
+  or 97–<99c for ten, between scheduled start and start+6h. No filter using
+  retrospectively known remaining game time. At least five recent contracts.
+- Keep all ten preselected sports families and every result. These are finite
+  exploratory comparators; no best league/threshold may become a claimed
+  independent holdout. Mirror and same-game dependence are explicit.
+- WTA uses timestamped point rows, skips game/set boundary and advantage rows;
+  server's point score restricted to 0/15/30 to avoid ambiguous match-point state.
+
+Perpetual replication, frozen before new-period outcomes:
+Reuse the three Sept27 rules (EMA12/48, channel24/12, reversal48) with unchanged
+position sizing, delayed exits, costs and stops, for every currently listed perp.
+Evaluate entries Sep27 00ET through Oct10 00ET, with 100h earlier warmup only.
+The SOL paper ledger remains separate actual forward observation. Report every
+product/rule; newly selecting a winner among them is exploration, not an edge
+validated by this same window. No extra clock/threshold grid.

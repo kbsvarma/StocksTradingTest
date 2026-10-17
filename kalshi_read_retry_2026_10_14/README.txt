@@ -1,0 +1,1 @@
+LIVE: bounded account reads and USD/CAD fresh-signal confirmed-zero retry. Deployed October 14, 2026 at 14:01 ET. See REPORT.txt and deployment_receipt.json. Do not rerun deploy.py. Strategy, prices, five contracts and shared25/$25/$20 unchanged. Server: /home/varma/kalshi_read_retry_2026_10_14.

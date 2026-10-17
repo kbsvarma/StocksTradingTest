@@ -1,0 +1,15 @@
+[Unit]
+Description=Read-only BTC ETH benchmark and book research capture (bounded)
+After=network-online.target
+[Service]
+WorkingDirectory=/home/varma/kalshi_btc_eth_quant_2026_10_02
+ExecStart=/home/varma/kalshi/venv/bin/python -u forward_capture.py --max-windows 500 --max-gib 2 --max-seconds 604800
+Restart=on-failure
+RestartSec=30
+UMask=0077
+NoNewPrivileges=yes
+Nice=10
+CPUQuota=15%
+MemoryMax=256M
+[Install]
+WantedBy=default.target

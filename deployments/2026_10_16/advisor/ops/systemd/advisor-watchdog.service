@@ -1,0 +1,15 @@
+[Unit]
+Description=Advisor deterministic trust watchdog
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/stockstest
+Environment=PYTHONPATH=%h/stockstest
+EnvironmentFile=-%h/.trendbot_env
+ExecStart=%h/stockstest/.venv/bin/python -m advisor.ops_watchdog_linux
+TimeoutStartSec=300
+UMask=0077
+NoNewPrivileges=true
+StandardOutput=append:%h/stockstest/advisor/logs/watchdog.log
+StandardError=append:%h/stockstest/advisor/logs/watchdog.log

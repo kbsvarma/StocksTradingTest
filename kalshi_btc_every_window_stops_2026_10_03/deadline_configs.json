@@ -1,0 +1,2270 @@
+[
+  {
+    "id": 0,
+    "path_model": "hold",
+    "exit": {
+      "id": 0,
+      "name": "hold",
+      "family": "hold",
+      "mode": 0,
+      "amount": 0,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 8
+  },
+  {
+    "id": 1,
+    "path_model": "hold",
+    "exit": {
+      "id": 0,
+      "name": "hold",
+      "family": "hold",
+      "mode": 0,
+      "amount": 0,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 4
+  },
+  {
+    "id": 2,
+    "path_model": "hold",
+    "exit": {
+      "id": 0,
+      "name": "hold",
+      "family": "hold",
+      "mode": 0,
+      "amount": 0,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 2
+  },
+  {
+    "id": 3,
+    "path_model": "hold",
+    "exit": {
+      "id": 0,
+      "name": "hold",
+      "family": "hold",
+      "mode": 0,
+      "amount": 0,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 8
+  },
+  {
+    "id": 4,
+    "path_model": "hold",
+    "exit": {
+      "id": 0,
+      "name": "hold",
+      "family": "hold",
+      "mode": 0,
+      "amount": 0,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 4
+  },
+  {
+    "id": 5,
+    "path_model": "hold",
+    "exit": {
+      "id": 0,
+      "name": "hold",
+      "family": "hold",
+      "mode": 0,
+      "amount": 0,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 2
+  },
+  {
+    "id": 6,
+    "path_model": "hold",
+    "exit": {
+      "id": 0,
+      "name": "hold",
+      "family": "hold",
+      "mode": 0,
+      "amount": 0,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 8
+  },
+  {
+    "id": 7,
+    "path_model": "hold",
+    "exit": {
+      "id": 0,
+      "name": "hold",
+      "family": "hold",
+      "mode": 0,
+      "amount": 0,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 4
+  },
+  {
+    "id": 8,
+    "path_model": "hold",
+    "exit": {
+      "id": 0,
+      "name": "hold",
+      "family": "hold",
+      "mode": 0,
+      "amount": 0,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 2
+  },
+  {
+    "id": 9,
+    "path_model": "loss_0.05",
+    "exit": {
+      "id": 2,
+      "name": "loss_0.05",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.05,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 8
+  },
+  {
+    "id": 10,
+    "path_model": "loss_0.05",
+    "exit": {
+      "id": 2,
+      "name": "loss_0.05",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.05,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 4
+  },
+  {
+    "id": 11,
+    "path_model": "loss_0.05",
+    "exit": {
+      "id": 2,
+      "name": "loss_0.05",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.05,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 2
+  },
+  {
+    "id": 12,
+    "path_model": "loss_0.05",
+    "exit": {
+      "id": 2,
+      "name": "loss_0.05",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.05,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 8
+  },
+  {
+    "id": 13,
+    "path_model": "loss_0.05",
+    "exit": {
+      "id": 2,
+      "name": "loss_0.05",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.05,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 4
+  },
+  {
+    "id": 14,
+    "path_model": "loss_0.05",
+    "exit": {
+      "id": 2,
+      "name": "loss_0.05",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.05,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 2
+  },
+  {
+    "id": 15,
+    "path_model": "loss_0.05",
+    "exit": {
+      "id": 2,
+      "name": "loss_0.05",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.05,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 8
+  },
+  {
+    "id": 16,
+    "path_model": "loss_0.05",
+    "exit": {
+      "id": 2,
+      "name": "loss_0.05",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.05,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 4
+  },
+  {
+    "id": 17,
+    "path_model": "loss_0.05",
+    "exit": {
+      "id": 2,
+      "name": "loss_0.05",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.05,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 2
+  },
+  {
+    "id": 18,
+    "path_model": "loss_0.1",
+    "exit": {
+      "id": 4,
+      "name": "loss_0.1",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 8
+  },
+  {
+    "id": 19,
+    "path_model": "loss_0.1",
+    "exit": {
+      "id": 4,
+      "name": "loss_0.1",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 4
+  },
+  {
+    "id": 20,
+    "path_model": "loss_0.1",
+    "exit": {
+      "id": 4,
+      "name": "loss_0.1",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 2
+  },
+  {
+    "id": 21,
+    "path_model": "loss_0.1",
+    "exit": {
+      "id": 4,
+      "name": "loss_0.1",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 8
+  },
+  {
+    "id": 22,
+    "path_model": "loss_0.1",
+    "exit": {
+      "id": 4,
+      "name": "loss_0.1",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 4
+  },
+  {
+    "id": 23,
+    "path_model": "loss_0.1",
+    "exit": {
+      "id": 4,
+      "name": "loss_0.1",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 2
+  },
+  {
+    "id": 24,
+    "path_model": "loss_0.1",
+    "exit": {
+      "id": 4,
+      "name": "loss_0.1",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 8
+  },
+  {
+    "id": 25,
+    "path_model": "loss_0.1",
+    "exit": {
+      "id": 4,
+      "name": "loss_0.1",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 4
+  },
+  {
+    "id": 26,
+    "path_model": "loss_0.1",
+    "exit": {
+      "id": 4,
+      "name": "loss_0.1",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 2
+  },
+  {
+    "id": 27,
+    "path_model": "loss_0.15",
+    "exit": {
+      "id": 5,
+      "name": "loss_0.15",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 8
+  },
+  {
+    "id": 28,
+    "path_model": "loss_0.15",
+    "exit": {
+      "id": 5,
+      "name": "loss_0.15",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 4
+  },
+  {
+    "id": 29,
+    "path_model": "loss_0.15",
+    "exit": {
+      "id": 5,
+      "name": "loss_0.15",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 2
+  },
+  {
+    "id": 30,
+    "path_model": "loss_0.15",
+    "exit": {
+      "id": 5,
+      "name": "loss_0.15",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 8
+  },
+  {
+    "id": 31,
+    "path_model": "loss_0.15",
+    "exit": {
+      "id": 5,
+      "name": "loss_0.15",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 4
+  },
+  {
+    "id": 32,
+    "path_model": "loss_0.15",
+    "exit": {
+      "id": 5,
+      "name": "loss_0.15",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 2
+  },
+  {
+    "id": 33,
+    "path_model": "loss_0.15",
+    "exit": {
+      "id": 5,
+      "name": "loss_0.15",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 8
+  },
+  {
+    "id": 34,
+    "path_model": "loss_0.15",
+    "exit": {
+      "id": 5,
+      "name": "loss_0.15",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 4
+  },
+  {
+    "id": 35,
+    "path_model": "loss_0.15",
+    "exit": {
+      "id": 5,
+      "name": "loss_0.15",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 2
+  },
+  {
+    "id": 36,
+    "path_model": "loss_0.2",
+    "exit": {
+      "id": 6,
+      "name": "loss_0.2",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.2,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 8
+  },
+  {
+    "id": 37,
+    "path_model": "loss_0.2",
+    "exit": {
+      "id": 6,
+      "name": "loss_0.2",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.2,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 4
+  },
+  {
+    "id": 38,
+    "path_model": "loss_0.2",
+    "exit": {
+      "id": 6,
+      "name": "loss_0.2",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.2,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 2
+  },
+  {
+    "id": 39,
+    "path_model": "loss_0.2",
+    "exit": {
+      "id": 6,
+      "name": "loss_0.2",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.2,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 8
+  },
+  {
+    "id": 40,
+    "path_model": "loss_0.2",
+    "exit": {
+      "id": 6,
+      "name": "loss_0.2",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.2,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 4
+  },
+  {
+    "id": 41,
+    "path_model": "loss_0.2",
+    "exit": {
+      "id": 6,
+      "name": "loss_0.2",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.2,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 2
+  },
+  {
+    "id": 42,
+    "path_model": "loss_0.2",
+    "exit": {
+      "id": 6,
+      "name": "loss_0.2",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.2,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 8
+  },
+  {
+    "id": 43,
+    "path_model": "loss_0.2",
+    "exit": {
+      "id": 6,
+      "name": "loss_0.2",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.2,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 4
+  },
+  {
+    "id": 44,
+    "path_model": "loss_0.2",
+    "exit": {
+      "id": 6,
+      "name": "loss_0.2",
+      "family": "tight",
+      "mode": 1,
+      "amount": 0.2,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 2
+  },
+  {
+    "id": 45,
+    "path_model": "salvage_0.1",
+    "exit": {
+      "id": 10,
+      "name": "salvage_0.1",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 8
+  },
+  {
+    "id": 46,
+    "path_model": "salvage_0.1",
+    "exit": {
+      "id": 10,
+      "name": "salvage_0.1",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 4
+  },
+  {
+    "id": 47,
+    "path_model": "salvage_0.1",
+    "exit": {
+      "id": 10,
+      "name": "salvage_0.1",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 2
+  },
+  {
+    "id": 48,
+    "path_model": "salvage_0.1",
+    "exit": {
+      "id": 10,
+      "name": "salvage_0.1",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 8
+  },
+  {
+    "id": 49,
+    "path_model": "salvage_0.1",
+    "exit": {
+      "id": 10,
+      "name": "salvage_0.1",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 4
+  },
+  {
+    "id": 50,
+    "path_model": "salvage_0.1",
+    "exit": {
+      "id": 10,
+      "name": "salvage_0.1",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 2
+  },
+  {
+    "id": 51,
+    "path_model": "salvage_0.1",
+    "exit": {
+      "id": 10,
+      "name": "salvage_0.1",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 8
+  },
+  {
+    "id": 52,
+    "path_model": "salvage_0.1",
+    "exit": {
+      "id": 10,
+      "name": "salvage_0.1",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 4
+  },
+  {
+    "id": 53,
+    "path_model": "salvage_0.1",
+    "exit": {
+      "id": 10,
+      "name": "salvage_0.1",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 2
+  },
+  {
+    "id": 54,
+    "path_model": "salvage_0.15",
+    "exit": {
+      "id": 11,
+      "name": "salvage_0.15",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 8
+  },
+  {
+    "id": 55,
+    "path_model": "salvage_0.15",
+    "exit": {
+      "id": 11,
+      "name": "salvage_0.15",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 4
+  },
+  {
+    "id": 56,
+    "path_model": "salvage_0.15",
+    "exit": {
+      "id": 11,
+      "name": "salvage_0.15",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 2
+  },
+  {
+    "id": 57,
+    "path_model": "salvage_0.15",
+    "exit": {
+      "id": 11,
+      "name": "salvage_0.15",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 8
+  },
+  {
+    "id": 58,
+    "path_model": "salvage_0.15",
+    "exit": {
+      "id": 11,
+      "name": "salvage_0.15",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 4
+  },
+  {
+    "id": 59,
+    "path_model": "salvage_0.15",
+    "exit": {
+      "id": 11,
+      "name": "salvage_0.15",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 2
+  },
+  {
+    "id": 60,
+    "path_model": "salvage_0.15",
+    "exit": {
+      "id": 11,
+      "name": "salvage_0.15",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 8
+  },
+  {
+    "id": 61,
+    "path_model": "salvage_0.15",
+    "exit": {
+      "id": 11,
+      "name": "salvage_0.15",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 4
+  },
+  {
+    "id": 62,
+    "path_model": "salvage_0.15",
+    "exit": {
+      "id": 11,
+      "name": "salvage_0.15",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 2
+  },
+  {
+    "id": 63,
+    "path_model": "salvage_0.2",
+    "exit": {
+      "id": 12,
+      "name": "salvage_0.2",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.2,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 8
+  },
+  {
+    "id": 64,
+    "path_model": "salvage_0.2",
+    "exit": {
+      "id": 12,
+      "name": "salvage_0.2",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.2,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 4
+  },
+  {
+    "id": 65,
+    "path_model": "salvage_0.2",
+    "exit": {
+      "id": 12,
+      "name": "salvage_0.2",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.2,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 2
+  },
+  {
+    "id": 66,
+    "path_model": "salvage_0.2",
+    "exit": {
+      "id": 12,
+      "name": "salvage_0.2",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.2,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 8
+  },
+  {
+    "id": 67,
+    "path_model": "salvage_0.2",
+    "exit": {
+      "id": 12,
+      "name": "salvage_0.2",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.2,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 4
+  },
+  {
+    "id": 68,
+    "path_model": "salvage_0.2",
+    "exit": {
+      "id": 12,
+      "name": "salvage_0.2",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.2,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 2
+  },
+  {
+    "id": 69,
+    "path_model": "salvage_0.2",
+    "exit": {
+      "id": 12,
+      "name": "salvage_0.2",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.2,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 8
+  },
+  {
+    "id": 70,
+    "path_model": "salvage_0.2",
+    "exit": {
+      "id": 12,
+      "name": "salvage_0.2",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.2,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 4
+  },
+  {
+    "id": 71,
+    "path_model": "salvage_0.2",
+    "exit": {
+      "id": 12,
+      "name": "salvage_0.2",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.2,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 2
+  },
+  {
+    "id": 72,
+    "path_model": "salvage_0.25",
+    "exit": {
+      "id": 13,
+      "name": "salvage_0.25",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.25,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 8
+  },
+  {
+    "id": 73,
+    "path_model": "salvage_0.25",
+    "exit": {
+      "id": 13,
+      "name": "salvage_0.25",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.25,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 4
+  },
+  {
+    "id": 74,
+    "path_model": "salvage_0.25",
+    "exit": {
+      "id": 13,
+      "name": "salvage_0.25",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.25,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 2
+  },
+  {
+    "id": 75,
+    "path_model": "salvage_0.25",
+    "exit": {
+      "id": 13,
+      "name": "salvage_0.25",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.25,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 8
+  },
+  {
+    "id": 76,
+    "path_model": "salvage_0.25",
+    "exit": {
+      "id": 13,
+      "name": "salvage_0.25",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.25,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 4
+  },
+  {
+    "id": 77,
+    "path_model": "salvage_0.25",
+    "exit": {
+      "id": 13,
+      "name": "salvage_0.25",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.25,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 2
+  },
+  {
+    "id": 78,
+    "path_model": "salvage_0.25",
+    "exit": {
+      "id": 13,
+      "name": "salvage_0.25",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.25,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 8
+  },
+  {
+    "id": 79,
+    "path_model": "salvage_0.25",
+    "exit": {
+      "id": 13,
+      "name": "salvage_0.25",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.25,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 4
+  },
+  {
+    "id": 80,
+    "path_model": "salvage_0.25",
+    "exit": {
+      "id": 13,
+      "name": "salvage_0.25",
+      "family": "salvage",
+      "mode": 2,
+      "amount": 0.25,
+      "activate": 14,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 2
+  },
+  {
+    "id": 81,
+    "path_model": "late3_2_0.1",
+    "exit": {
+      "id": 51,
+      "name": "late3_2_0.1",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 8
+  },
+  {
+    "id": 82,
+    "path_model": "late3_2_0.1",
+    "exit": {
+      "id": 51,
+      "name": "late3_2_0.1",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 4
+  },
+  {
+    "id": 83,
+    "path_model": "late3_2_0.1",
+    "exit": {
+      "id": 51,
+      "name": "late3_2_0.1",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 2
+  },
+  {
+    "id": 84,
+    "path_model": "late3_2_0.1",
+    "exit": {
+      "id": 51,
+      "name": "late3_2_0.1",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 8
+  },
+  {
+    "id": 85,
+    "path_model": "late3_2_0.1",
+    "exit": {
+      "id": 51,
+      "name": "late3_2_0.1",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 4
+  },
+  {
+    "id": 86,
+    "path_model": "late3_2_0.1",
+    "exit": {
+      "id": 51,
+      "name": "late3_2_0.1",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 2
+  },
+  {
+    "id": 87,
+    "path_model": "late3_2_0.1",
+    "exit": {
+      "id": 51,
+      "name": "late3_2_0.1",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 8
+  },
+  {
+    "id": 88,
+    "path_model": "late3_2_0.1",
+    "exit": {
+      "id": 51,
+      "name": "late3_2_0.1",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 4
+  },
+  {
+    "id": 89,
+    "path_model": "late3_2_0.1",
+    "exit": {
+      "id": 51,
+      "name": "late3_2_0.1",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 2
+  },
+  {
+    "id": 90,
+    "path_model": "late3_2_0.15",
+    "exit": {
+      "id": 52,
+      "name": "late3_2_0.15",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 8
+  },
+  {
+    "id": 91,
+    "path_model": "late3_2_0.15",
+    "exit": {
+      "id": 52,
+      "name": "late3_2_0.15",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 4
+  },
+  {
+    "id": 92,
+    "path_model": "late3_2_0.15",
+    "exit": {
+      "id": 52,
+      "name": "late3_2_0.15",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 2
+  },
+  {
+    "id": 93,
+    "path_model": "late3_2_0.15",
+    "exit": {
+      "id": 52,
+      "name": "late3_2_0.15",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 8
+  },
+  {
+    "id": 94,
+    "path_model": "late3_2_0.15",
+    "exit": {
+      "id": 52,
+      "name": "late3_2_0.15",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 4
+  },
+  {
+    "id": 95,
+    "path_model": "late3_2_0.15",
+    "exit": {
+      "id": 52,
+      "name": "late3_2_0.15",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 2
+  },
+  {
+    "id": 96,
+    "path_model": "late3_2_0.15",
+    "exit": {
+      "id": 52,
+      "name": "late3_2_0.15",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 8
+  },
+  {
+    "id": 97,
+    "path_model": "late3_2_0.15",
+    "exit": {
+      "id": 52,
+      "name": "late3_2_0.15",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 4
+  },
+  {
+    "id": 98,
+    "path_model": "late3_2_0.15",
+    "exit": {
+      "id": 52,
+      "name": "late3_2_0.15",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 2
+  },
+  {
+    "id": 99,
+    "path_model": "late3_2_0.2",
+    "exit": {
+      "id": 53,
+      "name": "late3_2_0.2",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.2,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 8
+  },
+  {
+    "id": 100,
+    "path_model": "late3_2_0.2",
+    "exit": {
+      "id": 53,
+      "name": "late3_2_0.2",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.2,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 4
+  },
+  {
+    "id": 101,
+    "path_model": "late3_2_0.2",
+    "exit": {
+      "id": 53,
+      "name": "late3_2_0.2",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.2,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 2
+  },
+  {
+    "id": 102,
+    "path_model": "late3_2_0.2",
+    "exit": {
+      "id": 53,
+      "name": "late3_2_0.2",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.2,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 8
+  },
+  {
+    "id": 103,
+    "path_model": "late3_2_0.2",
+    "exit": {
+      "id": 53,
+      "name": "late3_2_0.2",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.2,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 4
+  },
+  {
+    "id": 104,
+    "path_model": "late3_2_0.2",
+    "exit": {
+      "id": 53,
+      "name": "late3_2_0.2",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.2,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 2
+  },
+  {
+    "id": 105,
+    "path_model": "late3_2_0.2",
+    "exit": {
+      "id": 53,
+      "name": "late3_2_0.2",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.2,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 8
+  },
+  {
+    "id": 106,
+    "path_model": "late3_2_0.2",
+    "exit": {
+      "id": 53,
+      "name": "late3_2_0.2",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.2,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 4
+  },
+  {
+    "id": 107,
+    "path_model": "late3_2_0.2",
+    "exit": {
+      "id": 53,
+      "name": "late3_2_0.2",
+      "family": "late_salvage",
+      "mode": 2,
+      "amount": 0.2,
+      "activate": 3,
+      "confirm": 1,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 2
+  },
+  {
+    "id": 108,
+    "path_model": "confirmed_2_0.1",
+    "exit": {
+      "id": 24,
+      "name": "confirmed_2_0.1",
+      "family": "confirmed",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 2,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 8
+  },
+  {
+    "id": 109,
+    "path_model": "confirmed_2_0.1",
+    "exit": {
+      "id": 24,
+      "name": "confirmed_2_0.1",
+      "family": "confirmed",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 2,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 4
+  },
+  {
+    "id": 110,
+    "path_model": "confirmed_2_0.1",
+    "exit": {
+      "id": 24,
+      "name": "confirmed_2_0.1",
+      "family": "confirmed",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 2,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 2
+  },
+  {
+    "id": 111,
+    "path_model": "confirmed_2_0.1",
+    "exit": {
+      "id": 24,
+      "name": "confirmed_2_0.1",
+      "family": "confirmed",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 2,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 8
+  },
+  {
+    "id": 112,
+    "path_model": "confirmed_2_0.1",
+    "exit": {
+      "id": 24,
+      "name": "confirmed_2_0.1",
+      "family": "confirmed",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 2,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 4
+  },
+  {
+    "id": 113,
+    "path_model": "confirmed_2_0.1",
+    "exit": {
+      "id": 24,
+      "name": "confirmed_2_0.1",
+      "family": "confirmed",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 2,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 2
+  },
+  {
+    "id": 114,
+    "path_model": "confirmed_2_0.1",
+    "exit": {
+      "id": 24,
+      "name": "confirmed_2_0.1",
+      "family": "confirmed",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 2,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 8
+  },
+  {
+    "id": 115,
+    "path_model": "confirmed_2_0.1",
+    "exit": {
+      "id": 24,
+      "name": "confirmed_2_0.1",
+      "family": "confirmed",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 2,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 4
+  },
+  {
+    "id": 116,
+    "path_model": "confirmed_2_0.1",
+    "exit": {
+      "id": 24,
+      "name": "confirmed_2_0.1",
+      "family": "confirmed",
+      "mode": 2,
+      "amount": 0.1,
+      "activate": 14,
+      "confirm": 2,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 2
+  },
+  {
+    "id": 117,
+    "path_model": "confirmed_2_0.15",
+    "exit": {
+      "id": 26,
+      "name": "confirmed_2_0.15",
+      "family": "confirmed",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 2,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 8
+  },
+  {
+    "id": 118,
+    "path_model": "confirmed_2_0.15",
+    "exit": {
+      "id": 26,
+      "name": "confirmed_2_0.15",
+      "family": "confirmed",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 2,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 4
+  },
+  {
+    "id": 119,
+    "path_model": "confirmed_2_0.15",
+    "exit": {
+      "id": 26,
+      "name": "confirmed_2_0.15",
+      "family": "confirmed",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 2,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.0,
+    "deadline": 2
+  },
+  {
+    "id": 120,
+    "path_model": "confirmed_2_0.15",
+    "exit": {
+      "id": 26,
+      "name": "confirmed_2_0.15",
+      "family": "confirmed",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 2,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 8
+  },
+  {
+    "id": 121,
+    "path_model": "confirmed_2_0.15",
+    "exit": {
+      "id": 26,
+      "name": "confirmed_2_0.15",
+      "family": "confirmed",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 2,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 4
+  },
+  {
+    "id": 122,
+    "path_model": "confirmed_2_0.15",
+    "exit": {
+      "id": 26,
+      "name": "confirmed_2_0.15",
+      "family": "confirmed",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 2,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.01,
+    "deadline": 2
+  },
+  {
+    "id": 123,
+    "path_model": "confirmed_2_0.15",
+    "exit": {
+      "id": 26,
+      "name": "confirmed_2_0.15",
+      "family": "confirmed",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 2,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 8
+  },
+  {
+    "id": 124,
+    "path_model": "confirmed_2_0.15",
+    "exit": {
+      "id": 26,
+      "name": "confirmed_2_0.15",
+      "family": "confirmed",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 2,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 4
+  },
+  {
+    "id": 125,
+    "path_model": "confirmed_2_0.15",
+    "exit": {
+      "id": 26,
+      "name": "confirmed_2_0.15",
+      "family": "confirmed",
+      "mode": 2,
+      "amount": 0.15,
+      "activate": 14,
+      "confirm": 2,
+      "arm": 9,
+      "model_col": 8,
+      "margin": 0
+    },
+    "threshold": 0.02,
+    "deadline": 2
+  }
+]

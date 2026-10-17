@@ -1,0 +1,74 @@
+NFL/NHL frequency extension — October10,2026. RESEARCH ONLY.
+Preserve prior study and all production/stable files. User asks more regular
+trades and actual numbers. No order, activation, transfer or background service.
+
+Known prior findings: strict pregame>=60%,last5min,p90 gives NFL7wins/NHL6wins.
+NHL anyleader last5min p90 previously37/36W1L,+8.9762; NFL broadleaders lost.
+These are already inspected outcomes, not fresh holdout discoveries.
+
+Expand all recent games, no90–98-only prefilter when testing85c entry. Repair
+score/quote gaps where official archives permit. Keep preseason separate from
+regular/postseason, identified by source season metadata, not winners.
+Attempt prior NFL2025season and NHL2025–26 historical quotes + timestamped plays
+for independent season comparison. If unavailable, record exact coverage gaps;
+never invent time alignment or call current reused data untouched holdout.
+
+Fixed mechanisms (bounded exploratory grid, all rows disclosed):
+ A. Originalfavorite: pregame midpoint>50%,>=55%,>=60%; still leads.
+ B. Any currentleader, no pregame constraint.
+ C. Multi-score lead: NFL>=9 or>=17points, NHL>=2 or>=3goals.
+ D. Possession-confirmed NFL leader if source supports post-play possession;
+    no guessed possession from play attribution, drives' final scores, or text.
+    NHL manpower/goalie confirmation only if causally timestamped source proves
+    current state. Unsupported variables explicitly untested.
+Time gates NFL Q4<=5/10/15min; NHL P3<=5/10/15min. Price bands85–<90,90–<95,
+95–<98 and combined90–<98; lowerband is a comparator, not automaticweakening.
+One entry/game, choose equivalent side from decision quotes BEFORE reading
+execution quote. No doublecount of overlapping profiles/bands. Standardhold
+settlement, no fitted stops. Source30s,<=120s stale; executionnextopen+3s,
+max(signalask,nextask),capmin(ask+1c,98c); spread<=2c,volume10min>=5.
+Existing100capital/5ct/max25/$25/$20/2cashfloor portfolio and historicalfees;
++1c baseline,+2c cost,60squote,90ssource,bothdelays. Frequency report bycalendar
+day AND actualgame-day/week; NFL not a seven-day-a-week strategy.
+
+Separate initially strict source parity from practical operational variants:
+pregame asofquote at scheduledstart-30min allowedage<=5min (compare exactminute),
+fresh source90s/120s constraints, no carrying scores over status/terminal change.
+If parsed feed clocks/scores/timestamps inconsistent, diagnose BEFORE results.
+
+Chronology: historical2025–26 season comparisons preferred. For recent2026
+data compare preseason, regular, Sep/Oct and chronologicalhalf; selecting
+candidate now is exploratory. Report fullcost/delay/frequency/dd results,
+source/publication uncertainty, fivecontractdepthunverified,losersretained.
+Combine one fixed NFL and one NHL rule in ONE100portfolio for jointnumbers;
+do not sum twoindependent100curves. No parametersearchuntilpromisedprofit.
+
+Historical windows chosen before new replay: NFL Sep1,2025–Feb15,2026;
+NHL Jan1–Mar31,2026. NFL priortrain beforeDec1, remainder priorvalidation;
+NHL priortrain beforeFeb15, remainder priorvalidation. RecentAug1–Oct10
+completed games is a third comparison, with preseason separate. Recent data
+has already been examined in earlier work, so it is NOT an untouched holdout.
+Historical candidates not previously screened here; selecting a model on
+earlier outcomes is still exploratory, not a guarantee against overfit.
+Priortrain selection: require>=25base trades and positive net in all five
+cost/delay scenarios; rank minimum net across those scenarios. Choose one
+per league using that rule before consulting its validation result. Show
+failed selections and recent high-frequency comparators too. Broader retained
+grid includes lower85c band; preferred late-favorite recommendation uses90c+.
+
+Additional frequency mechanism after full-game results: NHL has separate
+1st/2nd/3rd period winner markets, first observed Sep29. Test the leader of
+THAT PERIOD, not cumulative gameleader: subtract previously observed period
+start score; >=1/2goal lead, <=2/5min remaining,90–<98 or85–<95c. YES only:
+threeway TIE makes opposing NO non-equivalent. One entry per physicalperiod;
+pooled threeperiods use one100portfolio, not three100accounts. Samefees/costs/
+sourceages/delays/spread/volume gates. Only already-collected matched completed
+games; unmatched ongoing games counted. No earlier historical period markets
+returned by API; short history alone is not validation. No choosing untilwins.
+
+Final bounded operational sensitivity after base results: hold-to-settlement
+pays the entry ask and no exit spread, so test allowing3c/5c spreads while
+keeping ask caps,source rules,5ct andfees unchanged. Restrict fullgame checks
+to NFLleaderlast5p90/wide and NHLleaderlast5p90,f55last5wide,f60last5p90.
+Also rerun fixed NHLperiod profiles at3c/5c. This is posthoc sensitivity, not
+new holdout evidence or proof that wider quotes contain fivecontractdepth.

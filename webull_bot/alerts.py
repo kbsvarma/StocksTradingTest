@@ -63,33 +63,85 @@ def send_alert(
 ) -> bool:
     """Fire-and-forget Telegram message.
 
-    Dispatches the HTTP POST on a daemon thread and returns immediately. The
-    caller never blocks. If TELEGRAM_BOT_TOKEN is unset, returns False without
-    spawning a thread. Network failures and exceptions are swallowed inside
-    the worker thread — alerts can never propagate back to the trading path.
+    2026-05-22 rewrite: now routes through the event queue → telegram service.
+    Returns True if successfully appended to queue. Telegram delivery is
+    guaranteed-attempted by the service (with logged success/failure) — no
+    more silent send failures.
 
-    Return value indicates "dispatched", not "delivered". For our purposes
-    (best-effort notifications) that's the right contract.
+    Legacy direct-send path retained ONLY if event_queue import fails (shouldn't
+    happen in production). Kept for absolute compatibility.
     """
-    if not _enabled():
+    if not text:
         return False
-    parse_mode = "HTML" if html else ("MarkdownV2" if markdown else "")
+    # Strip MarkdownV2 escape backslashes — queue path uses plain text by default
+    # (telegram_service applies its own emoji prefix)
     try:
-        t = threading.Thread(
-            target=_post_blocking,
-            args=(text, parse_mode, timeout),
-            daemon=True,
-        )
-        t.start()
+        from webull_bot.event_queue import queue_event
+        # Detect severity from leading emoji (heuristic — preserves urgency hints)
+        sev = "info"
+        if any(x in text[:40] for x in ("🚨", "CRITICAL", "ORPHAN", "STOP LOSS", "STOP_LOSS", "TRIGGER")):
+            sev = "critical"
+        elif any(x in text[:40] for x in ("⚠️", "WARN", "DEGRAD", "STALE")):
+            sev = "warn"
+        # First line as subject, rest as body
+        lines = text.split("\n", 1)
+        subject = lines[0][:200]
+        body = lines[1] if len(lines) > 1 else ""
+        queue_event(severity=sev, source="alerts.send_alert", subject=subject, body=body)
         return True
     except Exception:
-        return False
+        # Fallback to legacy direct send (best-effort)
+        if not _enabled():
+            return False
+        parse_mode = "HTML" if html else ("MarkdownV2" if markdown else "")
+        try:
+            t = threading.Thread(
+                target=_post_blocking,
+                args=(text, parse_mode, timeout),
+                daemon=True,
+            )
+            t.start()
+            return True
+        except Exception:
+            return False
 
 
 # ── Domain-specific alerts ───────────────────────────────────────────────────
 
 def _now_et() -> str:
     return datetime.now(ET).strftime("%H:%M:%S ET")
+
+
+def _fmt_evt(event_ts: Optional[datetime], kind: str = "") -> str:
+    """Format a timestamp footer for alerts.
+
+    With event_ts: returns `(evt HH:MM:SS → snt HH:MM:SS  Δ Ns ET)` so the
+    user can see how long elapsed between the underlying event being detected
+    by the bot and the alert being dispatched. Also emits a stderr line
+    `[alert-latency] kind=X evt=... snt=... delta_s=N` for historical analysis.
+
+    Without event_ts: same as `(_now_et())`.
+    """
+    sent = datetime.now(ET)
+    if event_ts is None:
+        return f"({sent.strftime('%H:%M:%S ET')})"
+    if event_ts.tzinfo is None:
+        event_ts = event_ts.replace(tzinfo=ET)
+    delta_s = (sent - event_ts).total_seconds()
+    try:
+        import sys
+        sys.stderr.write(
+            f"[alert-latency] kind={kind or 'unknown'} "
+            f"evt={event_ts.strftime('%H:%M:%S')} snt={sent.strftime('%H:%M:%S')} "
+            f"delta_s={delta_s:.1f}\n"
+        )
+        sys.stderr.flush()
+    except Exception:
+        pass
+    return (
+        f"(evt {event_ts.strftime('%H:%M:%S')} → snt {sent.strftime('%H:%M:%S')}"
+        f"  Δ {delta_s:.0f}s ET)"
+    )
 
 
 def _safe(fn):
@@ -104,8 +156,13 @@ def _safe(fn):
 
 
 @_safe
-def alert_order_event(kind: str, details: dict) -> bool:
-    """kind: PLACED, FILLED, REJECTED, CANCELLED, TIMEOUT."""
+def alert_order_event(kind: str, details: dict, event_ts: Optional[datetime] = None) -> bool:
+    """kind: PLACED, FILLED, REJECTED, CANCELLED, TIMEOUT.
+
+    event_ts: optional moment the underlying event was detected (e.g. when
+    the broker confirmed a fill). When provided, alert footer shows the
+    bot→alert latency so we can debug perceived delivery delay.
+    """
     icon = {
         "PLACED":    "📤",
         "FILLED":    "🟢",
@@ -120,7 +177,7 @@ def alert_order_event(kind: str, details: dict) -> bool:
     qty   = details.get("qty", "?")
     price = details.get("fill_price") or details.get("limit_price")
     price_s = f"  @ {price:.2f}" if isinstance(price, (int, float)) else ""
-    return send_alert(f"{icon}  {kind}  {spread}  qty={qty}{price_s}  ({_now_et()})")
+    return send_alert(f"{icon}  {kind}  {spread}  qty={qty}{price_s}  {_fmt_evt(event_ts, kind)}")
 
 
 @_safe
@@ -140,19 +197,24 @@ def alert_entry(
 
 
 @_safe
-def alert_stop_fired(spread: str, mark: float, stop: float, filled: bool) -> bool:
+def alert_stop_fired(spread: str, mark: float, stop: float, filled: bool,
+                     event_ts: Optional[datetime] = None) -> bool:
+    """event_ts: the moment SL was triggered (mark crossed stop), not the
+    moment the close confirmed. Shows the trigger→alert latency so user
+    knows whether the close itself was slow."""
     state = "FILLED ✓" if filled else "NOT CONFIRMED ⚠️"
     msg = (
         f"🛑  STOP LOSS triggered  {spread}\n"
         f"mark={mark:.2f}  stop={stop:.2f}\n"
-        f"close: {state}  ({_now_et()})"
+        f"close: {state}  {_fmt_evt(event_ts, 'SL_FIRED')}"
     )
     return send_alert(msg)
 
 
 @_safe
 def alert_close_failed_retry(spread: str, attempt: int, error: str,
-                              mark: float, stop: float, next_retry_sec: int) -> bool:
+                              mark: float, stop: float, next_retry_sec: int,
+                              event_ts: Optional[datetime] = None) -> bool:
     """Fires on EVERY failed close attempt during stop-loss retry loop.
 
     Per memory/sl_close_failure_handling.md: bot must NOT abandon position
@@ -165,7 +227,7 @@ def alert_close_failed_retry(spread: str, attempt: int, error: str,
         f"Mark: {mark:.2f}  Stop: {stop:.2f}\n"
         f"Reason: {error[:200]}\n"
         f"POSITION STILL OPEN — bot will retry in {next_retry_sec}s.\n"
-        f"({_now_et()})"
+        f"{_fmt_evt(event_ts, 'CLOSE_FAIL_RETRY')}"
     )
     return send_alert(msg)
 
@@ -192,7 +254,8 @@ def alert_close_failed_eod(spread: str, attempts: int, last_error: str,
 
 
 @_safe
-def alert_close_resolved_externally(spread: str, attempts: int) -> bool:
+def alert_close_resolved_externally(spread: str, attempts: int,
+                                     event_ts: Optional[datetime] = None) -> bool:
     """Fires when bot detects position closed externally during retry loop
     (user manually closed in app, or order from a previous attempt eventually
     filled). Bot stops retrying."""
@@ -200,7 +263,7 @@ def alert_close_resolved_externally(spread: str, attempts: int) -> bool:
         f"✅  Position closed externally — bot stops retrying close.\n"
         f"Spread: {spread}\n"
         f"Attempts before detection: {attempts}\n"
-        f"({_now_et()})"
+        f"{_fmt_evt(event_ts, 'CLOSE_EXTERNAL')}"
     )
     return send_alert(msg)
 
@@ -209,6 +272,7 @@ def alert_close_resolved_externally(spread: str, attempts: int) -> bool:
 def alert_position_closed(
     spread: str, reason: str, entry_credit: float, exit_price: float,
     pnl_usd: float, wins: int, losses: int, total_pnl: float,
+    event_ts: Optional[datetime] = None,
 ) -> bool:
     """Fires for every exit path: STOP_LOSS, EXPIRED, EOD."""
     icon = {
@@ -223,7 +287,7 @@ def alert_position_closed(
         f"entry=${entry_credit:.2f}  exit=${exit_price:.2f}\n"
         f"P&L: {pnl_sign}${pnl_usd:.0f}\n"
         f"record: {wins}W {losses}L  ytd: {total_sign}${total_pnl:.0f}\n"
-        f"{_now_et()}"
+        f"{_fmt_evt(event_ts, f'CLOSED_{reason}')}"
     )
     return send_alert(msg)
 
@@ -240,13 +304,14 @@ def alert_bot_down(age_min: float, last_hb: str = "") -> bool:
 
 
 @_safe
-def alert_force_entry(spread: str, qty: int, fill_price: float, filled: bool) -> bool:
+def alert_force_entry(spread: str, qty: int, fill_price: float, filled: bool,
+                      event_ts: Optional[datetime] = None) -> bool:
     icon = "🟢" if filled else "🔴"
     state = "FILLED" if filled else "NOT FILLED"
     msg = (
         f"{icon}  FORCE ENTRY  {state}\n"
         f"{spread}  qty={qty}  @ {fill_price:.2f}\n"
-        f"({_now_et()})"
+        f"{_fmt_evt(event_ts, 'FORCE_ENTRY')}"
     )
     return send_alert(msg)
 

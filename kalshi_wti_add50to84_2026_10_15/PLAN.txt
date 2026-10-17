@@ -1,0 +1,44 @@
+WTI add-on cap extension, frozen before replay, 2026-10-15.
+
+Exactly the preceding 111 actual WTI five-contract entries: 106 winners and
+five losses, Oct8--14 ET. Baseline holding net $15.3050. Keep original holdings.
+At most one additional purchase of five contracts on the held side per market.
+Cap sweep: every integer cent 50 through 84 inclusive. No other parameter fit.
+Require signed z >= -0.5 and 0 < time to expiry <= 60 seconds. Use frozen
+original entry reference and volatility, signed for the originally held side.
+No exit or repeated doubling. Hold added contracts to settlement.
+
+Fetch paginated non-block public trades for ALL111 markets, starting 65 seconds
+before expiry (62-second main capture plus three-second prefix), with complete
+cursors and retained receipts; no price/outcome
+screen. Historical full-depth books are unavailable. Chronological tape proxy:
+signal is a same-side aggressive buy print at/below cap, arriving after assumed
+feed lag. A distinct subsequent same-side aggressive buy print >=5 contracts
+at/below cap must occur after assumed order latency and within five seconds
+thereafter. Recheck z/time using information available before modeled execution.
+Both decision and execution must be in the final minute, strictly before expiry.
+No qualifying witness means no modeled addition; permit a fresh later signal.
+This uses someone else's completed trade as an execution proxy, not proof of
+incremental available depth, our fill probability, or live profitability.
+
+Scenarios: 1s feed +1s order (prior comparison); 1s feed +3s order;
+1s feed +5s order; 3s feed +3s order. Underlying one-second history receives the
+same assumed source lag as tape. These are assumptions, not measured historical
+first arrivals. Preserve a diagnostic zero-lag opportunity count separately.
+Charge every modeled addition at its CAP, even when its witness print is lower.
+Taker fee 0.07 * five * p * (1-p), ceiling six-decimal fee and four-decimal total
+debit, as in prior study and captured WTI series metadata. Report one/two-cent
+per-added-contract friction sensitivity separately from fees.
+
+Report full sweep, added W/L counts, extra winner profit, extra losses, extra
+net after fees, combined net versus actual holding, frequency, added capital,
+delay sensitivity, sample/day splits and additions near expiry. Label full-sample
+best hindsight: this cohort and z/time choice were already inspected. No fresh
+out-of-sample or proven edge claim. Additional position doubles WTI from5to10;
+all-asset portfolio displacement under shared limits is not simulated. Keep
+losing/missed/no-add rows. Verify all111 rows, chronology, buy side and Decimal
+fee arithmetic independently. Reproduce preceding50c result on common inputs.
+
+Read-only public GETs and production hash/PID inspection only. All computation
+and artifacts isolated. No financial orders, production code/config/ledger edits,
+restarts, activations, or new collector. Save local and server research copies.

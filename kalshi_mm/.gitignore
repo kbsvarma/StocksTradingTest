@@ -1,0 +1,10 @@
+# NEVER commit credentials or keys
+.kalshi_env
+*.pem
+*.key
+secrets/
+# runtime
+*.log
+state/
+__pycache__/
+*.pyc

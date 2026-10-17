@@ -1,0 +1,49 @@
+Higher-frequency alternative, specified before the new strategy screens
+
+Question: can a separate small-capital strategy produce at least 20 completed
+decision cycles per calendar day after realistic costs? Two legs of one pair
+count as ONE cycle, not two independent opportunities. Existing live bots and
+the frozen every-window observer are read-only inputs, never modified.
+
+First audit the frozen observer's Oct 3 onward record. The initial status check
+showed 796 settled deadline entries, -12.82402, and 696 selective entries,
+-12.95656 (fees +0.25c). These are already known diagnostics, not an untouched
+test for choosing improvements. Exclude its partial initial cycle and open
+positions. Recompute settlement arithmetic and execution deterioration.
+
+Different design: BTC/ETH relative-value pairs. Buy YES on one and NO on the
+other with the SAME expiry. Choose direction from the difference in estimated
+YES probabilities relative to the difference in market prices. Opposite bets
+reduce shared-direction exposure but are NOT a guaranteed hedge or arbitrage;
+both can lose. One contract per leg, one pair maximum each 15-minute cycle.
+
+Two preexisting probability estimates: frozen Aug 13-27 rich logistic model,
+and a normal diffusion estimate using completed spot bars and remaining time.
+No refitting on new results. Net estimated edge floors 0c,3c,6c per pair.
+Decision schedules: first qualifying minute from 14 to 2 minutes left;
+fixed 12m or 6m left. Exit: settlement, after 2 minutes, or when modeled pair
+edge has halved (minimum 1m holding). Family size 2*3*3*3=54.
+
+Entry uses the worse of signal ask and next minute opening ask (3s proxy),
+with 2c per-leg price cap. Exit uses the worse of signal bid and next minute
+opening bid. Charge taker fees per leg and 1c additional friction on EACH
+transaction; repeat at 2c and at 60s quote delay. No maker fills assumed.
+Signal spread <=5c, prices 1-99c, nonzero completed-minute volume. Require
+all prices to be valid before expiry. Report unfillable cycles and the
+two-leg non-atomic execution limitation; historical paired quote availability
+does not establish simultaneous fills.
+
+Dates: Aug 13-27 model fitting / legacy data; Aug28-Sep11 selection;
+Sep12-Oct1 later historical; Oct2 supplement; Oct3-Oct10 new forward-collected
+market evidence (strategy itself invented retrospectively, not forward-traded).
+Rank ONLY using Aug28-Sep11 among candidates profitable at base+stress and
+>=20 cycles/day. If none pass, retain highest-net diagnostics rather than
+inventing a selection winner. Later data are assessed only after writing the
+selection file. These older dates have been searched before; statistical
+confidence is not independent merely because this family is new.
+
+Independent virtual $100 account; reserve full debit until sell or settlement;
+max25 contracts, $25 committed debit, $20 daily realized-plus-reserved risk.
+Position sizing remains one per leg. Report net, settled drawdown, cycle/day,
+calendar coverage, positive/negative cycles, weekly stability, worst day,
+extra cost and delay stresses. Do not activate anything based on this study.

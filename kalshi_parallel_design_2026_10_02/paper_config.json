@@ -1,0 +1,39 @@
+{
+  "mode": "PAPER_ONLY",
+  "created_utc": "2026-10-03T00:48:04.044529+00:00",
+  "lanes": [
+    "premium_z3",
+    "gaussian_edge8"
+  ],
+  "quantity": 1,
+  "max_open_contracts": 4,
+  "max_reserved_dollars": 4,
+  "daily_loss_budget_including_open_risk": 5,
+  "virtual_starting_cash": 50,
+  "extra_cost_per_contract": 0.01,
+  "source_hashes": {
+    "paper_bot.py": "de37f37abd62a6728c9891f52223fb20ef3f1885fec0be5e3c23df81f408f7ae",
+    "strategy.py": "38c145786433132915608e032de9109a9fb4f4e0d1367d05b22af4544d7bad5f"
+  },
+  "promotion_review": {
+    "minimum_calendar_days": 28,
+    "minimum_settled_distinct_markets": 200,
+    "requirements": [
+      "positive net after actual observed-depth estimates, fees and 1c stress",
+      "positive net after 2c stress and whole-cent fee rounding",
+      "day-block uncertainty and loss clustering reviewed",
+      "actual books versus signal quotes measured",
+      "shared account limits and cross-bot duplicate coordination designed before any live release"
+    ],
+    "automatic_activation": false
+  },
+  "selection_disclosure": "Selected after reviewing all retrospective periods from 12 candidates. Historical positive results are exploratory; this prospective frozen paper run is the new test.",
+  "operational_repairs": [
+    {
+      "utc": "2026-10-03T01:25:07.567173+00:00",
+      "reason": "Recognize actual finalized market response during paper settlement; trading rules unchanged.",
+      "source_before": "048fb861cca11aa93fb0dd1b7588fae8b6fe8a13cb7d2cb51bac163efddb899a",
+      "source_after": "de37f37abd62a6728c9891f52223fb20ef3f1885fec0be5e3c23df81f408f7ae"
+    }
+  ]
+}

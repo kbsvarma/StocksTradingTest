@@ -34,7 +34,7 @@ timezone: "America/New_York"
 paper_trading: true
 live_mode_enabled: false
 host: "127.0.0.1"
-port: 4002
+port: 4001
 client_id: 66
 market_data_type: 1
 

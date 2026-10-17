@@ -1,0 +1,6 @@
+__pycache__/
+fresh_data/
+paper_state/
+*.log
+trades.jsonl
+delayed_trades.jsonl

@@ -1,0 +1,26 @@
+[Unit]
+Description=Webull ATM Bot — SPX 45pt × 30% × 09:45 × noThu × SL 3.0× (PROFILE_NEW_ATM)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/StocksTradingTest
+Environment=PYTHONUNBUFFERED=1
+Environment=WEBULL_INSTANCE_NAME=ec2-atm
+Environment=WEBULL_DRY_RUN=1
+Environment=WEBULL_CONFIG_PATH=webull_bot_atm/config_atm.yaml
+Environment=WEBULL_EVENT_LOG_DIR=/home/ubuntu/StocksTradingTest/spx_spread_bot/data/webull_live/atm_bot/events
+EnvironmentFile=/home/ubuntu/.webull_env
+ExecStart=/home/ubuntu/.venv/bin/python -m webull_bot_atm.main
+Restart=always
+RestartSec=30
+TimeoutStopSec=45
+KillSignal=SIGINT
+StandardOutput=append:/home/ubuntu/StocksTradingTest/webull_bot_atm/logs/systemd.out
+StandardError=append:/home/ubuntu/StocksTradingTest/webull_bot_atm/logs/systemd.err
+SyslogIdentifier=webull-bot-atm
+
+[Install]
+WantedBy=multi-user.target

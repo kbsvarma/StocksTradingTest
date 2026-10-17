@@ -1,0 +1,42 @@
+Market-specific absolute-z exits: frozen before calculating results
+
+Requested scope: apply previous winner-derived market thresholds to every losing
+trade and combine with every winner; show dollars saved, winners cut and net P&L
+versus holding. No time filters. Leave all live/paper bots unchanged.
+
+Same cutoff as the winner census: markets closed through Oct14 22:00 ET.
+461 settled trades = 438 wins + 23 losses (includes latest WTI loss and winner).
+Actual historical contract quantities, entry costs and charged fees retained.
+This is an exit counterfactual on actual entries, not a full-design entry replay.
+
+Thresholds fixed from previous REPORT.txt's quarter-z boundaries below the
+finest winning-path minima: BTC -8.5, ETH 0, SOL -0.5, XRP -0.75, Copper 0,
+Natural gas +0.75, EUR/USD -2.75, WTI -1.5. Same asset level for both lanes.
+USD/CAD has zero winners and therefore NO winner-derived threshold. Include its
+loss in the full baseline, unchanged in the primary comparison. Separately show
+the neutral z=0 diagnostic for its one loss, labeled non-winner-derived.
+
+One-second monitoring, first strict z<threshold breach, no holding wait,
+persistence requirement, clock-time or expiry-window filter. Keep signed held
+side and entry reference/sigma fixed. Same historical source reconstruction as
+winner census: CF changes anchored to entry Coinbase spot for crypto, direct
+Pyth for others; assumed 1-second source availability. Also count all available
+finer crypto ticks as a sensitivity; do not tune threshold after seeing losses.
+
+One-second order latency is an execution assumption, not a signal time filter.
+Never model a completed sale at or after market close. No later retry optimization.
+Entry fees actual. Exit taker-fee model:0.07*q*p*(1-p), rounded as prior study;
+separately show fees-only and same prior 1-cent/contract execution friction.
+
+Most holding periods lack continuous bid depth. Report minute bid-low/bid-high
+scenarios enclosing the modeled exit time as retrospective quote scenarios,
+NOT executable fills, guaranteed P&L bounds, or confidence intervals. Also show
+the prior conservative next-minute-open/last-completed-close proxy separately.
+Audit each trigger price, source and quote coverage, including late and missing
+exits. Do not conceal missing books by labeling those rows untriggered.
+Use available continuous archived books for the matched20-trade subset, keeping
+its result and first-arrival model separate from the all-history approximation.
+
+The thresholds were selected using these same winners. Zero winners cut on this
+sample is built into that selection, not independent evidence of a future edge.
+No financial order calls, strategy changes, restarts, or new collectors.

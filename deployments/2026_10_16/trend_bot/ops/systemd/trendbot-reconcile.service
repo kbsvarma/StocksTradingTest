@@ -1,0 +1,17 @@
+[Unit]
+Description=Trend bot fail-closed nightly reconciliation
+ConditionPathExists=/opt/trendbot/current/.venv/bin/python
+
+[Service]
+Type=oneshot
+User=trendbot
+Group=trendbot
+WorkingDirectory=/opt/trendbot/current
+EnvironmentFile=/etc/trendbot/trendbot.env
+ExecStart=/opt/trendbot/current/ops/run_reconcile.sh
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/trendbot

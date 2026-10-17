@@ -1,0 +1,50 @@
+{
+  "version": "weather-early-v1",
+  "paper_only": true,
+  "contracts": 5,
+  "bankroll": 100,
+  "max_contracts": 25,
+  "max_exposure": 25,
+  "daily_budget": 20,
+  "min_cash": 2,
+  "friction": {
+    "early": 0.01,
+    "delay60": 0.02,
+    "canonical": 0.01
+  },
+  "delays": {
+    "early": 3,
+    "delay60": 60
+  },
+  "max_source_poll_gap": 45,
+  "max_source_age": 300,
+  "min_remaining": 60,
+  "max_remaining": 300,
+  "min_training": 60,
+  "min_volume10": 5,
+  "market_weight": 0.5,
+  "max_spread": 0.02,
+  "min_ask": 0.5,
+  "max_ask": 0.95,
+  "edge": 0.03,
+  "cap_increment": 0.01,
+  "max_cap": 0.95,
+  "cities": [
+    "KXTEMPMIAH",
+    "KXTEMPCHIHS",
+    "KXTEMPLAXHS",
+    "KXTEMPNYCHS"
+  ],
+  "stop_days": 14,
+  "source_poll_seconds": 15,
+  "execution_deadline": 8,
+  "second_book_seconds": 1,
+  "max_http": 5,
+  "frozen_files": {
+    "engine.py": "a3c72a9c1c0c34a3339b68ad62746f68476562b20bed6474ff9f66757db411a9",
+    "store.py": "4d6935682c8938b8fd6ec20fe060c931c0753a2eac5616e29f320d48ac0398ab",
+    "observer.py": "92cd4d2f89a73865774970776c8636caa57a91649a285c7755fb932be5ca8aa3",
+    "training.json": "0a724b722f8b5334574d57ef0cb519e02a683d89d425dc01ee2543c1df5f5939",
+    "PLAN.txt": "42a90c613b2a96065bc3768dbd79453da5618d10838c005b1744bc3f74933328"
+  }
+}

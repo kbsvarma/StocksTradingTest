@@ -1,0 +1,67 @@
+# kalshi_unbroken_bot — 5-contract config (ladder step 2026-07-29 00:0x, user go)
+series:
+  - KXBTC15M
+  - KXETH15M
+  - KXSOL15M
+  - KXXRP15M
+
+contracts: 2.00            # (inert: r1_enabled false)
+r1_enabled: false          # crypto lanes OFF 2026-08-03 — gas-only mode
+max_positions_per_asset: 1
+maker_wait_s: 12           # 94% of maker fills land <=12s (audit 2026-07-28)
+poll_s: 3                  # quote poll cadence per series
+discovery_s: 30            # open-market discovery cadence
+
+# strategy params (mirror research R1_HIGH — do not tune without re-running research)
+band_lo: 0.90
+band_hi: 0.99
+rem_lo: 4
+rem_hi: 8
+max_spread: 0.01
+min_observed: 5
+min_lookback_rem: 10
+max_entry: 0.99
+
+# risk layer
+daily_loss_halt_usd: 20.00     # gas 4x5ct: worst same-print ~-$19.4
+calib_window: 30               # rolling settled trades for the calibration kill
+calib_since: 1785684420        # 08-02 11:27 ET re-arm: kill judges fresh-regime intervals only
+calib_consecutive: 2           # windows below 0 -> halt
+halt_file: state/HALT
+
+dry_run: false                  # true = no orders ever leave the machine
+
+# settlement-lock lane (validated 2026-07-27: Q4 z>=1.96, WR 99.5%, +0.69c/ct)
+lock_lane:
+  enabled: false  # OFF 08-03 gas-only mode
+  z_thr: 1.96
+  max_ask: 0.994
+  min_fav_mid: 0.90
+  window_s_lo: 45        # seconds-to-close window for entry
+  window_s_hi: 80
+  contracts: 1.00
+
+# gas lock-in lane (validated 2026-07-27: 95-99 fav, final 8h, WR 99.6%, +1.65c/ct)
+gas_lane:
+  enabled: true
+  max_ask: 0.985   # skip thin top: >=98.5c entries earn half per $ locked
+  series: KXAAAGASD
+  band_lo: 0.95
+  band_hi: 0.99
+  max_spread: 0.02
+  hours_lo: 1
+  hours_hi: 8
+  contracts: 5.00      # user 08-03: settle at 5ct x 4 positions
+  max_positions: 4
+  max_group_loss_usd: 20.00
+reserve_usd: 8.0
+
+# stabilized-flip lane (verified dual-engine 2026-07-27: t=+3.2, OOS>IS)
+stab_lane:
+  enabled: false   # OFF 08-02: failed recovered-regime paper (11.1%/10.5% loss days) + live 90.5% WR
+  band_lo: 0.93
+  band_hi: 0.95
+  max_spread: 0.01
+  min_held: 5
+  max_entry: 0.95
+  contracts: 2.00   # sized down 07-29 (38W/4L -$9.05 live; 100-settle review gate restored)

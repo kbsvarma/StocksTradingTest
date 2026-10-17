@@ -1,0 +1,34 @@
+User-authorized order-book and fill WebSocket migration, 2026-10-15.
+Preserve completed-minute signal inputs, all z/time/spread/price/size/risk rules,
+single durable order writer, existing retry budgets and original-lane priority.
+No Pyth/CF/paid channel subscription. Only orderbook_delta and fill allowed.
+Start from fresh deployed source snapshot; never deploy October5 obsolete release.
+
+Background receiver maintains full Decimal books with snapshot/sequence guards,
+explicit unified YES-price decoding, source lag/liveness checks, reconnect reset,
+periodic snapshots and deterministic top10 conversion. Stream first; bounded
+existing REST fallback on missing/stale/invalid state. Fresh REST account checks,
+authoritative terminal order and zero-fill retry proof stay unchanged.
+Stream fill events deduplicated by exchange/subaccount/trade identity; only use
+their economics when complete totals match the authoritative REST terminal order.
+Partial, absent, inconsistent notifications fall back to existing REST fills.
+Only main trader writes ledger or sends orders. Receiver never holds order client.
+Fill notification wakes reconciliation; book processing does not retune scans.
+
+Validate alongside running REST trader before cutover: authenticated channels,
+all enabled assets, stable bracketed REST/WS normalized book comparisons, real
+rollover or controlled resubscription/reconnect, no unaccounted sequence errors,
+latency distributions. No test financial orders. Capture bounded raw samples.
+Offline adversarial tests: missing snapshot, gap/duplicate, wrong side/route,
+stale/future/nonfinite inputs, reconnect, partial fill, duplicate fill, incomplete
+cash proof and REST fallback. Run current full regression suite and strategy
+parity replay. Live fill proof only if a natural order occurs; distinguish replay.
+
+Guarded flat-period cutover after both shadow and tests pass. Verify exchange
+flat/no resting/unresolved state, backup code and consistent ledger, retain all
+ARM/HALT flags (Copper and USD/CAD paused), all historical records and immutable
+Sept28 baseline. Restart only trader; rollback code only, never restore ledger.
+Record expected source change for resting-paper integrity guard without changing
+its frozen experiment, preserving all original hashes/records. Postflight verify
+runtime config equivalence, books/fills channel subscription, fallback, services,
+ledger preservation and actual transport telemetry. No promised extra trades.

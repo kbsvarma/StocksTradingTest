@@ -1,0 +1,17 @@
+# /home/varma/.config/systemd/user/kalshi-crypto-z2-live.service
+[Unit]
+ConditionPathExists=!/home/varma/MIGRATION_HOLD
+Description=Kalshi crypto z2 LIVE (2 contracts; user activation required)
+After=network-online.target
+Conflicts=kalshi-crypto-z2-observe.service
+
+[Service]
+WorkingDirectory=/home/varma/kalshi_revalidation_2026_09_12/live_v1
+ExecStart=/home/varma/kalshi/venv/bin/python -u runner.py --live
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=60
+UMask=0077
+
+[Install]
+WantedBy=default.target

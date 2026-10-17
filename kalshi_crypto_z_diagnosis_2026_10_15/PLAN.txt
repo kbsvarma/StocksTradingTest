@@ -1,0 +1,9 @@
+READ-ONLY CRYPTO Z DIAGNOSIS
+Compare10:55–15:52ET onOct3–15; primaryOct8–14 vsOct15.
+1. Export identical-hour actual scan/qualification/order history, preserving first arrivals and strategy versions.
+2. Decompose z into signed reference movement,60 one-minute log-return population sigma, remaining-time sqrt.
+3. Reconstruct a common all-minutes underlying sample (including price-rejected minutes) to avoid conditional-sample bias.
+4. Fetch official Coinbase minute candles at a paced rate; validate61consecutive bars, correct completed timestamps/reference/product/units; independent variance calculation; quantify revisions and any eligibility flips.
+5. Cross-check current same-minute prices and returns against independent public exchange data; verify a small sample of Kalshi official contract times/strikes.
+6. Distinguish smaller movement, higher sigma, large-return influence/time weighting, wrong side/reference, stale feeds or calculation changes. Report actual data and limitations, not speculative certainty.
+7. Preserve production sources/config/flags/PIDs and stablecheckpoint; no writes to production, no orders/restarts or new persistent collectors.

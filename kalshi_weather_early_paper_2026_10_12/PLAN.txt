@@ -1,0 +1,69 @@
+EARLY WEATHER STATIONS VERSUS EXECUTABLE BOOKS — frozen October12,2026 ET
+
+User authorization: prospective paper test of early station readings against
+live order books, trades and net after fees; existing bots unchanged.
+Public GET only; no credentials, financial orders or real account balances.
+
+Four hourly cities: Miami, Chicago, LA Coastal, NYC. Paper only, 5 contracts
+per entry, independent $100 portfolio for each execution scenario, maximum
+25 contracts/$25 committed cost, $20 daily loss including open/pending cost,
+$2 cash floor, one entry/event and one unsettled/pending position per city.
+Hold until an actual authoritative settlement receipt. Never use early source
+predictions as the settlement outcome or release cash before receipt.
+
+Predictive mechanism: complete primary hf_asos member readings, using offsets,
+weights and reference from configurations received before the decision and
+published/effective by the reading. Only a pending (not yet canonical) minute
+qualifies for an early signal. All stations finite and physically plausible;
+no retrospective QC filtering, no missing-station fill or fallback substitution.
+Reject explicit contemporaneous bad quality codes; retain original versions.
+Newest source minute must be <=300s old. Skip startup/restart history and gaps
+>45s from first-arrival estimates. Decisions still require a fresh source HTTP
+receipt <=10s old; no decision can precede receipt. One decision per new source
+minute per city/event, with the chosen best side/strike frozen at that decision.
+
+Entries in the final 1–5 minutes before expiry. Same 50% empirical distribution /
+50% market midpoint blend, ask50–<95c, spread<=2c, >=5 contracts of last10minute
+volume, modeled edge>=3c after quadratic fees plus1c/contract, cap=min(ask+1c,95c).
+Use current books, not retrospective candle quotes, to form the decision.
+Full 5-contract depth is required later, not assumed at a quoted ask.
+
+Training is frozen before collection. Use seven settled calendar days ending
+October12 04:00UTC from the existing raw-member archive. Errors are eventual
+expiry temperature minus that historical minute's reconstructed raw index.
+Group by city and exact minutes from the SOURCE minute to expiry (1..10),
+minimum60 distinct settled hourly events/bin, Laplace(1,1) probability smoothing.
+This horizon definition deliberately accounts for actual prospective source age;
+it replaces the replay's assumed60/120second public-availability margins.
+It is a new forward candidate, not a revalidation of the old +$7.07 sensitivity.
+Do not fit on this forward sample or retune after seeing its outcomes. Stop new
+entries after14days; finish settlements. Review first20 early settlements and
+at14days/100 early settlements (both required for an edge review, not proof).
+At cutoff report insufficient evidence if necessary. No automatic live promotion.
+
+Execution scenarios, same original pick/cap (no delayed reselection):
+early: request two subsequent books after >=3seconds, >=1second apart;
+delay60: repeat after >=60seconds;
+canonical: repeat at the first received publication of that SAME source minute.
+Canonical timing is also measured after expiry, but no late entry is counted.
+Each scenario can attempt a later newly qualified source-minute if it never
+filled/has no pending attempt. Log paired timing for every original signal.
+Deadline8seconds after due; reject closed/inactive, insufficient/crossed books,
+HTTP>5seconds, cached Age>1second and clock faults. Require5 displayed contracts
+within original cap in BOTH books. Entry is worst of signal ask and both VWAPs.
+Fees rounded UP to0.0001USD, full quadratic taker fee; 1c/contract friction early
+and canonical,2c delayed. No rebates assumed. Two books still do not prove IOC
+acceptance, queue priority or actual financial fills; label depth-supported paper.
+
+Also retain the book just BEFORE each source poll and subsequent books so we
+can measure price movement before/after first observation, canonical publication,
+missed fills and amount of apparent edge already priced. Never backdate an order
+to the preceding book. Record full GET bodies, timestamps, Date/Age headers,
+station/QC/config versions, gaps and corrections. Quote/depth analytics must not
+silently exclude failed signals, empty books or adverse station revisions.
+
+Separate process/database/service. New client limited to1 public GET/second
+with automatic30s cooldown on HTTP429 and bounded timeouts. Source target15s;
+batch books across all current city markets. Actual delays always recorded.
+No polling delay is subtracted from observed receipt times. Existing bot files,
+arms, ledgers, services and strategy remain untouched. Freeze config/code hashes.

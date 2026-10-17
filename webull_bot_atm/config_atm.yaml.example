@@ -1,0 +1,87 @@
+# Copy to config_atm.yaml locally and set account_id. This private file is ignored by Git.
+# Webull ATM Bot — SPX configuration (PROFILE_NEW_ATM)
+# Strategy: 0DTE SPX bull put spread, very close to ATM (~0.1% OTM)
+#   45pt wide, target $13.50 credit (30% of width), min $6.75 (15% of width)
+#   Entry: 09:45 ET
+#   Skip Thursday (day-of-week 3)
+#   VIX gates: vix_open < 25 AND vix_overnight_gap < 1 (BOTH forward-looking, known at 9:30)
+#   Stop: 3.0x credit (~$28-40 mid trigger)
+#   No profit target — let 0DTE winners expire worthless
+
+# ── Instrument ────────────────────────────────────────────────────────────────
+symbol: "SPXW"
+yf_price_symbol: "^GSPC"
+yf_options_symbol: "^SPX"
+spread_width: 45                # ATM strategy uses 45pt width
+
+# ── Entry criteria ────────────────────────────────────────────────────────────
+otm_pct: 0.002                  # seed only — actual strike is found by credit target
+min_credit: 6.75                # 15% of width = floor
+target_credit: 13.50            # 30% of width = target
+# Strike search: existing scanner picks the spread with credit closest to target_credit
+
+# ── VIX gates (ATM-specific, forward-looking only) ───────────────────────────
+# These REPLACE legacy vix_min/vix_max/vix_max_daily_rise behavior.
+# At 09:45 entry decision:
+#   - vix_open (today's 9:30 VIX) MUST be < vix_open_max
+#   - vix_overnight_gap (today_open - yesterday_close) MUST be < vix_overnight_gap_max
+#   - If EITHER fails, skip the day
+vix_open_max: 25.0              # today's VIX open must be < 25
+vix_overnight_gap_max: 1.0      # today_open - yesterday_close must be < 1
+# Legacy fields (kept for code compat, but ATM gates override)
+vix_min: 0.0
+vix_max: 100.0                  # effectively disabled — vix_open_max is what counts
+vix_max_daily_rise: 0.0         # disabled — overnight_gap is the analogue
+
+# ── Direction filter ─────────────────────────────────────────────────────────
+direction_filter_enabled: false # ATM strategy does NOT use SPX direction filter
+                                # (validated edge does not require it)
+
+# ── Timing (America/New_York) ─────────────────────────────────────────────────
+entry_start: "09:45"            # 09:45 entry (validated optimum)
+entry_end: "10:30"              # narrow entry window
+eod_close_time: "15:45"
+timezone: "America/New_York"
+scan_interval_seconds: 15       # tighter scan window for narrower entry slot
+monitor_interval_seconds: 2
+
+# ── Sizing ────────────────────────────────────────────────────────────────────
+quantity: 1                     # 1 contract per trade
+trade_once_per_day: true
+
+# ── Exit / risk ───────────────────────────────────────────────────────────────
+stop_multiplier: 3.0            # ATM strategy uses 3.0x SL (validated optimum)
+disable_profit_target: true     # no PT — hold to SL or expiry
+
+# ── Order execution ───────────────────────────────────────────────────────────
+limit_price_offset: 0.10
+max_retries: 3
+retry_price_step: 0.10
+retry_wait_seconds: 60
+fill_timeout_seconds: 300
+entry_market_fallback: false    # LIMIT-only; combo MARKET is unsafe on SPX
+
+# ── Account ───────────────────────────────────────────────────────────────────
+# IMPORTANT: ATM bot uses a SEPARATE Webull account from legacy
+# Set via env var WEBULL_ATM_ACCOUNT_ID or override below
+account_id: ""  # PLACEHOLDER — set EC2 env var
+
+# ── Files (ALL paths separate from legacy webull_bot/) ───────────────────────
+data_dir: "spx_spread_bot/data/webull_live/atm_bot"
+logs_dir: "spx_spread_bot/logs/webull_live/atm_bot"
+state_file: "spx_spread_bot/data/webull_live/atm_bot/state.json"
+trade_csv: "spx_spread_bot/data/webull_live/atm_bot/trades.csv"
+
+# ── Run days (0=Mon, 4=Fri) — SKIP THURSDAY ──────────────────────────────────
+run_days: [0, 1, 2, 4]          # Mon, Tue, Wed, Fri (skip Thu=3)
+
+# ── Pre-window observability ──────────────────────────────────────────────────
+pre_window_observe: true        # observe between market open and entry
+
+# ── Profile tag (for telegram alerts + trades.csv) ───────────────────────────
+profile_name: "PROFILE_NEW_ATM"
+
+# ── Paper-trade safety ────────────────────────────────────────────────────────
+# Refuse to run live (real money) unless ALLOW_LIVE_TRADING=1 in environment.
+# Default behavior: paper-only.
+require_live_override: true

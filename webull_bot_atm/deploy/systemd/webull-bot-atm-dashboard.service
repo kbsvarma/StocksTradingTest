@@ -1,0 +1,23 @@
+[Unit]
+Description=Webull ATM Bot Dashboard (Streamlit, port 8505)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/StocksTradingTest
+Environment=PYTHONUNBUFFERED=1
+Environment=STREAMLIT_SERVER_PORT=8505
+Environment=STREAMLIT_SERVER_ADDRESS=0.0.0.0
+Environment=STREAMLIT_SERVER_HEADLESS=true
+Environment=STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+ExecStart=/home/ubuntu/.venv/bin/streamlit run webull_bot_atm/dashboard.py --server.port 8505 --server.address 0.0.0.0 --server.headless true
+Restart=always
+RestartSec=10
+StandardOutput=append:/home/ubuntu/StocksTradingTest/webull_bot_atm/logs/dashboard.out
+StandardError=append:/home/ubuntu/StocksTradingTest/webull_bot_atm/logs/dashboard.err
+SyslogIdentifier=webull-bot-atm-dashboard
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,37 @@
+$100 standalone Kalshi perpetuals study — user correction, October10,2026
+The ETF/carry recommendation is shelved for this task. Total capital100dollars,
+all on Kalshi, no outside hedge or other capital assumed. Research only.
+
+Freeze before results. BTC/ETH minute quotes/funding June4–Oct9. New mechanisms
+use recovery/quiet-period structure rather than repeatedly retesting blind OI
+fade. All reused exploratory data, no pristine holdout claimed.
+
+Decisions every5minutes from completed quotes. Volatility from preceding24hours
+minute log returns (>=95% coverage), scaled to1hour; no missing-bar forwardfill.
+1.Trend pullback: 6hEMA above24hEMA and price above24hEMA; previous60min return
+below minus1hour sigma but latest5min return positive. Mirror forshort.
+2.Compression breakout: prior6h range <=2times1h sigma, then completed5m price
+breaks prior6h high/low. No chosen clock. Require>=95% band observations.
+3.Shock reclaim: abs60min return>=2sigma arms an opposite trade for30min;
+enter only after25% of that move has recovered from the signal price. Arm reset
+after fill or expiry, no retroactive event selection or outcome filtering.
+
+All three: stop-distance max0.5%,1.5times1h sigma; reject>3%. Take-profit2R,
+time exit12h, cooldown1h after exit. Stop/target based on completed minute bid
+or ask with next-minute exit; not claimed continuously executable intraminute.
+Every entry next-minute available quote, spread<=5bp. Cancel entry if first
+requested execution quote missing or spread invalid; no future rescue.
+Cash100; intended loss including roundtrip estimatedfees/spread <=min($2,2%cash).
+Margin<=50%cash, at least20dollars free afterentryfees. Oneposition TOTAL for
+combinedBTC/ETH, BTCpriority for simultaneous signals. Compare eachassetalone.
+Per-position leverage1/2/3x, current side-specific margin/risk snapshot only,
+initialmargin>=1.3maintenance; proactivebufferexitmaintenance/equity>=.85.
+Pause newentries when daily markedloss+plannedrisk>6dollars (UTCcalendar), but
+always allow exits. No adding funds, interest, assumed makerfills or martingale.
+Currentcrypto takerfee12bp/side+actualbidask+1bp/side. Stress5bp/side and one
+additionalminute latency. Exact actualfunding held atentry<time<=exit.
+Earlier Jun4–Aug31 and later Sep1–Oct9 atindependent100dollar restarts.
+Retain ALL 3rules x 3assetportfolios x3leverage x2periods; also L2cost/delay
+stresses. No optimizedthreshold/gridselection. ReportdollarPnL,frequency,wins,
+drawdown,costs,maximumloss,fees,gap/margin events,best3concentrationandregimes.
+No live activation inferred. Stablecrypto baseline and currentbots preserved.

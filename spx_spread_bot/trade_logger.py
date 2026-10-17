@@ -45,6 +45,10 @@ class BotLogger:
         self.trade_csv_path.parent.mkdir(parents=True, exist_ok=True)
         self.daily_summary_path.parent.mkdir(parents=True, exist_ok=True)
 
+        # Sidecar file for spread marks — written by monitor, read by _write_status.
+        # Avoids scanning the large tick_events.jsonl (can grow to 100MB+).
+        self.spread_marks_path = self.tick_events_path.parent / "spread_marks.json"
+
         self._lock = Lock()
         self.logger = logging.getLogger("spx_spread_bot")
         self.logger.setLevel(logging.INFO)
@@ -86,6 +90,22 @@ class BotLogger:
     def tick_event_raw(self, event_type: str, payload: dict[str, Any]) -> None:
         """Write a free-form dict to tick_events (high-frequency log, rotated separately)."""
         self._append_jsonl(self.tick_events_path, {"event": event_type, **payload})
+
+    def update_spread_mark(self, key: str, data: dict[str, Any]) -> None:
+        """Atomically update spread_marks.json sidecar for dashboard display.
+
+        Reads, updates a single key, and writes back under lock so concurrent
+        monitor threads don't race. The sidecar stays small (one entry per
+        open position) and is always current — no tail-scanning needed.
+        """
+        with self._lock:
+            try:
+                existing: dict = json.loads(self.spread_marks_path.read_text()) \
+                    if self.spread_marks_path.exists() else {}
+            except Exception:  # noqa: BLE001
+                existing = {}
+            existing[key] = {**data, "ts": datetime.now(UTC).isoformat()}
+            self.spread_marks_path.write_text(json.dumps(existing, indent=2))
 
     def tick_event(self, tick: TickSnapshot) -> None:
         payload = {

@@ -1,0 +1,10 @@
+[Unit]
+Description=Run trend bot reconciliation nightly
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 America/New_York
+AccuracySec=1min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

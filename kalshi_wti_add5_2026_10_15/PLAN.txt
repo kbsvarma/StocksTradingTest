@@ -1,0 +1,56 @@
+WTI one-time additional5 contracts: frozen analysis plan,2026-10-15.
+Exactly111 prior actual WTI entries:106W/5L, original89W/5L and premium17W/0L.
+Hold original entries unchanged; add at most5 same-side contracts once, then
+hold to settlement. No exits, martingale repetition, new initial entries or
+other assets. Prices20/30/40/50c only. Baseline net+$15.3050 actual entry fees.
+
+Stage1: simple price-touch arithmetic. Use BUY asks (YES yes_ask_low; NO1-minus-
+yes_bid_high), not selling bids. Full post-entry minute lows and entry-minute
+closing quote only. Assume five bought at the chosen cap, even if quote lower;
+report clearly as quote-touch/assumed-fill scenario, not verified execution.
+Retain entry-minute ambiguity sensitivity. Fees quadratic multiplier1, actual
+historical initial costs unchanged. Report added winner profit, added loss on
+losers, extra net, combined net, cost committed,1c/added-contract friction stress.
+
+Stage2: timestamp-aligned research using all paginated public trades for markets
+whose overlapping post-entry ask candles ever reach50c. Both winning and losing
+markets retained. Use same-side aggressive BUY prints, exclude block trades;
+this is an ask-side execution proxy, not historical order-book depth.
+Default feed receipt lag1s, order latency1s. A qualifying print signals at its
+timestamp+1s using underlying price available1s before decision. Look forward
+from decision+1s for a distinct same-side BUY print >=5contracts, within5s,
+at/below cap, with z/time still qualifying at fill minus1s. Credit five at CAP,
+not the lower observed print price. If no qualifying subsequent print, record
+miss and allow a later fresh signal; maximum one add per market. This does not
+prove extra depth or actual fills; competing execution already consumed supply.
+Also run zero-delay single-print opportunity counts (diagnostic),1+3second
+latency and2c friction. Unknown source/pagination/aggressor records flagged.
+
+Fixed z filters: no filter; z>=-2,-1,-0.5,0,0.5,1,1.5,2; and disjoint ranges
+z<0,0<=z<1,1<=z<2. z is SIGNED cushion for held side with original entry sigma
+and reference, frozen; no absolute value and no rolling recalibration.
+Time-to-expiry filters: all; >60s; >120s; >180s;0–60s;60–180s;180–300s;300–900s.
+Cross all4caps x12zfilters x8windows (384 variants). Select by additional net
+only with >=5adds in development Oct8–11; show Oct12–14 later check unchanged,
+plus full-sample best explicitly hindsight. No claim later split pristine:
+these prices/outcomes were already studied. Include zero-add/no-profit variants.
+Show a practical same-price comparison of simple filters, sensitivity, all
+affected losses and winners, not just best configuration. No significance claim
+from5losses, no automatic live/paper promotion. Block bootstrap uncertainty
+by calendar day for displayed choices, descriptive only after selection.
+
+Risk/capital: additional contracts/cost are incremental risk. Fixed original
+entry cohort means no portfolio displacement is modeled; include peak concurrent
+added contracts/cost and whole-WTI open contracts, explicitly flag that existing
+25contract/$25/$20 shared portfolio caps could bind. Do not claim deployability
+without all-asset chronological risk replay. This request makes no live changes.
+
+All work isolated; public GETs only; no financial order endpoints, production
+imports, ledger writes, restart or config changes. Preserve source/flags/PIDs.
+Save raw receipts, immutable input hashes, full111row ledgers, complete grid,
+independent cash/chronology validation and research report locally/server.
+
+Pre-replay arithmetic correction: enumerated z filters total12, not13; no filter
+added/removed. Thus384combinations. Legacy taker_side identifies purchased
+outcome; new taker_book_side uses YES-coordinate bid/ask and is not treated
+as an outcome-side buy/sell action. No unknown aggressors silently counted.

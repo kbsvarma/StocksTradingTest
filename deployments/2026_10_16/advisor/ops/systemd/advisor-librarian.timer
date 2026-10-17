@@ -1,0 +1,10 @@
+[Unit]
+Description=Advisor librarian at 19:00 ET, weekdays
+
+[Timer]
+OnCalendar=Mon..Fri 19:00 America/New_York
+Persistent=true
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

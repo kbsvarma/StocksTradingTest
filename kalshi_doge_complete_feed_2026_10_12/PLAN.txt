@@ -1,0 +1,47 @@
+DOGE complete-feed comparison, frozen before alternative-feed results
+2026-10-12 UTC. Research only. No financial orders or production changes.
+
+Primary sample matches the immediately preceding extra-crypto review:
+market close >= 2026-10-01 00:00 UTC and < 2026-10-12 04:30 UTC.
+Use the already frozen market metadata, outcomes and prediction quotes.
+Reproduce the Coinbase control (11/11 wins, +2.4448 with fees and 1c
+per-contract friction). No replacement, carrying forward or interpolation
+of missing Coinbase minutes.
+
+Primary treatment: coherent CF Benchmarks DOGEUSD_RTI history, whole-second
+observations; require all 60 seconds for each minute and all 61 consecutive
+minute closes for volatility. Reference remains last minute close before
+opening. This changes input feed ONLY, not z, horizon, prices or sizing.
+Secondary prespecified diagnostic: same CF feed, but reference is its full
+60-second opening average (market's settlement convention); report separately.
+Never count this additional reference change as pure feed substitution.
+
+Rules: current z2/z3; 3-10 minutes to expiry; 85-<95c/z>=2 or
+93-<98c/z>=3; spread<=2c; max buy 93.9c/97.5c, min(signal ask+1c,
+cap), rounded on market tick ladder. Five contracts, first eligible lane,
+one owner per market, one open position per asset, hold to settlement.
+Standalone hypothetical $100, 25 contracts/$25 exposure/$20 daily including
+open risk; premium 25/$25/$25 subordinate to shared constraints.
+
+Historical fills are next-minute opening-quote proxies, not proven depth.
+Report fee-only and fees+1c/2c per-contract friction; cap-price stress;
+60-second delayed quote sensitivity violates production freshness and is
+not a deployable version. Also cost all qualifying markets at their caps
+as a diagnostic of quote selection bias. No parameter optimization.
+
+Show added/dropped/overlapping trades, calendar-day frequency, drawdown,
+individual losses, early/latest subperiods, coverage and input-source
+validation against official strike/final averages. Preserve immutable raw
+receipts; verify no lookahead and exact fee arithmetic. Distinguish trades
+recovered from missing history versus changed z on common coverage.
+Net new DOGE-only opportunity is not guaranteed incremental portfolio fills:
+production's other assets share capacity. No claim of actual live fillability
+from historical candles or of historical first-arrival speed.
+
+Index history may be delayed up to 15 minutes; it is for backtesting only.
+Realtime availability would need a prospective feed and execution test.
+
+Sources:
+https://docs.kalshi.com/cfbenchmarks/rest-passthrough
+https://docs.cfbenchmarks.com/api/rest/historical-values/
+https://www.cfbenchmarks.com/data/indices/DOGEUSD_RTI

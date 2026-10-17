@@ -1,0 +1,80 @@
+Late-game favorites, October 10, 2026 — research only, before new outcomes.
+User wants continued broad Kalshi research with a specific late-game-favorite
+hypothesis. Preserve existing bots, stable checkpoint and shelved proposals.
+Use $100 total bankroll, five contracts per entry, one entry per game.
+
+Critical distinction: late in a game must come from timestamped actual game
+state, not hindsight subtraction from final end/settlement timestamps.
+Final metadata/results used ONLY for settlement and exclusion of completed
+games. Do not use historical final stats, future injuries or revised season
+summaries as inputs. Use recorded play wall-clock, add30seconds source delay,
+round up to next completed quote minute, then execute next minute open+3sec
+proxy; stress60sec additional source and60sec execution delay. No inventing
+wall-clock times from game clocks. Missing wall-clock/source coverage excluded
+and counted; fallback official play-by-play if available with real timestamps.
+
+Universe: MLB,NFL,NCAAF,NBA,WNBA,NHL, Aug15–Oct9 existing full-game archives.
+Use actual league and season type; preseason separate in results. Extend
+unchanged rule backward to July1 for MLB/WNBA if a lead merits comparison,
+clearly selected retrospective extension. Tennis previously studied: summarize
+old evidence/failures; don't call old97-match serving-for-match a new edge.
+Broader current-market inventory from saved Oct10 census, refresh sport
+availability with official public endpoints and flag seasonality.
+
+Predetermined game-clock late/very-late states:
+ MLB: regulation inning>=7 / >=8, before final play, selected team leading.
+ NFL/NCAAF: fourth quarter, clock0<remaining<=600 / <=300seconds, leading.
+ NBA/WNBA: fourth quarter, clock0<remaining<=300 / <=120seconds, leading.
+ NHL: third period, clock0<remaining<=600 / <=300seconds, leading.
+Exclude overtime/extra innings from this frozen first study; no extrapolation.
+Compare two ask bands90–<95c and95–<98c, spread<=2c, >=5contracts recorded
+volume over preceding10minutes. Earliest valid candidate per game, choosing
+cheapest equivalent YES/NO contract using DECISION quotes before future fills.
+Require continued score/clock eligibility at delayed decision using latest
+available timestamped play, reject stale >120seconds (MLB180seconds).
+
+Three fixed mechanisms in each time/price cell:
+ 1. Leader: current late-game leader qualifies.
+ 2. Comfortable lead: lead>=3MLB /9football /8basketball /2hockey.
+ 3. Original favorite still leading: pregame midpoint>=60c at30min before
+    scheduled start, same team now leads. No future favorite inference.
+Price-only held95 for5minutes/held97for10 comparator comes from previous study;
+explicitly not proof of late-game eligibility. These comparisons are research
+choices, not72independent tests or authorization to optimize until profitable.
+
+Hold settlement; no optimized stop-loss. Fees use current series multipliers
+and rounded5ct model; +1c/contract baseline,+2c stress; price capdecisionask+1c
+and98c maximum. Executionmax(decisionask,nextquoteask), no favorable slippage.
+For NO, map exact team complement only in two-outcome games; football tie/
+three-way cases require exact target mapping or exclusion, never NO=otherteam
+by assumption when a third outcome is possible. Retain refunds/scalar results.
+No entry after true gameend/contract close or already terminal state.
+
+Portfolio: cash100, max5positions/25contracts, reserve worst-case actual debit
+(price+fee+slippage) for open risk, cap25exposure, daily net realized loss plus
+open/new maximum debit<=20, minimumfreecash2. No borrowing/transfer assumed.
+Report unconstrained and common cross-league portfolios separately; never sum
+independent100bankrolls as if jointly executable. Chronological splitSep12ET,
+weekly/monthly consistency, losses and removedbestday, fee/source/execution
+stress. Require actual score confirmation and broad positive evidence before
+recommendation; no guaranteededge or forcedlive activation. Real historical
+depth/arrivallatency unverified even when play timestamps exist.
+
+After initial six-league results: pregame-favorite/very-late/90–<95c MLB is
+the leading candidate (62/61W1L). Extend exact rules backward July1–Aug14,
+then continuous July1–Oct9. This is SELECTED retrospective confirmation,
+not untouched holdout. Preserve all twelve MLB profiles and stress results.
+No changes to60c pregame threshold, lateinning8/9, entryband or sizing.
+Soccer wider-market probe also examines EPL/MLS/LaLiga. Kalshi score tapes
+lack wallclock in sampled soccer games; ESPN commentary has wallclock but
+does not attach contemporaneous cumulative score to each play. Do not invent
+score/clock alignment or reuse two-outcome NO mapping in three-way markets.
+
+Audit amendments, not strategy tuning: historical fee-change records show
+MLB multiplier1 until Aug7 04:59:45Z, then0.5. Use fee in force at entry,
+superseding the initial current-multiplier assumption above. Two truncated
+MLB quote archives were refreshed and all portfolios rerun; retain originals.
+Both originally frozen MLB price bands remain in the final comparison. The
+95–<98c band also survives earlier/recent/cost/delay checks and is preferred
+for prospective validation after seeing those results. This is retrospective
+selection, not an untouched holdout. No combined/overlapping-band live bot.

@@ -1,0 +1,3074 @@
+[
+  {
+    "id": 0,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "none"
+  },
+  {
+    "id": 1,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z0"
+  },
+  {
+    "id": 2,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z025"
+  },
+  {
+    "id": 3,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z05"
+  },
+  {
+    "id": 4,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z075"
+  },
+  {
+    "id": 5,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z1"
+  },
+  {
+    "id": 6,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z15"
+  },
+  {
+    "id": 7,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z2"
+  },
+  {
+    "id": 8,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z_negative"
+  },
+  {
+    "id": 9,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z_below_minus025"
+  },
+  {
+    "id": 10,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "momentum"
+  },
+  {
+    "id": 11,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "quote_rising"
+  },
+  {
+    "id": 12,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "quote_falling"
+  },
+  {
+    "id": 13,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "forecast3"
+  },
+  {
+    "id": 14,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "forecast6"
+  },
+  {
+    "id": 15,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z05_momentum"
+  },
+  {
+    "id": 16,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "none"
+  },
+  {
+    "id": 17,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z0"
+  },
+  {
+    "id": 18,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z025"
+  },
+  {
+    "id": 19,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z05"
+  },
+  {
+    "id": 20,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z075"
+  },
+  {
+    "id": 21,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z1"
+  },
+  {
+    "id": 22,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z15"
+  },
+  {
+    "id": 23,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z2"
+  },
+  {
+    "id": 24,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z_negative"
+  },
+  {
+    "id": 25,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z_below_minus025"
+  },
+  {
+    "id": 26,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "momentum"
+  },
+  {
+    "id": 27,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "quote_rising"
+  },
+  {
+    "id": 28,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "quote_falling"
+  },
+  {
+    "id": 29,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "forecast3"
+  },
+  {
+    "id": 30,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "forecast6"
+  },
+  {
+    "id": 31,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z05_momentum"
+  },
+  {
+    "id": 32,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "none"
+  },
+  {
+    "id": 33,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z0"
+  },
+  {
+    "id": 34,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z025"
+  },
+  {
+    "id": 35,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z05"
+  },
+  {
+    "id": 36,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z075"
+  },
+  {
+    "id": 37,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z1"
+  },
+  {
+    "id": 38,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z15"
+  },
+  {
+    "id": 39,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z2"
+  },
+  {
+    "id": 40,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z_negative"
+  },
+  {
+    "id": 41,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z_below_minus025"
+  },
+  {
+    "id": 42,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "momentum"
+  },
+  {
+    "id": 43,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "quote_rising"
+  },
+  {
+    "id": 44,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "quote_falling"
+  },
+  {
+    "id": 45,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "forecast3"
+  },
+  {
+    "id": 46,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "forecast6"
+  },
+  {
+    "id": 47,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z05_momentum"
+  },
+  {
+    "id": 48,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "none"
+  },
+  {
+    "id": 49,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z0"
+  },
+  {
+    "id": 50,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z025"
+  },
+  {
+    "id": 51,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z05"
+  },
+  {
+    "id": 52,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z075"
+  },
+  {
+    "id": 53,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z1"
+  },
+  {
+    "id": 54,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z15"
+  },
+  {
+    "id": 55,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z2"
+  },
+  {
+    "id": 56,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z_negative"
+  },
+  {
+    "id": 57,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z_below_minus025"
+  },
+  {
+    "id": 58,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "momentum"
+  },
+  {
+    "id": 59,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "quote_rising"
+  },
+  {
+    "id": 60,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "quote_falling"
+  },
+  {
+    "id": 61,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "forecast3"
+  },
+  {
+    "id": 62,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "forecast6"
+  },
+  {
+    "id": 63,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z05_momentum"
+  },
+  {
+    "id": 64,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "none"
+  },
+  {
+    "id": 65,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z0"
+  },
+  {
+    "id": 66,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z025"
+  },
+  {
+    "id": 67,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z05"
+  },
+  {
+    "id": 68,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z075"
+  },
+  {
+    "id": 69,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z1"
+  },
+  {
+    "id": 70,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z15"
+  },
+  {
+    "id": 71,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z2"
+  },
+  {
+    "id": 72,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z_negative"
+  },
+  {
+    "id": 73,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z_below_minus025"
+  },
+  {
+    "id": 74,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "momentum"
+  },
+  {
+    "id": 75,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "quote_rising"
+  },
+  {
+    "id": 76,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "quote_falling"
+  },
+  {
+    "id": 77,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "forecast3"
+  },
+  {
+    "id": 78,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "forecast6"
+  },
+  {
+    "id": 79,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z05_momentum"
+  },
+  {
+    "id": 80,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "none"
+  },
+  {
+    "id": 81,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z0"
+  },
+  {
+    "id": 82,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z025"
+  },
+  {
+    "id": 83,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z05"
+  },
+  {
+    "id": 84,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z075"
+  },
+  {
+    "id": 85,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z1"
+  },
+  {
+    "id": 86,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z15"
+  },
+  {
+    "id": 87,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z2"
+  },
+  {
+    "id": 88,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z_negative"
+  },
+  {
+    "id": 89,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z_below_minus025"
+  },
+  {
+    "id": 90,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "momentum"
+  },
+  {
+    "id": 91,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "quote_rising"
+  },
+  {
+    "id": 92,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "quote_falling"
+  },
+  {
+    "id": 93,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "forecast3"
+  },
+  {
+    "id": 94,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "forecast6"
+  },
+  {
+    "id": 95,
+    "asset": "BTC",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z05_momentum"
+  },
+  {
+    "id": 96,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "none"
+  },
+  {
+    "id": 97,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z0"
+  },
+  {
+    "id": 98,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z025"
+  },
+  {
+    "id": 99,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z05"
+  },
+  {
+    "id": 100,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z075"
+  },
+  {
+    "id": 101,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z1"
+  },
+  {
+    "id": 102,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z15"
+  },
+  {
+    "id": 103,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z2"
+  },
+  {
+    "id": 104,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z_negative"
+  },
+  {
+    "id": 105,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z_below_minus025"
+  },
+  {
+    "id": 106,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "momentum"
+  },
+  {
+    "id": 107,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "quote_rising"
+  },
+  {
+    "id": 108,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "quote_falling"
+  },
+  {
+    "id": 109,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "forecast3"
+  },
+  {
+    "id": 110,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "forecast6"
+  },
+  {
+    "id": 111,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z05_momentum"
+  },
+  {
+    "id": 112,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "none"
+  },
+  {
+    "id": 113,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z0"
+  },
+  {
+    "id": 114,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z025"
+  },
+  {
+    "id": 115,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z05"
+  },
+  {
+    "id": 116,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z075"
+  },
+  {
+    "id": 117,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z1"
+  },
+  {
+    "id": 118,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z15"
+  },
+  {
+    "id": 119,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z2"
+  },
+  {
+    "id": 120,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z_negative"
+  },
+  {
+    "id": 121,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z_below_minus025"
+  },
+  {
+    "id": 122,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "momentum"
+  },
+  {
+    "id": 123,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "quote_rising"
+  },
+  {
+    "id": 124,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "quote_falling"
+  },
+  {
+    "id": 125,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "forecast3"
+  },
+  {
+    "id": 126,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "forecast6"
+  },
+  {
+    "id": 127,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z05_momentum"
+  },
+  {
+    "id": 128,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "none"
+  },
+  {
+    "id": 129,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z0"
+  },
+  {
+    "id": 130,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z025"
+  },
+  {
+    "id": 131,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z05"
+  },
+  {
+    "id": 132,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z075"
+  },
+  {
+    "id": 133,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z1"
+  },
+  {
+    "id": 134,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z15"
+  },
+  {
+    "id": 135,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z2"
+  },
+  {
+    "id": 136,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z_negative"
+  },
+  {
+    "id": 137,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z_below_minus025"
+  },
+  {
+    "id": 138,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "momentum"
+  },
+  {
+    "id": 139,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "quote_rising"
+  },
+  {
+    "id": 140,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "quote_falling"
+  },
+  {
+    "id": 141,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "forecast3"
+  },
+  {
+    "id": 142,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "forecast6"
+  },
+  {
+    "id": 143,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z05_momentum"
+  },
+  {
+    "id": 144,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "none"
+  },
+  {
+    "id": 145,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z0"
+  },
+  {
+    "id": 146,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z025"
+  },
+  {
+    "id": 147,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z05"
+  },
+  {
+    "id": 148,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z075"
+  },
+  {
+    "id": 149,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z1"
+  },
+  {
+    "id": 150,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z15"
+  },
+  {
+    "id": 151,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z2"
+  },
+  {
+    "id": 152,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z_negative"
+  },
+  {
+    "id": 153,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z_below_minus025"
+  },
+  {
+    "id": 154,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "momentum"
+  },
+  {
+    "id": 155,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "quote_rising"
+  },
+  {
+    "id": 156,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "quote_falling"
+  },
+  {
+    "id": 157,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "forecast3"
+  },
+  {
+    "id": 158,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "forecast6"
+  },
+  {
+    "id": 159,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z05_momentum"
+  },
+  {
+    "id": 160,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "none"
+  },
+  {
+    "id": 161,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z0"
+  },
+  {
+    "id": 162,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z025"
+  },
+  {
+    "id": 163,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z05"
+  },
+  {
+    "id": 164,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z075"
+  },
+  {
+    "id": 165,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z1"
+  },
+  {
+    "id": 166,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z15"
+  },
+  {
+    "id": 167,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z2"
+  },
+  {
+    "id": 168,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z_negative"
+  },
+  {
+    "id": 169,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z_below_minus025"
+  },
+  {
+    "id": 170,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "momentum"
+  },
+  {
+    "id": 171,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "quote_rising"
+  },
+  {
+    "id": 172,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "quote_falling"
+  },
+  {
+    "id": 173,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "forecast3"
+  },
+  {
+    "id": 174,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "forecast6"
+  },
+  {
+    "id": 175,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z05_momentum"
+  },
+  {
+    "id": 176,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "none"
+  },
+  {
+    "id": 177,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z0"
+  },
+  {
+    "id": 178,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z025"
+  },
+  {
+    "id": 179,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z05"
+  },
+  {
+    "id": 180,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z075"
+  },
+  {
+    "id": 181,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z1"
+  },
+  {
+    "id": 182,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z15"
+  },
+  {
+    "id": 183,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z2"
+  },
+  {
+    "id": 184,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z_negative"
+  },
+  {
+    "id": 185,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z_below_minus025"
+  },
+  {
+    "id": 186,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "momentum"
+  },
+  {
+    "id": 187,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "quote_rising"
+  },
+  {
+    "id": 188,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "quote_falling"
+  },
+  {
+    "id": 189,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "forecast3"
+  },
+  {
+    "id": 190,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "forecast6"
+  },
+  {
+    "id": 191,
+    "asset": "BTC",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z05_momentum"
+  },
+  {
+    "id": 192,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "none"
+  },
+  {
+    "id": 193,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z0"
+  },
+  {
+    "id": 194,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z025"
+  },
+  {
+    "id": 195,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z05"
+  },
+  {
+    "id": 196,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z075"
+  },
+  {
+    "id": 197,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z1"
+  },
+  {
+    "id": 198,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z15"
+  },
+  {
+    "id": 199,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z2"
+  },
+  {
+    "id": 200,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z_negative"
+  },
+  {
+    "id": 201,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z_below_minus025"
+  },
+  {
+    "id": 202,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "momentum"
+  },
+  {
+    "id": 203,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "quote_rising"
+  },
+  {
+    "id": 204,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "quote_falling"
+  },
+  {
+    "id": 205,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "forecast3"
+  },
+  {
+    "id": 206,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "forecast6"
+  },
+  {
+    "id": 207,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z05_momentum"
+  },
+  {
+    "id": 208,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "none"
+  },
+  {
+    "id": 209,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z0"
+  },
+  {
+    "id": 210,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z025"
+  },
+  {
+    "id": 211,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z05"
+  },
+  {
+    "id": 212,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z075"
+  },
+  {
+    "id": 213,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z1"
+  },
+  {
+    "id": 214,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z15"
+  },
+  {
+    "id": 215,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z2"
+  },
+  {
+    "id": 216,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z_negative"
+  },
+  {
+    "id": 217,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z_below_minus025"
+  },
+  {
+    "id": 218,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "momentum"
+  },
+  {
+    "id": 219,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "quote_rising"
+  },
+  {
+    "id": 220,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "quote_falling"
+  },
+  {
+    "id": 221,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "forecast3"
+  },
+  {
+    "id": 222,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "forecast6"
+  },
+  {
+    "id": 223,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z05_momentum"
+  },
+  {
+    "id": 224,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "none"
+  },
+  {
+    "id": 225,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z0"
+  },
+  {
+    "id": 226,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z025"
+  },
+  {
+    "id": 227,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z05"
+  },
+  {
+    "id": 228,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z075"
+  },
+  {
+    "id": 229,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z1"
+  },
+  {
+    "id": 230,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z15"
+  },
+  {
+    "id": 231,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z2"
+  },
+  {
+    "id": 232,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z_negative"
+  },
+  {
+    "id": 233,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z_below_minus025"
+  },
+  {
+    "id": 234,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "momentum"
+  },
+  {
+    "id": 235,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "quote_rising"
+  },
+  {
+    "id": 236,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "quote_falling"
+  },
+  {
+    "id": 237,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "forecast3"
+  },
+  {
+    "id": 238,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "forecast6"
+  },
+  {
+    "id": 239,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z05_momentum"
+  },
+  {
+    "id": 240,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "none"
+  },
+  {
+    "id": 241,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z0"
+  },
+  {
+    "id": 242,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z025"
+  },
+  {
+    "id": 243,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z05"
+  },
+  {
+    "id": 244,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z075"
+  },
+  {
+    "id": 245,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z1"
+  },
+  {
+    "id": 246,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z15"
+  },
+  {
+    "id": 247,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z2"
+  },
+  {
+    "id": 248,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z_negative"
+  },
+  {
+    "id": 249,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z_below_minus025"
+  },
+  {
+    "id": 250,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "momentum"
+  },
+  {
+    "id": 251,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "quote_rising"
+  },
+  {
+    "id": 252,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "quote_falling"
+  },
+  {
+    "id": 253,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "forecast3"
+  },
+  {
+    "id": 254,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "forecast6"
+  },
+  {
+    "id": 255,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z05_momentum"
+  },
+  {
+    "id": 256,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "none"
+  },
+  {
+    "id": 257,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z0"
+  },
+  {
+    "id": 258,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z025"
+  },
+  {
+    "id": 259,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z05"
+  },
+  {
+    "id": 260,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z075"
+  },
+  {
+    "id": 261,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z1"
+  },
+  {
+    "id": 262,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z15"
+  },
+  {
+    "id": 263,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z2"
+  },
+  {
+    "id": 264,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z_negative"
+  },
+  {
+    "id": 265,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z_below_minus025"
+  },
+  {
+    "id": 266,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "momentum"
+  },
+  {
+    "id": 267,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "quote_rising"
+  },
+  {
+    "id": 268,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "quote_falling"
+  },
+  {
+    "id": 269,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "forecast3"
+  },
+  {
+    "id": 270,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "forecast6"
+  },
+  {
+    "id": 271,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z05_momentum"
+  },
+  {
+    "id": 272,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "none"
+  },
+  {
+    "id": 273,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z0"
+  },
+  {
+    "id": 274,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z025"
+  },
+  {
+    "id": 275,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z05"
+  },
+  {
+    "id": 276,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z075"
+  },
+  {
+    "id": 277,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z1"
+  },
+  {
+    "id": 278,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z15"
+  },
+  {
+    "id": 279,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z2"
+  },
+  {
+    "id": 280,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z_negative"
+  },
+  {
+    "id": 281,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z_below_minus025"
+  },
+  {
+    "id": 282,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "momentum"
+  },
+  {
+    "id": 283,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "quote_rising"
+  },
+  {
+    "id": 284,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "quote_falling"
+  },
+  {
+    "id": 285,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "forecast3"
+  },
+  {
+    "id": 286,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "forecast6"
+  },
+  {
+    "id": 287,
+    "asset": "ETH",
+    "direction": 1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z05_momentum"
+  },
+  {
+    "id": 288,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "none"
+  },
+  {
+    "id": 289,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z0"
+  },
+  {
+    "id": 290,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z025"
+  },
+  {
+    "id": 291,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z05"
+  },
+  {
+    "id": 292,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z075"
+  },
+  {
+    "id": 293,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z1"
+  },
+  {
+    "id": 294,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z15"
+  },
+  {
+    "id": 295,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z2"
+  },
+  {
+    "id": 296,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z_negative"
+  },
+  {
+    "id": 297,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z_below_minus025"
+  },
+  {
+    "id": 298,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "momentum"
+  },
+  {
+    "id": 299,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "quote_rising"
+  },
+  {
+    "id": 300,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "quote_falling"
+  },
+  {
+    "id": 301,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "forecast3"
+  },
+  {
+    "id": 302,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "forecast6"
+  },
+  {
+    "id": 303,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 2,
+    "remhi": 14,
+    "filter": "z05_momentum"
+  },
+  {
+    "id": 304,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "none"
+  },
+  {
+    "id": 305,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z0"
+  },
+  {
+    "id": 306,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z025"
+  },
+  {
+    "id": 307,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z05"
+  },
+  {
+    "id": 308,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z075"
+  },
+  {
+    "id": 309,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z1"
+  },
+  {
+    "id": 310,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z15"
+  },
+  {
+    "id": 311,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z2"
+  },
+  {
+    "id": 312,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z_negative"
+  },
+  {
+    "id": 313,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z_below_minus025"
+  },
+  {
+    "id": 314,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "momentum"
+  },
+  {
+    "id": 315,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "quote_rising"
+  },
+  {
+    "id": 316,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "quote_falling"
+  },
+  {
+    "id": 317,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "forecast3"
+  },
+  {
+    "id": 318,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "forecast6"
+  },
+  {
+    "id": 319,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 12,
+    "remhi": 14,
+    "filter": "z05_momentum"
+  },
+  {
+    "id": 320,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "none"
+  },
+  {
+    "id": 321,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z0"
+  },
+  {
+    "id": 322,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z025"
+  },
+  {
+    "id": 323,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z05"
+  },
+  {
+    "id": 324,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z075"
+  },
+  {
+    "id": 325,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z1"
+  },
+  {
+    "id": 326,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z15"
+  },
+  {
+    "id": 327,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z2"
+  },
+  {
+    "id": 328,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z_negative"
+  },
+  {
+    "id": 329,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z_below_minus025"
+  },
+  {
+    "id": 330,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "momentum"
+  },
+  {
+    "id": 331,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "quote_rising"
+  },
+  {
+    "id": 332,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "quote_falling"
+  },
+  {
+    "id": 333,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "forecast3"
+  },
+  {
+    "id": 334,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "forecast6"
+  },
+  {
+    "id": 335,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 9,
+    "remhi": 11,
+    "filter": "z05_momentum"
+  },
+  {
+    "id": 336,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "none"
+  },
+  {
+    "id": 337,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z0"
+  },
+  {
+    "id": 338,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z025"
+  },
+  {
+    "id": 339,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z05"
+  },
+  {
+    "id": 340,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z075"
+  },
+  {
+    "id": 341,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z1"
+  },
+  {
+    "id": 342,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z15"
+  },
+  {
+    "id": 343,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z2"
+  },
+  {
+    "id": 344,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z_negative"
+  },
+  {
+    "id": 345,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z_below_minus025"
+  },
+  {
+    "id": 346,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "momentum"
+  },
+  {
+    "id": 347,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "quote_rising"
+  },
+  {
+    "id": 348,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "quote_falling"
+  },
+  {
+    "id": 349,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "forecast3"
+  },
+  {
+    "id": 350,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "forecast6"
+  },
+  {
+    "id": 351,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 6,
+    "remhi": 8,
+    "filter": "z05_momentum"
+  },
+  {
+    "id": 352,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "none"
+  },
+  {
+    "id": 353,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z0"
+  },
+  {
+    "id": 354,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z025"
+  },
+  {
+    "id": 355,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z05"
+  },
+  {
+    "id": 356,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z075"
+  },
+  {
+    "id": 357,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z1"
+  },
+  {
+    "id": 358,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z15"
+  },
+  {
+    "id": 359,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z2"
+  },
+  {
+    "id": 360,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z_negative"
+  },
+  {
+    "id": 361,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z_below_minus025"
+  },
+  {
+    "id": 362,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "momentum"
+  },
+  {
+    "id": 363,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "quote_rising"
+  },
+  {
+    "id": 364,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "quote_falling"
+  },
+  {
+    "id": 365,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "forecast3"
+  },
+  {
+    "id": 366,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "forecast6"
+  },
+  {
+    "id": 367,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 3,
+    "remhi": 5,
+    "filter": "z05_momentum"
+  },
+  {
+    "id": 368,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "none"
+  },
+  {
+    "id": 369,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z0"
+  },
+  {
+    "id": 370,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z025"
+  },
+  {
+    "id": 371,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z05"
+  },
+  {
+    "id": 372,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z075"
+  },
+  {
+    "id": 373,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z1"
+  },
+  {
+    "id": 374,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z15"
+  },
+  {
+    "id": 375,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z2"
+  },
+  {
+    "id": 376,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z_negative"
+  },
+  {
+    "id": 377,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z_below_minus025"
+  },
+  {
+    "id": 378,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "momentum"
+  },
+  {
+    "id": 379,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "quote_rising"
+  },
+  {
+    "id": 380,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "quote_falling"
+  },
+  {
+    "id": 381,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "forecast3"
+  },
+  {
+    "id": 382,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "forecast6"
+  },
+  {
+    "id": 383,
+    "asset": "ETH",
+    "direction": -1,
+    "remlo": 1,
+    "remhi": 2,
+    "filter": "z05_momentum"
+  }
+]

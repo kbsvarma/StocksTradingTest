@@ -1,0 +1,21 @@
+[Unit]
+Description=Kalshi BTC/ETH every-window public-data paper research (NO ORDERS)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/varma/kalshi_every_window_2026_10_03
+ExecStart=/home/varma/kalshi/venv/bin/python /home/varma/kalshi_every_window_2026_10_03/paper.py
+Environment=PYTHONUNBUFFERED=1
+Environment=OPENBLAS_NUM_THREADS=1
+Environment=OMP_NUM_THREADS=1
+Restart=on-failure
+RestartSec=15
+CPUQuota=25%
+MemoryMax=512M
+NoNewPrivileges=true
+UMask=0077
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,38 @@
+Winner recovery study — scope written before calculating minima
+
+Question: across every actual winning trade in every lane, how low did the held
+side's z fall after entry, and is any lower level untouched by eventual winners?
+
+Use the full historical actual-winner cohort, including paused assets. A fresh
+read-only ledger check on October14 at21:55ET found437winners, unchanged from the
+frozen inputs;460settled overall now versus459 in the earlier exit study. The
+additional settlement was a loss, outside this winners-only analysis.
+
+No minimum holding time, persistence, time-of-day, or time-to-expiry filters.
+Observe the entire post-fill, pre-close holding period. z retains its normal
+remaining-time denominator. Hold the original side and reference fixed.
+
+Primary: same one-second historical fast-source z used in the preceding broad
+research: crypto CF price changes anchored to entry Coinbase spot; Pyth directly
+for noncrypto; frozen entry sigma; assumed1second source availability. Historical
+source timestamps are not full first-arrival receipts. This study prices no exits.
+Audit each available finer5Hz crypto observation under the same source-lag model,
+and separately compare rolling-volatility and completed-minute definitions.
+
+For every winner save entry z,minimum z,maximum decline from entry,min timestamp,
+source coverage and exact threshold-crossing counts. Also distinguish a winning
+settlement from the modeled z actually rebounding abovezero beforeclose.
+
+Report pooled/per-asset/per-strategy-lane counts below fixed absolute z levels and
+entry-z-drop levels. Include no-winner assets explicitly. An observed sample
+minimum is descriptive, not a demonstrated no-recovery law or calibrated stop.
+Do not manufacture data in gaps or silently discard a winner.
+
+No trades, P&L simulation, stop deployment, parameter changes, paper collection,
+service restarts or new automation. Live and saved stable checkpoint unchanged.
+
+Cutoff update, recorded before final output: a WTI premium winner settled during
+the audit. Added its public market/chart receipts and read-only ledger record.
+Final cohort is all 438 winners for markets closed through Oct14 at22:00ET.
+The extra winner is KXWTI15M-26OCT142200-00. Prior research inputs remain intact;
+expanded input copies and the cutoff receipt live only in this experiment.

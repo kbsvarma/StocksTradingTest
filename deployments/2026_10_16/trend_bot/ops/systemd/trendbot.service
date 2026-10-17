@@ -1,0 +1,26 @@
+[Unit]
+Description=Trend bot execution daemon
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/opt/trendbot/current/.venv/bin/python
+
+[Service]
+Type=simple
+User=trendbot
+Group=trendbot
+WorkingDirectory=/opt/trendbot/current
+EnvironmentFile=/etc/trendbot/trendbot.env
+ExecStart=/opt/trendbot/current/ops/run_bot.sh
+Restart=on-failure
+RestartSec=30
+KillSignal=SIGINT
+TimeoutStopSec=45
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/trendbot
+
+[Install]
+WantedBy=multi-user.target

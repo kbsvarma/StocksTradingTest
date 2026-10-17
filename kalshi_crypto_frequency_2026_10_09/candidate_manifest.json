@@ -1,0 +1,36 @@
+{
+  "status": "STAGED_NOT_DEPLOYED",
+  "changed_production_modules": [
+    "runner.py"
+  ],
+  "sha256": {
+    "test_multiasset.py": "7c76d5312369a0969cd1686bacc79f579e5b2ab7eba97032a0914c62c82f253a",
+    "test_retry.py": "2ed87de75208fc7cc46766cdebdb0966242d7b94e8e5efaecd012c61650ecbaa",
+    "test_wti.py": "8ce872ee6926aad15bb8395ebb753f115395c2094a69a5951b405d0b08cc9a59",
+    "test_engine.py": "1e0380dbeba7f15b76b7c5abefb1cedfbd69fe55df70b7202640050c59854fcc",
+    "runner.py": "ceaa392e4353c8eb7e2bf602e531535814f836ab6a94c244c4fa998ea628bf60",
+    "observe_execution.py": "df10fc49c66150c6706d8fbeabe3f3e22bf7781b94e27a494175dd1269575959",
+    "test_resilience.py": "fd32d2676893cdd097fdafbc8e72ec9e0b18b12e526e75d23565080e44febf6b",
+    "test_z3.py": "78460cf69796bf6fd8340fb9751fc72283a598b319021403bfe5125ee4efe65d",
+    "test_signals.py": "2f45371b63a28af77d518fcc6f88999bd7f18615daadd30e3d0fc4703a2eada0",
+    "operations_view.py": "e569b66acd1e16af4474f10983dae3cd1db32ac6cff3c1b135d8b1c31aac7f11",
+    "lanes.py": "d2306431c703e1d1e125969632f65bba91fb50e73af2467781fb3a303dedb805",
+    "test_portfolio.py": "477714d1043bffae748b04d8ee7590f3e2606061b992af10aa83c48c693429af",
+    "price_rules.py": "393cea18ad46ce305093a86e3376d501bf8b584761c9b6d455c96700629ef76b",
+    "test_capacity25.py": "95c298c8fad6a225d88e60f06451b34c49db4bbfc5cb82f4bd7c929c533b2474",
+    "kalshi_client.py": "0b75d08ec80d0c7e7ce7eb625d67eab5b15f908a4ac1198484ef77d7cd45fed4",
+    "dashboard_crypto.py": "6c4cd56fb9a27263a411113b1475932688f617ade5725d48a418cda5b358b261",
+    "dashboard.rollback.py": "24d28b4edbe3256c028befd51923e8acaab4891525242b75f18168990bc5a3da",
+    "replay_gap_audit.py": "b8601ca8d91f26f87e70c34f91c5bf22334cd9bc29150c50c52c2a08f40fa4c1",
+    "dashboard_panel.py": "2c71b3c39b4a82b27aa904806599e1d0400b0a0fee42c9a010afbd46cce242e8",
+    "engine.py": "6d8e1d56215a813bbaf7120d7c8e020c5b3dcb8b681d4b6de43c1f6e3d3e9c26",
+    "dashboard_integrated.py": "5d0803e05d5e93f0c3bf7d60df69cad144470883a14153e7b118ff94d70c5a43",
+    "pyth_data.py": "23a74c45ef69f7e1ba6e3a5fd72358aaf115721e1a74187dd68716b79e532ffb",
+    "market_data.py": "c5197d69f6357cc39a9978e89f20c6251669eb168053e728f7fcb407f1dd1a33",
+    "test_zero_fill.py": "2749ead9ba8dfd9ed2d868cef0eb7213549fd5c35a78e2f0d7f6b3785af6a131",
+    "io_budget.py": "291473acb233f0878f63f2b2136607c6a182e0b0516bccf34fab9ca4b7889223",
+    "test_execution_improvements.py": "b095f79af28b106aa4b2c71de875917c4d33d5446c2cb85ae586fd7d95039575",
+    "execution_retry.py": "e5ce069a7f25819647494480a29427598aa44a99f7a03bd9ef1fc24adfa1491e",
+    "sizing.py": "610660b354411a008d130d32659032fd830537ec2e3165fc7653d6ee1e88d573"
+  }
+}
